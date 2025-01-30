@@ -1,7 +1,13 @@
+import com.google.protobuf.gradle.id
+
 plugins {
     alias(libs.plugins.android.application)
     alias(libs.plugins.kotlin.android)
     alias(libs.plugins.compose.compiler)
+    alias(libs.plugins.ksp)
+    alias(libs.plugins.room)
+    alias(libs.plugins.proto)
+    alias(libs.plugins.kotlin.serialization)
 }
 
 android {
@@ -42,11 +48,16 @@ android {
     }
     buildFeatures {
         compose = true
+        viewBinding = true
     }
     packaging {
         resources {
             excludes += "/META-INF/{AL2.0,LGPL2.1}"
         }
+    }
+
+    room {
+        schemaDirectory("$projectDir/schemas")
     }
 }
 
@@ -70,8 +81,10 @@ dependencies {
 
     // Compose
     implementation(libs.androidx.compose.ui)
+    implementation(libs.androidx.compose.ui.viewbinding)
     implementation(libs.androidx.compose.ui.tooling.preview)
     implementation(libs.androidx.compose.material3)
+    implementation(libs.androidx.navigation.compose)
     // Tooling
     debugImplementation(libs.androidx.compose.ui.tooling)
     // Instrumented tests
@@ -88,4 +101,38 @@ dependencies {
 
     // Material theme for views
     implementation(libs.material.views)
+
+    // Room
+    implementation(libs.androidx.room.runtime)
+    implementation(libs.androidx.room.ktx)
+    ksp(libs.androidx.room.compiler)
+
+    // Koin
+    implementation(libs.koin.androidx.compose)
+    implementation(libs.koin.android)
+
+    // Datastore
+    implementation(libs.androidx.datastore)
+    implementation(libs.javalite)
+
+    // Splashscreen
+    implementation(libs.androidx.core.splashscreen)
+
+    implementation(libs.kotlinx.serialization.json)
+}
+
+protobuf {
+    protoc {
+        artifact = "com.google.protobuf:protoc:3.24.1"
+    }
+
+    generateProtoTasks {
+        all().forEach { task ->
+            task.builtins {
+                id("java") {
+                    option("lite")
+                }
+            }
+        }
+    }
 }
