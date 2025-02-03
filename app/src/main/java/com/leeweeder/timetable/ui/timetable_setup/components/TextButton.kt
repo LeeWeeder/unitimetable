@@ -10,12 +10,18 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.res.painterResource
 
 @Composable
-fun TextButton(text: String, onClick: () -> Unit, enabled: Boolean = true) {
+fun TextButton(
+    text: String,
+    onClick: () -> Unit,
+    enabled: Boolean = true,
+    color: Color = if (enabled) ButtonDefaults.textButtonColors().contentColor else ButtonDefaults.textButtonColors().disabledContentColor
+) {
     TextButton(onClick = onClick, enabled = enabled) {
-        Text(text)
+        Text(text, color = color)
     }
 }
 

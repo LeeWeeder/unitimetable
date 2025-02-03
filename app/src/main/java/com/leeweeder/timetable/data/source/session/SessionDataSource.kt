@@ -7,4 +7,8 @@ class SessionDataSource(
     suspend fun insertSessions(sessions: List<Session>) {
         dao.insertSessions(sessions)
     }
+
+    suspend fun updateSession(session: Session) {
+        dao.updateSession(session)
+    }
 }

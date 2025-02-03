@@ -11,6 +11,9 @@ interface InstructorDao {
     @Query("SELECT * FROM instructor")
     suspend fun getInstructors(): List<Instructor>
 
+    @Query("SELECT * FROM instructor WHERE id = :id")
+    suspend fun getInstructorById(id: Int): Instructor?
+
     @Query("SELECT * FROM instructor")
     fun observeInstructors(): Flow<List<Instructor>>
 
@@ -18,5 +21,5 @@ interface InstructorDao {
     suspend fun deleteInstructor(instructor: Instructor)
 
     @Upsert
-    suspend fun upsertInstructor(instructor: Instructor)
+    suspend fun upsertInstructor(instructor: Instructor): Long
 }

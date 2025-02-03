@@ -8,6 +8,10 @@ class TimeTableDataSource(private val dao: TimeTableDao) {
         return dao.observeTimeTables()
     }
 
+    fun observeTimeTableWithSessionsWithSubjectAndInstructorOfId(id: Int): Flow<TimeTableWithSessionsWithSubjectAndInstructor> {
+        return dao.observeTimeTableWithSessionsWithSubjectAndInstructorOfId(id)
+    }
+
     fun observeTimeTableNames(): Flow<List<String>> {
         return dao.observeTimeTableNames()
     }

@@ -3,8 +3,9 @@ androidGradlePlugin = "8.8.0"
 androidxCore = "1.15.0"
 androidxLifecycle = "2.8.7"
 androidxActivity = "1.10.0"
-androidxComposeBom = "2025.01.00"
-androidxNavigation = "2.8.5"
+androidxComposeBom = "2025.01.01"
+androidxNavigation = "2.8.6"
+material3 = "1.4.0-alpha07"
 androidxTest = "1.6.1"
 androidxTestExt = "1.2.1"
 androidxTestRunner = "1.6.2"
@@ -27,7 +28,7 @@ serialization = "1.7.2"
 androidx-core-ktx = { module = "androidx.core:core-ktx", version.ref = "androidxCore" }
 androidx-activity-compose = { module = "androidx.activity:activity-compose", version.ref = "androidxActivity" }
 androidx-compose-bom = { group = "androidx.compose", name = "compose-bom", version.ref = "androidxComposeBom" }
-androidx-compose-material3 = { group = "androidx.compose.material3", name = "material3" }
+androidx-compose-material3 = { group = "androidx.compose.material3", name = "material3", version.ref = "material3" }
 androidx-compose-ui = { group = "androidx.compose.ui", name = "ui" }
 androidx-compose-ui-viewbinding = { group = "androidx.compose.ui", name = "ui-viewbinding" }
 androidx-compose-ui-tooling-preview = { group = "androidx.compose.ui", name = "ui-tooling-preview" }
@@ -51,7 +52,7 @@ koin-android = { group = "io.insert-koin", name = "koin-android", version.ref = 
 koin-androidx-compose = { group = "io.insert-koin", name = "koin-androidx-compose", version.ref = "koin" }
 javalite = { module = "com.google.protobuf:protobuf-javalite", version.ref = "javalite" }
 androidx-datastore = { module = "androidx.datastore:datastore", version.ref = "androidxDatastore" }
-androidx-core-splashscreen = { module = "androidx.core:core-splashscreen", version.ref = "androidxSplashscreen"}
+androidx-core-splashscreen = { module = "androidx.core:core-splashscreen", version.ref = "androidxSplashscreen" }
 kotlinx-serialization-json = { module = "org.jetbrains.kotlinx:kotlinx-serialization-json", version.ref = "serialization" }
 
 [plugins]
@@ -60,5 +61,5 @@ compose-compiler = { id = "org.jetbrains.kotlin.plugin.compose", version.ref = "
 kotlin-android = { id = "org.jetbrains.kotlin.android", version.ref = "kotlin" }
 ksp = { id = "com.google.devtools.ksp", version.ref = "ksp" }
 room = { id = "androidx.room", version.ref = "androidxRoom" }
-proto = { id = "com.google.protobuf", version.ref = "proto"}
-kotlin-serialization = { id = "org.jetbrains.kotlin.plugin.serialization", version.ref = "kotlin"}
+proto = { id = "com.google.protobuf", version.ref = "proto" }
+kotlin-serialization = { id = "org.jetbrains.kotlin.plugin.serialization", version.ref = "kotlin" }

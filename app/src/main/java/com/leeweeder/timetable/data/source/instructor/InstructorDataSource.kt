@@ -8,6 +8,10 @@ class InstructorDataSource(private val dao: InstructorDao) {
         return dao.getInstructors()
     }
 
+    suspend fun getInstructorById(id: Int): Instructor? {
+        return dao.getInstructorById(id)
+    }
+
     fun observeInstructors(): Flow<List<Instructor>> {
         return dao.observeInstructors()
     }
@@ -16,8 +20,8 @@ class InstructorDataSource(private val dao: InstructorDao) {
         dao.deleteInstructor(instructor)
     }
 
-    suspend fun upsertInstructor(instructor: Instructor) {
-        dao.deleteInstructor(instructor)
+    suspend fun upsertInstructor(instructor: Instructor): Int {
+        return dao.upsertInstructor(instructor).toInt()
     }
 
 }

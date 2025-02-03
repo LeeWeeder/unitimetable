@@ -59,6 +59,6 @@ fun GetTimeTableNameDialog(
                 painter = painterResource(R.drawable.table_24px_outlined),
                 contentDescription = null
             )
-        })
+        }, isError = timeTableName.isEmpty())
     })
 }

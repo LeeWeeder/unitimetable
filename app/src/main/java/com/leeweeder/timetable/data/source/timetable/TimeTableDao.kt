@@ -15,6 +15,10 @@ interface TimeTableDao {
 
     @Transaction
     @Query("SELECT * FROM timetable WHERE id = :id")
+    fun observeTimeTableWithSessionsWithSubjectAndInstructorOfId(id: Int): Flow<TimeTableWithSessionsWithSubjectAndInstructor>
+
+    @Transaction
+    @Query("SELECT * FROM timetable WHERE id = :id")
     suspend fun getTimeTableWithSessionsWithSubjectAndInstructorOfId(id: Int): TimeTableWithSessionsWithSubjectAndInstructor
 
     @Query("SELECT name FROM timetable")

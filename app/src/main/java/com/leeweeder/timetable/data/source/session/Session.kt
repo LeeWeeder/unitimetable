@@ -188,3 +188,27 @@ enum class SessionType {
     Break,
     Empty
 }
+
+fun Session.toSubjectSession(subjectId: Int): Session {
+    return Session(
+        timeTableId = timeTableId,
+        subjectId = subjectId,
+        dayOfWeek = dayOfWeek,
+        startTime = startTime,
+        id = id,
+        type = SessionType.Subject,
+        breakDescription = null
+    )
+}
+
+fun Session.toEmptySession(): Session {
+    return Session(
+        timeTableId = timeTableId,
+        dayOfWeek = dayOfWeek,
+        startTime = startTime,
+        id = id,
+        type = SessionType.Empty,
+        breakDescription = null,
+        subjectId = null
+    )
+}

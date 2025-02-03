@@ -19,8 +19,6 @@ import androidx.compose.foundation.selection.selectable
 import androidx.compose.foundation.selection.selectableGroup
 import androidx.compose.foundation.shape.CornerSize
 import androidx.compose.material3.AlertDialog
-import androidx.compose.material3.AlertDialogDefaults
-import androidx.compose.material3.BasicAlertDialog
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.ExperimentalMaterial3Api
@@ -32,7 +30,6 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedCard
 import androidx.compose.material3.RadioButton
 import androidx.compose.material3.Scaffold
-import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.TopAppBarDefaults
@@ -57,7 +54,9 @@ import androidx.compose.ui.window.Dialog
 import androidx.compose.ui.window.DialogProperties
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.leeweeder.timetable.R
+import com.leeweeder.timetable.ui.components.AlertDialogActionButtons
 import com.leeweeder.timetable.ui.components.IconButton
+import com.leeweeder.timetable.ui.components.OkayTextButton
 import com.leeweeder.timetable.ui.timetable_setup.components.CancelTextButton
 import com.leeweeder.timetable.ui.timetable_setup.components.NumberOfDaysSlider
 import com.leeweeder.timetable.ui.timetable_setup.components.TextButton
@@ -120,68 +119,45 @@ fun TimeTableSetupDialog(
     }
 
     AnimatedVisibility(isDaySelectionDialogVisible) {
-        BasicAlertDialog(
-            onDismissRequest = dismissDaySelectionDialog
+        var selectedDayOfWeek by remember {
+            mutableStateOf(uiState.timeTable.startingDay)
+        }
+
+        com.leeweeder.timetable.ui.components.AlertDialog(
+            onDismissRequest = dismissDaySelectionDialog,
+            title = {
+                Text("Starting day")
+            },
+            actionButtons = {
+                AlertDialogActionButtons(
+                    onCancelClick = dismissDaySelectionDialog,
+                    onOkayClick = {
+                        onEvent(TimeTableSetupEvent.UpdateStartingDay(selectedDayOfWeek))
+                        dismissDaySelectionDialog()
+                    })
+            }
         ) {
-            Surface(
-                color = AlertDialogDefaults.containerColor,
-                tonalElevation = AlertDialogDefaults.TonalElevation,
-                shape = AlertDialogDefaults.shape
+            Column(
+                modifier = Modifier
+                    .selectableGroup()
             ) {
-                Column {
-                    Text(
-                        "Starting day",
-                        style = MaterialTheme.typography.headlineSmall,
-                        color = AlertDialogDefaults.titleContentColor,
-                        modifier = Modifier
-                            .padding(horizontal = 24.dp)
-                            .padding(top = 24.dp, bottom = 16.dp)
-                    )
-                    var selectedDayOfWeek by remember {
-                        mutableStateOf(uiState.timeTable.startingDay)
-                    }
-
-                    Column(
-                        modifier = Modifier
-                            .selectableGroup()
-                            .padding(bottom = 24.dp)
-                    ) {
-                        DayOfWeek.entries.forEach {
-                            Row(
-                                modifier = Modifier
-                                    .selectable(selectedDayOfWeek == it, onClick = {
-                                        selectedDayOfWeek = it
-                                    }, role = Role.RadioButton)
-                                    .height(64.dp)
-                                    .fillMaxWidth(),
-                                verticalAlignment = Alignment.CenterVertically,
-                                horizontalArrangement = Arrangement.spacedBy(24.dp)
-                            ) {
-                                RadioButton(
-                                    selected = selectedDayOfWeek == it,
-                                    onClick = null,
-                                    modifier = Modifier.padding(start = 36.dp)
-                                )
-                                Text(it.getDisplayName(TextStyle.FULL, Locale.getDefault()))
-                            }
-                        }
-                    }
-
+                DayOfWeek.entries.forEach {
                     Row(
                         modifier = Modifier
-                            .fillMaxWidth()
-                            .padding(bottom = 24.dp)
-                            .padding(horizontal = 24.dp),
-                        horizontalArrangement = Arrangement.spacedBy(
-                            8.dp,
-                            Alignment.End
-                        )
+                            .selectable(selectedDayOfWeek == it, onClick = {
+                                selectedDayOfWeek = it
+                            }, role = Role.RadioButton)
+                            .height(64.dp)
+                            .fillMaxWidth(),
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(24.dp)
                     ) {
-                        CancelTextButton(dismissDaySelectionDialog)
-                        OkayTextButton {
-                            onEvent(TimeTableSetupEvent.UpdateStartingDay(selectedDayOfWeek))
-                            dismissDaySelectionDialog()
-                        }
+                        RadioButton(
+                            selected = selectedDayOfWeek == it,
+                            onClick = null,
+                            modifier = Modifier.padding(start = 36.dp)
+                        )
+                        Text(it.getDisplayName(TextStyle.FULL, Locale.getDefault()))
                     }
                 }
             }
@@ -198,10 +174,10 @@ fun TimeTableSetupDialog(
         var sliderValue by remember { mutableIntStateOf(uiState.timeTable.numberOfDays) }
 
         AlertDialog(onDismissRequest = dismissNumberOfDaySelectionDialog, confirmButton = {
-            OkayTextButton {
+            OkayTextButton(onClick = {
                 onEvent(TimeTableSetupEvent.UpdateNumberOfDays(sliderValue))
                 dismissNumberOfDaySelectionDialog()
-            }
+            })
         }, dismissButton = {
             CancelTextButton(dismissNumberOfDaySelectionDialog)
         }, title = {
@@ -532,11 +508,6 @@ private fun TrailingContent(text: String) {
     }
 }
 
-@Composable
-private fun OkayTextButton(onClick: () -> Unit) {
-    TextButton("Okay", onClick)
-}
-
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun TimePickerDialog(
@@ -554,10 +525,10 @@ fun TimePickerDialog(
             )
 
         AlertDialog(onDismissRequest = onDismissRequest, confirmButton = {
-            OkayTextButton {
+            OkayTextButton(onClick = {
                 onConfirm(timePickerState.hour)
                 onDismissRequest()
-            }
+            })
         }, dismissButton = {
             CancelTextButton(onDismissRequest)
         }, text = {
