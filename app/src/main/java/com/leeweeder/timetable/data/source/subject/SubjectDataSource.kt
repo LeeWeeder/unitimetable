@@ -19,6 +19,18 @@ class SubjectDataSource(private val dao: SubjectDao) {
         return dao.observeFiveRecentlyAddedSubjectsWithSession()
     }
 
+    fun observeFiveRecentlyAddedSubjects(): Flow<List<Subject>> {
+        return dao.observeFiveRecentlyAddedSubjects()
+    }
+
+    fun observeSubjectsWithDetails(): Flow<List<SubjectWithDetails>> {
+        return dao.observeSubjectsWithDetails()
+    }
+
+    suspend fun getSubjectWithDetails(id: Int): SubjectWithDetails? {
+        return dao.getSubjectWithDetails(id)
+    }
+
     fun observeSubjects(): Flow<List<Subject>> {
         return dao.observeSubjects()
     }

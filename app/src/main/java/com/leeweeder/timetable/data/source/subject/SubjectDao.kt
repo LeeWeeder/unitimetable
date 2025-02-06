@@ -12,6 +12,7 @@ interface SubjectDao {
     @Query("SELECT * FROM subject WHERE instructorId = :instructorId")
     suspend fun getSubjectsByInstructorId(instructorId: Int): List<Subject>
 
+    @Transaction
     @Query(
         """
         SELECT subjects.*, COUNT(sessions.id) as sessionCount
@@ -23,6 +24,21 @@ interface SubjectDao {
     """
     )
     fun observeFiveRecentlyAddedSubjectsWithSession(): Flow<List<SubjectWithSessionCount>>
+
+    @Query("""
+        SELECT * FROM subject
+        ORDER BY dateAdded DESC
+        LIMIT 5
+    """)
+    fun observeFiveRecentlyAddedSubjects(): Flow<List<Subject>>
+
+    @Transaction
+    @Query("SELECT * FROM subject")
+    fun observeSubjectsWithDetails(): Flow<List<SubjectWithDetails>>
+
+    @Transaction
+    @Query("SELECT * FROM subject WHERE id = :id")
+    suspend fun getSubjectWithDetails(id: Int): SubjectWithDetails?
 
     @Transaction
     @Query("SELECT * FROM subject WHERE id = :id")

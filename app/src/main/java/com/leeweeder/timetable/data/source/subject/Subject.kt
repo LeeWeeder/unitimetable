@@ -9,6 +9,7 @@ import androidx.room.Index
 import androidx.room.PrimaryKey
 import androidx.room.Relation
 import com.leeweeder.timetable.data.source.instructor.Instructor
+import com.leeweeder.timetable.data.source.session.Session
 
 @Entity(
     foreignKeys = [
@@ -74,4 +75,19 @@ data class SubjectWithInstructor(
         entityColumn = "id"
     )
     val instructor: Instructor?
+)
+
+data class SubjectWithDetails(
+    @Embedded val subject: Subject,
+    @Relation(
+        parentColumn = "instructorId",
+        entityColumn = "id"
+    )
+    val instructor: Instructor?,
+    @Relation(
+        entity = Session::class,
+        parentColumn = "id",
+        entityColumn = "subjectId"
+    )
+    val sessions: List<Session>
 )

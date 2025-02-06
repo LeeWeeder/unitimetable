@@ -1,4 +1,5 @@
 import com.google.protobuf.gradle.id
+import org.gradle.kotlin.dsl.support.kotlinCompilerOptions
 
 plugins {
     alias(libs.plugins.android.application)
@@ -62,12 +63,8 @@ android {
 }
 
 dependencies {
-
-    // For Glance support
-    implementation(libs.androidx.glance)
-
-    // For AppWidgets support
     implementation(libs.androidx.glance.appwidget)
+    implementation(libs.androidx.glance.material3)
 
     val composeBom = platform(libs.androidx.compose.bom)
     implementation(composeBom)

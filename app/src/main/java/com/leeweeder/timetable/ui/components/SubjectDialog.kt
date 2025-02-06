@@ -14,6 +14,7 @@ import androidx.compose.foundation.layout.RowScope
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.text.input.TextFieldLineLimits
 import androidx.compose.foundation.text.input.rememberTextFieldState
 import androidx.compose.foundation.text.input.setTextAndPlaceCursorAtEnd
@@ -48,11 +49,13 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.toArgb
 import androidx.compose.ui.res.painterResource
+import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import com.leeweeder.timetable.R
 import com.leeweeder.timetable.data.source.instructor.Instructor
+import com.leeweeder.timetable.data.source.session.Session
 import com.leeweeder.timetable.data.source.subject.Subject
 import com.leeweeder.timetable.feature_color_picker.ColorPickerDialog
 import com.leeweeder.timetable.feature_color_picker.DefaultChromaValue
@@ -64,6 +67,11 @@ import com.leeweeder.timetable.ui.timetable_setup.components.TextButton
 import com.leeweeder.timetable.util.createScheme
 import com.leeweeder.timetable.util.toColor
 import kotlinx.coroutines.FlowPreview
+import kotlinx.serialization.Serializable
+import kotlinx.serialization.encodeToString
+import kotlinx.serialization.json.Json
+import java.time.DayOfWeek
+import java.time.LocalTime
 import kotlin.random.Random
 
 @Composable
@@ -103,8 +111,8 @@ fun EditScheduleDialog(
     state: SubjectDialogState,
     instructors: List<Instructor>,
     onConfirmClick: (Subject, Instructor) -> Unit,
-    onDeleteSubjectClick: (Subject) -> Unit,
-    onScheduleClick: (Subject) -> Unit
+    onDeleteSubjectClick: (Subject, List<Session>) -> Unit,
+    onScheduleClick: (Int) -> Unit
 ) {
     var isDeleteConfirmationDialogVisible by remember { mutableStateOf(false) }
 
@@ -120,8 +128,10 @@ fun EditScheduleDialog(
                         code = state.code,
                         color = state.color.toArgb(),
                         instructorId = if (state.instructor.id == 0) null else state.instructor.id
-                    )
+                    ),
+                    state.sessions
                 )
+                isDeleteConfirmationDialogVisible = false
             })
         }, dismissButton = {
             CancelTextButton(onClick = {
@@ -135,8 +145,6 @@ fun EditScheduleDialog(
                 contentDescription = null,
                 tint = MaterialTheme.colorScheme.error
             )
-        }, text = {
-            Text("You can still undo th")
         })
     }
     BaseSubjectDialog(
@@ -184,15 +192,7 @@ fun EditScheduleDialog(
         actionButtons = { isError ->
             Box(modifier = Modifier.weight(1f)) {
                 OutlinedButton(onClick = {
-                    onScheduleClick(
-                        Subject(
-                            id = state.id,
-                            code = state.code,
-                            description = state.description,
-                            color = state.color.toArgb(),
-                            instructorId = if (state.instructor.id == 0) null else state.instructor.id
-                        ),
-                    )
+                    onScheduleClick(state.id)
                 }) {
                     Text("Schedule")
                 }
@@ -287,7 +287,8 @@ private fun BaseSubjectDialog(
                     label = "Description",
                     iconId = R.drawable.description_24px,
                     isError = state.descriptionIsError,
-                    errorSupportText = "Subject description can't be empty"
+                    errorSupportText = "Subject description can't be empty",
+                    maxLines = 3
                 )
                 val instructorTextFieldState =
                     rememberTextFieldState(initialText = state.instructor.name)
@@ -301,17 +302,16 @@ private fun BaseSubjectDialog(
                 LaunchedEffect(instructorTextFieldState.text) {
                     val newInstructorName = instructorTextFieldState.text.toString()
 
-                    for (instructor in instructors) {
-                        if (instructor.name == newInstructorName) {
-                            state.setInstructor(instructor.copy(name = newInstructorName))
-                            break
-                        } else {
-                            state.setInstructor(Instructor(name = newInstructorName))
-                        }
-                    }
+                    val matchingInstructor =
+                        instructors.firstOrNull { it.name == newInstructorName }
+                    val newInstructor = matchingInstructor?.copy(name = newInstructorName)
+                        ?: Instructor(name = newInstructorName)
 
-                    if (instructorTextFieldState.text.isNotEmpty())
+                    state.setInstructor(newInstructor)
+
+                    if (state.instructor.name.isNotBlank()) {
                         state.startCheckingForInstructorError()
+                    }
                 }
 
                 ExposedDropdownMenuBox(
@@ -339,7 +339,14 @@ private fun BaseSubjectDialog(
                             .menuAnchor(ExposedDropdownMenuAnchorType.PrimaryEditable)
                             .fillMaxWidth(),
                         lineLimits = TextFieldLineLimits.SingleLine,
-                        isError = state.instructorIsError
+                        isError = state.instructorIsError,
+                        supportingText = {
+                            if (state.instructorIsError) {
+                                Text("Instructor can't be empty")
+                            } else {
+                                Text("Use short templates for proper visibility. e.g. LastName [FirstNameInitial], LastName (only), etc.")
+                            }
+                        }
                     )
 
                     ExposedDropdownMenu(expanded = instructorListMenuExpanded, onDismissRequest = {
@@ -398,7 +405,7 @@ fun rememberSubjectDialogState(
     initialCode: String = "",
     initialDescription: String = "",
     initialColor: Color = randomColor(isSystemInDarkTheme()),
-    initialInstructor: Instructor = Instructor(name = "")
+    initialInstructor: Instructor = Instructor(name = ""),
 ): SubjectDialogState {
     return rememberSaveable(saver = SubjectDialogState.Saver()) {
         SubjectDialogState(
@@ -407,7 +414,8 @@ fun rememberSubjectDialogState(
             initialCode = initialCode,
             initialDescription = initialDescription,
             initialColor = initialColor,
-            initialInstructor = initialInstructor
+            initialInstructor = initialInstructor,
+            initialSessions = emptyList()
         )
     }
 }
@@ -428,7 +436,8 @@ class SubjectDialogState(
     private val initialCode: String,
     private val initialDescription: String,
     private val initialColor: Color,
-    private val initialInstructor: Instructor
+    private val initialInstructor: Instructor,
+    private val initialSessions: List<Session>
 ) {
     val code: String
         get() = _code
@@ -448,23 +457,26 @@ class SubjectDialogState(
     val visible: Boolean
         get() = _visible
 
+    val sessions: List<Session>
+        get() = _sessions
+
     private val codeIsEmpty: Boolean
-        get() = code.isEmpty()
+        get() = code.isBlank()
 
     private val descriptionIsEmpty: Boolean
-        get() = description.isEmpty()
+        get() = description.isBlank()
 
     private val instructorNameIsEmpty: Boolean
-        get() = instructor.name.isEmpty()
+        get() = instructor.name.isBlank()
 
     val codeIsError: Boolean
-        get() = codeIsEmpty && shouldCheckingForCodeError
+        get() = codeIsEmpty && shouldStartCheckingForCodeError
 
     val descriptionIsError: Boolean
-        get() = descriptionIsEmpty && shouldCheckingForDescriptionError
+        get() = descriptionIsEmpty && shouldStartCheckingForDescriptionError
 
     val instructorIsError: Boolean
-        get() = instructorNameIsEmpty && shouldCheckingForInstructorError
+        get() = instructorNameIsEmpty && shouldStartCheckingForInstructorError
 
     val isFormInvalid: Boolean
         get() = codeIsEmpty || descriptionIsEmpty || instructorNameIsEmpty
@@ -477,12 +489,20 @@ class SubjectDialogState(
         _visible = false
     }
 
-    fun init(id: Int, code: String, description: String, color: Color, instructor: Instructor) {
+    fun init(
+        id: Int,
+        code: String,
+        description: String,
+        color: Color,
+        instructor: Instructor,
+        sessions: List<Session>
+    ) {
         _id = id
         setCode(code)
         setDescription(description)
         setColor(color)
         setInstructor(instructor)
+        _sessions = sessions
     }
 
     fun setColor(value: Color) {
@@ -502,15 +522,15 @@ class SubjectDialogState(
     }
 
     fun startCheckingForCodeError() {
-        shouldCheckingForCodeError = true
+        shouldStartCheckingForCodeError = true
     }
 
     fun startCheckingForDescriptionError() {
-        shouldCheckingForDescriptionError = true
+        shouldStartCheckingForDescriptionError = true
     }
 
     fun startCheckingForInstructorError() {
-        shouldCheckingForInstructorError = true
+        shouldStartCheckingForInstructorError = true
     }
 
     fun reset() {
@@ -518,9 +538,9 @@ class SubjectDialogState(
         _description = initialDescription
         _color = initialColor
         _instructor = initialInstructor
-        shouldCheckingForCodeError = false
-        shouldCheckingForDescriptionError = false
-        shouldCheckingForInstructorError = false
+        shouldStartCheckingForCodeError = false
+        shouldStartCheckingForDescriptionError = false
+        shouldStartCheckingForInstructorError = false
     }
 
     companion object {
@@ -533,7 +553,8 @@ class SubjectDialogState(
                     it.description,
                     it.color.toArgb(),
                     it.instructor.id,
-                    it.instructor.name
+                    it.instructor.name,
+                    it.sessions.toSaveAble()
                 )
             }, restore = {
                 SubjectDialogState(
@@ -542,7 +563,8 @@ class SubjectDialogState(
                     initialCode = it[2] as String,
                     initialDescription = it[3] as String,
                     initialColor = (it[4] as Int).toColor(),
-                    initialInstructor = Instructor(id = it[5] as Int, name = it[6] as String)
+                    initialInstructor = Instructor(id = it[5] as Int, name = it[6] as String),
+                    initialSessions = toSessionList(it[7] as String)
                 )
             })
         }
@@ -554,10 +576,25 @@ class SubjectDialogState(
     private var _color by mutableStateOf(initialColor)
     private var _instructor by mutableStateOf(initialInstructor)
     private var _visible by mutableStateOf(initialVisibility)
+    private var _sessions by mutableStateOf(initialSessions)
 
-    private var shouldCheckingForCodeError by mutableStateOf(false)
-    private var shouldCheckingForDescriptionError by mutableStateOf(false)
-    private var shouldCheckingForInstructorError by mutableStateOf(false)
+    private var shouldStartCheckingForCodeError by mutableStateOf(false)
+    private var shouldStartCheckingForDescriptionError by mutableStateOf(false)
+    private var shouldStartCheckingForInstructorError by mutableStateOf(false)
+}
+
+fun List<Session>.toSaveAble(): String {
+    val serializableList = map { SessionSerializable.ofSession(it) }
+    return Json.encodeToString(serializableList)
+}
+
+fun toSessionList(value: String): List<Session> {
+    if (value.isBlank()) {
+        return emptyList()
+    }
+
+    val serializableList = Json.decodeFromString<List<SessionSerializable>>(value)
+    return serializableList.map { it.toSession() }
 }
 
 @Composable
@@ -570,7 +607,7 @@ private fun TextField(
     colors: TextFieldColors = OutlinedTextFieldDefaults.colors(),
     trailingIcon: @Composable (() -> Unit)? = null,
     isError: Boolean,
-    singleLine: Boolean = true,
+    maxLines: Int = 1,
     errorSupportText: String
 ) {
     OutlinedTextField(
@@ -585,13 +622,14 @@ private fun TextField(
         },
         trailingIcon = trailingIcon,
         colors = colors,
-        singleLine = singleLine,
+        maxLines = maxLines,
         isError = isError,
         supportingText = {
             AnimatedVisibility(isError) {
                 Text(errorSupportText)
             }
-        }
+        },
+        keyboardOptions = KeyboardOptions(imeAction = ImeAction.Next)
     )
 }
 
@@ -612,7 +650,37 @@ private fun EditSubjectDialogPreview() {
         onConfirmClick = { _, _ -> },
         onScheduleClick = {},
         state = rememberSubjectDialogState(true),
-        onDeleteSubjectClick = {},
+        onDeleteSubjectClick = { _, _ -> },
         instructors = emptyList()
     )
+}
+
+@Serializable
+private data class SessionSerializable(
+    val id: Int,
+    val subjectId: Int?,
+    val startTime: Long,
+    val timeTableId: Int,
+    val label: String?,
+    val dayOfWeek: Int
+) {
+    fun toSession() = Session(
+        id = id,
+        timeTableId = timeTableId,
+        subjectId = subjectId,
+        dayOfWeek = DayOfWeek.of(dayOfWeek),
+        startTime = LocalTime.ofSecondOfDay(startTime),
+        label = label,
+    )
+
+    companion object {
+        fun ofSession(session: Session) = SessionSerializable(
+            id = session.id,
+            subjectId = session.subjectId,
+            startTime = session.startTime.toSecondOfDay().toLong(),
+            timeTableId = session.timeTableId,
+            label = session.label,
+            dayOfWeek = session.dayOfWeek.value
+        )
+    }
 }

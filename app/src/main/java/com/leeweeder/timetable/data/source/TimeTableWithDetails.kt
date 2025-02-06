@@ -7,7 +7,7 @@ import com.leeweeder.timetable.data.source.subject.Subject
 import com.leeweeder.timetable.data.source.subject.SubjectWithInstructor
 import com.leeweeder.timetable.data.source.timetable.TimeTable
 
-data class TimeTableWithSessionsWithSubjectAndInstructor(
+data class TimeTableWithDetails(
     @Embedded val timeTable: TimeTable,
     @Relation(
         entity = Session::class,

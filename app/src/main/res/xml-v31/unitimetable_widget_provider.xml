@@ -9,7 +9,7 @@
     android:initialLayout="@layout/glance_default_loading_layout"
     android:updatePeriodMillis="0"
     android:widgetCategory="home_screen"
-    android:targetCellHeight="2"
+    android:targetCellHeight="3"
     android:targetCellWidth="4">
-
+<!--TODO: Change the sizing -->
 </appwidget-provider>

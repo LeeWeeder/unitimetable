@@ -1,6 +1,7 @@
 package com.leeweeder.timetable.ui
 
 import android.annotation.SuppressLint
+import android.util.Log
 import androidx.annotation.DrawableRes
 import androidx.compose.animation.AnimatedContent
 import androidx.compose.foundation.background
@@ -43,6 +44,7 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.ModalDrawerSheet
 import androidx.compose.material3.ModalNavigationDrawer
 import androidx.compose.material3.NavigationDrawerItem
+import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.RichTooltip
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.SnackbarDuration
@@ -92,16 +94,13 @@ import com.leeweeder.timetable.R
 import com.leeweeder.timetable.data.source.SessionAndSubjectAndInstructor
 import com.leeweeder.timetable.data.source.instructor.Instructor
 import com.leeweeder.timetable.data.source.session.Session
-import com.leeweeder.timetable.data.source.session.SessionType
 import com.leeweeder.timetable.data.source.subject.Subject
 import com.leeweeder.timetable.data.source.subject.SubjectWithInstructor
-import com.leeweeder.timetable.data.source.subject.SubjectWithSessionCount
 import com.leeweeder.timetable.data.source.timetable.TimeTable
 import com.leeweeder.timetable.ui.components.EditScheduleDialog
 import com.leeweeder.timetable.ui.components.IconButton
 import com.leeweeder.timetable.ui.components.NewSubjectDialog
 import com.leeweeder.timetable.ui.components.rememberSubjectDialogState
-import com.leeweeder.timetable.ui.timetable_setup.DefaultTimeTable
 import com.leeweeder.timetable.ui.timetable_setup.LabelText
 import com.leeweeder.timetable.ui.timetable_setup.components.TextButton
 import com.leeweeder.timetable.ui.util.Constants
@@ -111,6 +110,7 @@ import com.leeweeder.timetable.util.toColor
 import kotlinx.coroutines.launch
 import org.koin.androidx.compose.koinViewModel
 import java.time.DayOfWeek
+import java.time.LocalDate
 import java.time.LocalTime
 import java.time.format.TextStyle
 import java.util.Locale
@@ -119,23 +119,35 @@ import kotlin.collections.component2
 
 @Composable
 fun HomeScreen(
+    onNavigateToSubjectsScreen: () -> Unit,
     viewModel: HomeViewModel = koinViewModel()
 ) {
     val dataState by viewModel.dataState.collectAsStateWithLifecycle()
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
     val uiEvent by viewModel.eventFlow.collectAsStateWithLifecycle()
 
+    if (dataState is HomeDataState.Error) {
+        Log.e("HomeScreen", "DataState error", (dataState as HomeDataState.Error).throwable)
+    } else if (dataState is HomeDataState.Loading) {
+        Log.d("HomeScreen", "Loading...")
+    }
+
     HomeScreen(
-        dataState = dataState, uiState = uiState, uiEvent = uiEvent, onEvent = viewModel::onEvent
+        dataState = dataState,
+        uiState = uiState,
+        uiEvent = uiEvent,
+        onEvent = viewModel::onEvent,
+        onNavigateToSubjectsScreen = onNavigateToSubjectsScreen
     )
 }
 
-@OptIn(ExperimentalMaterial3Api::class)
+@OptIn(ExperimentalMaterial3Api::class, ExperimentalMaterial3ExpressiveApi::class)
 @Composable
 private fun HomeScreen(
     dataState: HomeDataState,
     uiState: HomeUiState,
     uiEvent: HomeUiEvent?,
+    onNavigateToSubjectsScreen: () -> Unit,
     onEvent: (HomeEvent) -> Unit
 ) {
     val drawerState = rememberDrawerState(initialValue = DrawerValue.Closed)
@@ -176,11 +188,12 @@ private fun HomeScreen(
                 )
             )
         },
-        onDeleteSubjectClick = {
-            onEvent(HomeEvent.DeleteSubject(it))
+        onDeleteSubjectClick = { subject, sessions ->
+            onEvent(HomeEvent.DeleteSubject(subject, sessions))
+            editSubjectDialogState.hide()
         },
         onScheduleClick = {
-            onEvent(HomeEvent.SetCurrentSubject(it))
+            onEvent(HomeEvent.SetActiveSubjectIdForEditing(it))
             onEvent(HomeEvent.SetOnEditMode)
             editSubjectDialogState.hide()
         },
@@ -197,19 +210,20 @@ private fun HomeScreen(
 
             null -> Unit
             is HomeUiEvent.FinishedLoadingToBeEditedSubject -> {
-                val subjectWithInstructor = uiEvent.subjectWithInstructor
+                val subjectWithDetails = uiEvent.subjectWithDetails
 
-                if (subjectWithInstructor == null) {
+                if (subjectWithDetails == null) {
                     return@LaunchedEffect
                 }
 
-                val subject = subjectWithInstructor.subject
+                val subject = subjectWithDetails.subject
                 editSubjectDialogState.init(
                     id = subject.id,
                     code = subject.code,
                     description = subject.description,
                     color = subject.color.toColor(),
-                    instructor = subjectWithInstructor.instructor ?: Instructor(name = "")
+                    instructor = subjectWithDetails.instructor ?: Instructor(name = ""),
+                    sessions = subjectWithDetails.sessions
                 )
                 editSubjectDialogState.show()
             }
@@ -237,22 +251,21 @@ private fun HomeScreen(
 
     ModalNavigationDrawer(
         drawerContent = {
-            var mainTimeTable by remember { mutableStateOf(DefaultTimeTable) }
-
-            LaunchedEffect(dataState::class) {
-                if (dataState is HomeDataState.Success) {
-                    mainTimeTable = dataState.mainTimeTable
-                }
-            }
-
-            TimeTableNavigationDrawer(drawerState = drawerState,
-                timeTables = uiState.timeTables,
+            TimeTableNavigationDrawer(
+                drawerState = drawerState,
                 selectedTimeTable = uiState.selectedTimeTable,
-                mainTimeTable = mainTimeTable,
-                subjectsWithSessionCount = uiState.subjectsWithSessionCount,
-                onTimeTableClick = { timeTable ->
-                    // TODO: Implement changing timetables
-                })
+                onTimeTableClick = { timeTableId ->
+                    onEvent(HomeEvent.SelectTimeTable(timeTableId))
+                },
+                onRecentSubjectClick = {
+                    onEvent(HomeEvent.LoadToEditSubject(it))
+                    scope.launch {
+                        drawerState.close()
+                    }
+                },
+                onNavigateToSubjectsScreen = onNavigateToSubjectsScreen,
+                dataState = dataState
+            )
         }, drawerState = drawerState
     ) {
         Scaffold(
@@ -266,21 +279,23 @@ private fun HomeScreen(
                             onEvent(HomeEvent.SetOnDefaultMode)
                         })
                     } else {
-                        TopAppBarMode.Default(onAddNewScheduleClick = {
-                            newSubjectDialogState.reset()
-                            newSubjectDialogState.show()
-                        }, onUiSettingsClick = {
-                            // TODO: Implement  ui settings
-                        }, onMoreOptionsClick = {
-                            // TODO: Implement more options
-                        })
+                        TopAppBarMode.Default(
+                            onAddNewScheduleClick = {
+                                newSubjectDialogState.reset()
+                                newSubjectDialogState.show()
+                            }, onMoreOptionsClick = {
+                                // TODO: Implement more options
+                            }
+                        )
                     },
                     onNavigationMenuClick = {
                         scope.launch {
                             drawerState.open()
                         }
-                    })
-            }) { it ->
+                    }
+                )
+            }
+        ) { it ->
             Column(modifier = Modifier.padding(it)) {
                 val leaderColumnWidth = 56.dp
 
@@ -297,7 +312,7 @@ private fun HomeScreen(
                         }
 
                         uiState.days.forEach { dayOfWeek ->
-                            val backgroundColor = if (dayOfWeek == uiState.dayOfWeekNow) {
+                            val backgroundColor = if (dayOfWeek == LocalDate.now().dayOfWeek) {
                                 MaterialTheme.colorScheme.primary.copy(alpha = 0.1f)
                             } else {
                                 Color.Transparent
@@ -339,7 +354,7 @@ private fun HomeScreen(
                                     modifier = Modifier.height(RowHeight),
                                     verticalAlignment = Alignment.CenterVertically
                                 ) {
-                                    val style = MaterialTheme.typography.labelSmall
+                                    val style = MaterialTheme.typography.bodySmallEmphasized
 
                                     @Composable
                                     fun TimeText(time: LocalTime) {
@@ -353,10 +368,18 @@ private fun HomeScreen(
                                         horizontalAlignment = Alignment.CenterHorizontally
                                     ) {
                                         TimeText(period)
-                                        Text(
-                                            "-",
-                                            style = style.copy(lineHeight = style.lineHeight * 0.01f)
-                                        )
+                                        Box(
+                                            modifier = Modifier
+                                                .size(width = 4.dp, height = 3.dp),
+                                            contentAlignment = Alignment.Center
+                                        ) {
+                                            Box(
+                                                modifier = Modifier
+                                                    .fillMaxWidth()
+                                                    .height(1.dp)
+                                                    .background(color = MaterialTheme.colorScheme.onSurface)
+                                            )
+                                        }
                                         TimeText(period.plusOneHour())
                                     }
                                     CellBorder(borderDirection = CellBorderDirection.Vertical)
@@ -367,15 +390,44 @@ private fun HomeScreen(
                     }
 
                     if (dataState is HomeDataState.Success) {
+                        val selectedTimeTableId = uiState.selectedTimeTable.id
+                        Log.d(
+                            "HomeScreen",
+                            "Selected timetable id (variable): $selectedTimeTableId"
+                        )
+                        Log.d(
+                            "HomeScreen",
+                            "Selected timetable id (state): ${uiState.selectedTimeTable.id}"
+                        )
+
                         if (uiState.isOnEditMode) {
-                            EditModeGrid(dataState.sessionsWithSubjectAndInstructor, onGridClick = {
-                                onEvent(HomeEvent.SetSessionWithSubject(it))
-                            })
+                            EditModeGrid(
+                                dataState.getSessionsWithSubjectInstructor(
+                                    selectedTimeTableId
+                                ), onGridClick = {
+                                    onEvent(HomeEvent.SetSessionWithSubject(it))
+                                })
                         } else {
-                            DefaultModeGrid(dataState.dayScheduleMap, onChangeToEditMode = {
-                                onEvent(HomeEvent.LoadToEditSubject(it))
-                            })
+                            DefaultModeGrid(
+                                dataState.getDayScheduleMap(selectedTimeTableId),
+                                onChangeToEditMode = {
+                                    onEvent(HomeEvent.LoadToEditSubject(it))
+                                }
+                            )
                         }
+
+                        Log.d(
+                            "HomeScreen",
+                            "Selected timetable sessions (variable): ${
+                                dataState.getSessionsWithSubjectInstructor(selectedTimeTableId)
+                            }"
+                        )
+                        Log.d(
+                            "HomeScreen",
+                            "Selected timetable sessions (state): ${
+                                dataState.getSessionsWithSubjectInstructor(uiState.selectedTimeTable.id)
+                            }"
+                        )
                     }
                 }
             }
@@ -386,11 +438,11 @@ private fun HomeScreen(
 @Composable
 private fun TimeTableNavigationDrawer(
     drawerState: DrawerState,
-    timeTables: List<TimeTable>,
     selectedTimeTable: TimeTable,
-    mainTimeTable: TimeTable,
-    onTimeTableClick: (TimeTable) -> Unit,
-    subjectsWithSessionCount: List<SubjectWithSessionCount>
+    onTimeTableClick: (Int) -> Unit,
+    onRecentSubjectClick: (Int) -> Unit,
+    onNavigateToSubjectsScreen: () -> Unit,
+    dataState: HomeDataState
 ) {
 
     @Composable
@@ -428,182 +480,155 @@ private fun TimeTableNavigationDrawer(
     ModalDrawerSheet(
         drawerState = drawerState, drawerShape = RectangleShape
     ) {
-        Column(
-            modifier = Modifier.padding(top = 8.dp),
-            verticalArrangement = Arrangement.spacedBy(8.dp)
-        ) {
-            Text(
-                "Unitime - University Timetable",
-                style = MaterialTheme.typography.titleMedium,
-                modifier = Modifier.padding(16.dp),
-                color = MaterialTheme.colorScheme.onSurfaceVariant
-            )
-            HorizontalDivider(thickness = Dp.Hairline)
-            LazyColumn {
-                item {
-                    Box(modifier = Modifier.padding(bottom = 8.dp, start = 16.dp, top = 8.dp)) {
-                        LabelText("Time tables")
+        if (dataState is HomeDataState.Success) {
+            Column(
+                modifier = Modifier.padding(top = 8.dp),
+                verticalArrangement = Arrangement.spacedBy(8.dp)
+            ) {
+                Text(
+                    "Unitimetable - University Timetable",
+                    style = MaterialTheme.typography.titleMedium,
+                    modifier = Modifier.padding(16.dp),
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+                HorizontalDivider(thickness = Dp.Hairline)
+                LazyColumn {
+                    item {
+                        Box(modifier = Modifier.padding(bottom = 8.dp, start = 16.dp, top = 8.dp)) {
+                            LabelText("Time tables")
+                        }
                     }
-                }
-                items(timeTables) { timeTable ->
-                    val selected = timeTable == selectedTimeTable
+                    items(dataState.timeTables) { timeTable ->
+                        val selected = timeTable == selectedTimeTable
 
-                    Box(modifier = Modifier.padding(horizontal = 8.dp)) {
-                        NavigationDrawerItem(label = {
-                            Text(timeTable.name)
-                        }, selected = selected, icon = {
-                            Icon(
-                                painter = painterResource(if (selected) R.drawable.table_24px else R.drawable.table_24px_outlined),
-                                contentDescription = null
-                            )
-                        }, onClick = {
-                            onTimeTableClick(timeTable)
-                        }, badge = {
-                            Row(
-                                verticalAlignment = Alignment.CenterVertically,
-                                modifier = Modifier.offset(x = 12.dp),
-                                horizontalArrangement = Arrangement.spacedBy(4.dp)
-                            ) {
-                                var isMainTable by remember { mutableStateOf(false) }
+                        Box(modifier = Modifier.padding(horizontal = 8.dp)) {
+                            NavigationDrawerItem(label = {
+                                Text(timeTable.name)
+                            }, selected = selected, icon = {
+                                Icon(
+                                    painter = painterResource(if (selected) R.drawable.table_24px else R.drawable.table_24px_outlined),
+                                    contentDescription = null
+                                )
+                            }, onClick = {
+                                onTimeTableClick(timeTable.id)
+                            }, badge = {
+                                Row(
+                                    verticalAlignment = Alignment.CenterVertically,
+                                    modifier = Modifier.offset(x = 12.dp),
+                                    horizontalArrangement = Arrangement.spacedBy(4.dp)
+                                ) {
+                                    var isMainTable by remember { mutableStateOf(false) }
 
-                                isMainTable = mainTimeTable == timeTable
-                                if (isMainTable) {
-                                    Badge(containerColor = MaterialTheme.colorScheme.primary) {
-                                        Text("Main")
+                                    isMainTable = dataState.mainTimeTable == timeTable
+                                    if (isMainTable) {
+                                        Badge(containerColor = MaterialTheme.colorScheme.primary) {
+                                            Text("Main")
+                                        }
                                     }
-                                }
 
-                                Box {
-                                    var expanded by remember { mutableStateOf(false) }
+                                    Box {
+                                        var expanded by remember { mutableStateOf(false) }
 
-                                    IconToggleButton(
-                                        checked = expanded, onCheckedChange = {
-                                            expanded = it
-                                        }, modifier = Modifier.size(36.dp)
-                                    )
+                                        IconToggleButton(
+                                            checked = expanded, onCheckedChange = {
+                                                expanded = it
+                                            }, modifier = Modifier.size(36.dp)
+                                        )
 
-                                    DropdownMenu(expanded = expanded, onDismissRequest = {
-                                        expanded = false
-                                    }) {
-                                        DropdownMenuItem(text = {
-                                            Text("Set as main timetable")
-                                        }, enabled = !isMainTable, onClick = {
-                                            // TODO: Implement onEvent for setting mainTableId data store
-                                        }, trailingIcon = {
-                                            if (isMainTable) {
+                                        DropdownMenu(expanded = expanded, onDismissRequest = {
+                                            expanded = false
+                                        }) {
+                                            DropdownMenuItem(text = {
+                                                Text("Set as main timetable")
+                                            }, enabled = !isMainTable, onClick = {
+                                                // TODO: Implement onEvent for setting mainTableId data store
+                                            }, trailingIcon = {
+                                                if (isMainTable) {
+                                                    Icon(
+                                                        painter = painterResource(R.drawable.done_24px),
+                                                        contentDescription = null
+                                                    )
+                                                }
+                                            })
+                                            HorizontalDivider(
+                                                thickness = Dp.Hairline,
+                                                color = MaterialTheme.colorScheme.outlineVariant
+                                            )
+                                            DropdownMenuItem(text = {
+                                                Text("Rename")
+                                            }, onClick = {
+                                                // TODO: Implement onEvent in renaming current timetable
+                                            }, leadingIcon = {
                                                 Icon(
-                                                    painter = painterResource(R.drawable.done_24px),
+                                                    painter = painterResource(R.drawable.text_format_24px),
                                                     contentDescription = null
                                                 )
-                                            }
-                                        })
-                                        HorizontalDivider(thickness = Dp.Hairline)
-                                        DropdownMenuItem(text = {
-                                            Text("Rename")
-                                        }, onClick = {
-                                            // TODO: Implement onEvent in renaming current timetable
-                                        }, leadingIcon = {
-                                            Icon(
-                                                painter = painterResource(R.drawable.text_format_24px),
-                                                contentDescription = null
-                                            )
-                                        })
-                                        DropdownMenuItem(text = {
-                                            Text("Edit layout")
-                                        }, onClick = {
-                                            // TODO: Implement onEvent in editing the layout of current timetable
-                                        }, leadingIcon = {
-                                            Icon(
-                                                painter = painterResource(R.drawable.table_edit_24px),
-                                                contentDescription = null
-                                            )
-                                        })
-                                        DropdownMenuItem(text = {
-                                            Text("Delete")
-                                        }, onClick = {
-                                            // TODO: Implement onEvent in deleting current timetable
-                                        }, leadingIcon = {
-                                            Icon(
-                                                painter = painterResource(R.drawable.delete_24px),
-                                                contentDescription = null
-                                            )
-                                        })
+                                            })
+                                            DropdownMenuItem(text = {
+                                                Text("Edit layout")
+                                            }, onClick = {
+                                                // TODO: Implement onEvent in editing the layout of current timetable
+                                            }, leadingIcon = {
+                                                Icon(
+                                                    painter = painterResource(R.drawable.table_edit_24px),
+                                                    contentDescription = null
+                                                )
+                                            })
+                                            DropdownMenuItem(text = {
+                                                Text("Delete")
+                                            }, onClick = {
+                                                // TODO: Implement onEvent in deleting current timetable
+                                            }, leadingIcon = {
+                                                Icon(
+                                                    painter = painterResource(R.drawable.delete_24px),
+                                                    contentDescription = null
+                                                )
+                                            })
+                                        }
                                     }
                                 }
+                            })
+                        }
+                    }
+                    val fiveRecentlyAddedSubjects = dataState.fiveRecentlyAddedSubjects
+                    if (fiveRecentlyAddedSubjects.isNotEmpty()) {
+                        item {
+                            Column(
+                                modifier = Modifier
+                                    .padding(top = 24.dp, bottom = 8.dp)
+                                    .padding(horizontal = 16.dp),
+                                verticalArrangement = Arrangement.spacedBy(16.dp)
+                            ) {
+                                HorizontalDivider(thickness = Dp.Hairline)
+                                LabelText("Recently added subjects")
                             }
-                        })
-                    }
-                }
-                item {
-                    Column(
-                        modifier = Modifier
-                            .padding(top = 16.dp, bottom = 8.dp)
-                            .padding(horizontal = 16.dp),
-                        verticalArrangement = Arrangement.spacedBy(16.dp)
-                    ) {
-                        HorizontalDivider(thickness = Dp.Hairline)
-                        LabelText("Recently added subjects")
-                    }
-                }
-                items(subjectsWithSessionCount) { subjectWithSessionCount ->
-                    var menuExpanded by remember { mutableStateOf(false) }
-
-                    ListItem(
-                        supportingContent = {
-                            Text(subjectWithSessionCount.subject.description)
-                        },
-                        headlineContent = {
-                            Text(subjectWithSessionCount.subject.code)
-                        },
-                        trailingContent = {
-                            Row(verticalAlignment = Alignment.CenterVertically) {
-                                val text = if (subjectWithSessionCount.sessionCount > 1) {
-                                    "${subjectWithSessionCount.sessionCount} sessions"
-                                } else if (subjectWithSessionCount.sessionCount == 1) {
-                                    "1 session"
-                                } else {
-                                    "No sessions"
-                                }
-
-                                Text(text)
-
-                                Box {
-                                    Icon(
-                                        painter = painterResource(R.drawable.more_vert_24px),
-                                        contentDescription = "Expand options"
+                        }
+                        items(fiveRecentlyAddedSubjects) { subject ->
+                            ListItem(
+                                headlineContent = {
+                                    Text(
+                                        subject.description,
+                                        maxLines = 1,
+                                        overflow = TextOverflow.Ellipsis
                                     )
-                                    DropdownMenu(expanded = menuExpanded, onDismissRequest = {
-                                        menuExpanded = false
-                                    }) {
-                                        DropdownMenuItem(text = {
-                                            Text("Edit")
-                                        }, onClick = {
-                                            // TODO: Implement editing
-                                        }, leadingIcon = {
-                                            Icon(
-                                                painter = painterResource(R.drawable.edit_24px),
-                                                contentDescription = null
-                                            )
-                                        })
-                                        DropdownMenuItem(text = {
-                                            Text("Delete")
-                                        }, onClick = {
-                                            // TODO: Implement deletion
-                                        }, leadingIcon = {
-                                            Icon(
-                                                painter = painterResource(R.drawable.delete_24px),
-                                                contentDescription = null
-                                            )
-                                        })
-                                    }
+                                },
+                                colors = ListItemDefaults.colors(containerColor = Color.Transparent),
+                                modifier = Modifier.clickable(onClick = {
+                                    onRecentSubjectClick(subject.id)
+                                })
+                            )
+                        }
+                        item {
+                            Box(modifier = Modifier.padding(horizontal = 16.dp)) {
+                                OutlinedButton(
+                                    onClick = onNavigateToSubjectsScreen,
+                                    modifier = Modifier.fillMaxWidth()
+                                ) {
+                                    Text("See all")
                                 }
                             }
-                        },
-                        colors = ListItemDefaults.colors(containerColor = Color.Transparent),
-                        modifier = Modifier.clickable(onClick = {
-                            menuExpanded = true
-                        })
-                    )
+                        }
+                    }
                 }
             }
         }
@@ -613,7 +638,6 @@ private fun TimeTableNavigationDrawer(
 sealed interface TopAppBarMode {
     data class Default(
         val onAddNewScheduleClick: () -> Unit,
-        val onUiSettingsClick: () -> Unit,
         val onMoreOptionsClick: () -> Unit
     ) : TopAppBarMode
 
@@ -637,16 +661,22 @@ private fun TopAppBar(
                             contentDescription = "Add new schedule",
                             onClick = topAppBarMode.onAddNewScheduleClick
                         )
-                        IconButton(
-                            R.drawable.tune_24px,
-                            contentDescription = "UI settings",
-                            onClick = topAppBarMode.onUiSettingsClick
-                        )
-                        IconButton(
-                            R.drawable.more_vert_24px,
-                            contentDescription = "Open more options menu",
-                            onClick = topAppBarMode.onMoreOptionsClick
-                        )
+                        Box {
+                            var expanded by remember { mutableStateOf(false) }
+
+                            IconButton(
+                                R.drawable.more_vert_24px,
+                                contentDescription = "Open more options menu",
+                                onClick = {
+                                    expanded = true
+                                }
+                            )
+                            DropdownMenu(expanded = expanded, onDismissRequest = {
+                                expanded = false
+                            }) {
+
+                            }
+                        }
                     }
                 }
 
@@ -715,155 +745,133 @@ private fun RowScope.DefaultModeGrid(
                     horizontalAlignment = Alignment.CenterHorizontally,
                     verticalArrangement = Arrangement.Center
                 ) {
-                    when (schedule.type) {
-                        SessionType.Subject -> {
-                            val argbColor = schedule.subject!!.color.toArgb()
+                    if (schedule.subject != null) {
+                        val argbColor = schedule.subject.color.toArgb()
 
-                            val scheme = if (isSystemInDarkTheme()) {
-                                Scheme.dark(argbColor)
-                            } else {
-                                Scheme.light(argbColor)
-                            }
+                        val scheme = if (isSystemInDarkTheme()) {
+                            Scheme.dark(argbColor)
+                        } else {
+                            Scheme.light(argbColor)
+                        }
 
-                            var isTextTruncated by remember { mutableStateOf(false) }
+                        var isTextTruncated by remember { mutableStateOf(false) }
 
-                            val state = rememberTooltipState(isPersistent = true)
+                        val state = rememberTooltipState(isPersistent = true)
 
-                            @Composable
-                            fun Chip(
-                                @DrawableRes iconId: Int,
-                                iconColor: Color = AssistChipDefaults.assistChipColors().leadingIconContentColor,
-                                text: String
-                            ) {
-                                AssistChip(onClick = { }, label = {
-                                    Text(
-                                        text, style = MaterialTheme.typography.bodySmall
-                                    )
-                                }, leadingIcon = {
-                                    Icon(
-                                        painter = painterResource(iconId),
-                                        contentDescription = null,
-                                        modifier = Modifier.size(12.dp),
-                                        tint = iconColor
-                                    )
-                                }, modifier = Modifier.height(24.dp)
+                        @Composable
+                        fun Chip(
+                            @DrawableRes iconId: Int,
+                            iconColor: Color = AssistChipDefaults.assistChipColors().leadingIconContentColor,
+                            text: String
+                        ) {
+                            AssistChip(onClick = { }, label = {
+                                Text(
+                                    text, style = MaterialTheme.typography.bodySmall
                                 )
-                            }
+                            }, leadingIcon = {
+                                Icon(
+                                    painter = painterResource(iconId),
+                                    contentDescription = null,
+                                    modifier = Modifier.size(12.dp),
+                                    tint = iconColor
+                                )
+                            }, modifier = Modifier.height(24.dp)
+                            )
+                        }
 
-                            TooltipBox(
-                                positionProvider = TooltipDefaults.rememberTooltipPositionProvider(),
-                                state = state,
-                                tooltip = @Composable {
-                                    RichTooltip(action = {
-                                        TextButton("Edit", onClick = {
-                                            onChangeToEditMode(schedule.subject.id)
-                                        })
-                                    }, title = {
-                                        Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
-                                            Chip(
-                                                iconId = R.drawable.book_24px,
-                                                text = schedule.subject.code
-                                            )
-                                            Text(
-                                                schedule.subject.description,
-                                                style = MaterialTheme.typography.bodyLargeEmphasized
-                                            )
-                                        }
-                                    }) {
+                        TooltipBox(
+                            positionProvider = TooltipDefaults.rememberTooltipPositionProvider(),
+                            state = state,
+                            tooltip = @Composable {
+                                RichTooltip(action = {
+                                    TextButton("Edit", onClick = {
+                                        onChangeToEditMode(schedule.subject.id)
+                                    })
+                                }, title = {
+                                    Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
                                         Chip(
-                                            iconId = R.drawable.account_box_24px,
-                                            text = schedule.subject.instructor?.name
-                                                ?: "No Instructor",
-                                            iconColor = MaterialTheme.colorScheme.secondary
+                                            iconId = R.drawable.book_24px,
+                                            text = schedule.subject.code
+                                        )
+                                        Text(
+                                            schedule.subject.description,
+                                            style = MaterialTheme.typography.bodyLargeEmphasized
                                         )
                                     }
-                                },
-                                modifier = Modifier.weight(1f)
-                            ) {
-                                val scope = rememberCoroutineScope()
-                                Column(
-                                    modifier = Modifier
-                                        .fillMaxSize()
-                                        .border()
-                                        .background(color = scheme.primary.toColor())
-                                        .padding(4.dp)
-                                        .clickable(onClick = {
-                                            if (isTextTruncated) {
-                                                scope.launch {
-                                                    state.show()
-                                                }
-                                            } else {
-                                                onChangeToEditMode(schedule.subject.id)
-                                            }
-                                        }),
-                                    verticalArrangement = Arrangement.Center,
-                                    horizontalAlignment = Alignment.CenterHorizontally
-                                ) {
-                                    // TODO: Utilize parent size to distribute position and sizing of the texts
-                                    Text(
-                                        schedule.subject.code.uppercase(),
-                                        style = MaterialTheme.typography.labelMediumEmphasized,
-                                        color = scheme.onPrimary.toColor(),
-                                        textAlign = TextAlign.Center
-                                        // TODO: Implement auto-size for subject code
+                                }) {
+                                    Chip(
+                                        iconId = R.drawable.account_box_24px,
+                                        text = schedule.subject.instructor?.name
+                                            ?: "No Instructor",
+                                        iconColor = MaterialTheme.colorScheme.secondary
                                     )
-
-                                    val bodySmall = MaterialTheme.typography.bodySmall
-                                    val bodySmallFontSizeValue = bodySmall.fontSize.value
-                                    Text(schedule.subject.description,
-                                        style = bodySmall.copy(
-                                            fontSize = (bodySmallFontSizeValue - 2).sp,
-                                            lineHeight = (bodySmallFontSizeValue - 1).sp
-                                        ),
-                                        color = scheme.onPrimary.toColor(),
-                                        maxLines = subjectDescriptionMaxLine,
-                                        softWrap = true,
-                                        overflow = TextOverflow.Ellipsis,
-                                        textAlign = TextAlign.Center,
-                                        onTextLayout = {
-                                            isTextTruncated = it.hasVisualOverflow
-                                        })
-                                    Text(schedule.subject.instructor?.name ?: "No instructor",
-                                        style = MaterialTheme.typography.labelSmall,
-                                        color = scheme.onPrimary.toColor(),
-                                        modifier = Modifier.padding(top = 4.dp),
-                                        maxLines = instructorNameMaxLine,
-                                        overflow = TextOverflow.Ellipsis,
-                                        textAlign = TextAlign.Center,
-                                        onTextLayout = {
-                                            isTextTruncated = it.hasVisualOverflow
-                                        })
                                 }
-                            }
-                        }
-
-                        SessionType.Vacant -> {
-                            Box(
+                            },
+                            modifier = Modifier.weight(1f)
+                        ) {
+                            val scope = rememberCoroutineScope()
+                            Column(
                                 modifier = Modifier
                                     .fillMaxSize()
-                                    .border(),
-                                contentAlignment = Alignment.Center
+                                    .border()
+                                    .background(color = scheme.primary.toColor())
+                                    .padding(4.dp)
+                                    .clickable(onClick = {
+                                        if (isTextTruncated) {
+                                            scope.launch {
+                                                state.show()
+                                            }
+                                        } else {
+                                            onChangeToEditMode(schedule.subject.id)
+                                        }
+                                    }),
+                                verticalArrangement = Arrangement.Center,
+                                horizontalAlignment = Alignment.CenterHorizontally
                             ) {
-                                Text("Vacant")
+                                // TODO: Utilize parent size to distribute position and sizing of the texts
+                                Text(
+                                    schedule.subject.code.uppercase(),
+                                    style = MaterialTheme.typography.labelMediumEmphasized,
+                                    color = scheme.onPrimary.toColor(),
+                                    textAlign = TextAlign.Center
+                                    // TODO: Implement auto-size for subject code
+                                )
+
+                                val bodySmall = MaterialTheme.typography.bodySmall
+                                val bodySmallFontSizeValue = bodySmall.fontSize.value
+                                Text(schedule.subject.description,
+                                    style = bodySmall.copy(
+                                        fontSize = (bodySmallFontSizeValue - 2).sp,
+                                        lineHeight = (bodySmallFontSizeValue - 1).sp
+                                    ),
+                                    color = scheme.onPrimary.toColor(),
+                                    maxLines = subjectDescriptionMaxLine,
+                                    softWrap = true,
+                                    overflow = TextOverflow.Ellipsis,
+                                    textAlign = TextAlign.Center,
+                                    onTextLayout = {
+                                        isTextTruncated = it.hasVisualOverflow
+                                    })
+                                Text(schedule.subject.instructor?.name ?: "No instructor",
+                                    style = MaterialTheme.typography.labelSmall,
+                                    color = scheme.onPrimary.toColor(),
+                                    modifier = Modifier.padding(top = 4.dp),
+                                    maxLines = instructorNameMaxLine,
+                                    overflow = TextOverflow.Ellipsis,
+                                    textAlign = TextAlign.Center,
+                                    onTextLayout = {
+                                        isTextTruncated = it.hasVisualOverflow
+                                    })
                             }
                         }
-
-                        SessionType.Break -> {
-                            Box(
-                                modifier = Modifier
-                                    .fillMaxSize()
-                                    .border(),
-                                contentAlignment = Alignment.Center
-                            ) {
-                                Text(if (schedule.breakDescription != null) schedule.breakDescription else "Break")
-                            }
-                        }
-
-                        SessionType.Empty -> {
-                            Column(modifier = Modifier.fillMaxSize()) {
-                                Box(modifier = Modifier.weight(1f))
-                                CellBorder(borderDirection = CellBorderDirection.Horizontal)
-                            }
+                    } else {
+                        Box(
+                            modifier = Modifier
+                                .fillMaxSize()
+                                .border(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.2f)),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            Text(schedule.label ?: "")
                         }
                     }
                 }
@@ -873,10 +881,10 @@ private fun RowScope.DefaultModeGrid(
 }
 
 @Composable
-private fun Modifier.border(): Modifier {
+private fun Modifier.border(color: Color = MaterialTheme.colorScheme.surface): Modifier {
     return this.then(
         Modifier.border(
-            width = Dp.Hairline, color = MaterialTheme.colorScheme.surface
+            width = Dp.Hairline, color = color
         )
     )
 }
@@ -892,8 +900,6 @@ private fun RowScope.EditModeGrid(
         .forEach { (_, sessionsWithSubjectAndInstructor) ->
             Column(modifier = Modifier.weight(1f)) {
                 sessionsWithSubjectAndInstructor.forEach { sessionAndSubjectAndInstructor ->
-                    val sessionType = sessionAndSubjectAndInstructor.session.type
-
                     Box(
                         modifier = Modifier
                             .height(RowHeight)
@@ -904,7 +910,7 @@ private fun RowScope.EditModeGrid(
                                 }
                             )
                     ) {
-                        if (sessionType == SessionType.Subject) {
+                        if (sessionAndSubjectAndInstructor.session.isSubject) {
                             val scheme = createScheme(
                                 sessionAndSubjectAndInstructor.subjectWithInstructor!!.subject.color.toColor(),
                                 isSystemInDarkTheme()

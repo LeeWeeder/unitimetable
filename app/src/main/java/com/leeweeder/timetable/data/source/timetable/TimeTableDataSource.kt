@@ -1,6 +1,6 @@
 package com.leeweeder.timetable.data.source.timetable
 
-import com.leeweeder.timetable.data.source.TimeTableWithSessionsWithSubjectAndInstructor
+import com.leeweeder.timetable.data.source.TimeTableWithDetails
 import kotlinx.coroutines.flow.Flow
 
 class TimeTableDataSource(private val dao: TimeTableDao) {
@@ -8,8 +8,8 @@ class TimeTableDataSource(private val dao: TimeTableDao) {
         return dao.observeTimeTables()
     }
 
-    fun observeTimeTableWithSessionsWithSubjectAndInstructorOfId(id: Int): Flow<TimeTableWithSessionsWithSubjectAndInstructor> {
-        return dao.observeTimeTableWithSessionsWithSubjectAndInstructorOfId(id)
+    fun observeTimeTablesWithDetails(): Flow<List<TimeTableWithDetails>> {
+        return dao.observeTimeTablesWithDetails()
     }
 
     fun observeTimeTableNames(): Flow<List<String>> {
@@ -20,8 +20,8 @@ class TimeTableDataSource(private val dao: TimeTableDao) {
         return dao.getTimeTableNames()
     }
 
-    suspend fun getTimeTableWithSessionsWithSubjectAndInstructorOfId(id: Int): TimeTableWithSessionsWithSubjectAndInstructor {
-        return dao.getTimeTableWithSessionsWithSubjectAndInstructorOfId(id)
+    suspend fun getTimeTableWithDetails(id: Int): TimeTableWithDetails? {
+        return dao.getTimeTableWithDetails(id)
     }
 
     suspend fun insertTimeTable(timeTable: TimeTable): Int {

@@ -1,5 +1,6 @@
 package com.leeweeder.timetable.ui.timetable_setup
 
+import android.util.Log
 import androidx.compose.runtime.mutableStateOf
 import androidx.lifecycle.SavedStateHandle
 import androidx.lifecycle.ViewModel
@@ -13,8 +14,8 @@ import com.leeweeder.timetable.data.source.timetable.TimeTableDataSource
 import com.leeweeder.timetable.ui.util.getDays
 import com.leeweeder.timetable.ui.util.getTimes
 import com.leeweeder.timetable.util.Destination
-import kotlinx.coroutines.flow.MutableSharedFlow
-import kotlinx.coroutines.flow.asSharedFlow
+import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
 import java.time.DayOfWeek
 import java.time.LocalTime
@@ -25,8 +26,8 @@ class TimeTableSetupViewModel(
     private val dataStoreRepository: DataStoreRepository,
     savedStateHandle: SavedStateHandle
 ) : ViewModel() {
-    private val _eventFlow = MutableSharedFlow<UiEvent>()
-    val eventFlow = _eventFlow.asSharedFlow()
+    private val _eventFlow = MutableStateFlow<TimeTableSetUpUiEvent?>(null)
+    val eventFlow = _eventFlow.asStateFlow()
 
     private val _uiState = mutableStateOf(
         TimeTableSetupUiState(
@@ -92,7 +93,6 @@ class TimeTableSetupViewModel(
             }
 
             TimeTableSetupEvent.Save -> {
-                println("Time table saving")
                 viewModelScope.launch {
                     try {
 
@@ -112,22 +112,14 @@ class TimeTableSetupViewModel(
                                 }
                             }
 
-                        // Insert sessions
-                        println("Inserting sessions:")
-                        sessions.forEach {
-                            println("\t :$it")
-                        }
-
                         sessionDataSource.insertSessions(sessions)
-
-                        println("Finished inserting sessions")
 
                         dataStoreRepository.setMainTimeTableId(timeTableId)
 
-                        println("MainTimeTableId is $timeTableId")
+                        _eventFlow.emit(TimeTableSetUpUiEvent.FinishedSaving)
                     } catch (e: Exception) {
                         // TODO: Implement error handling
-                        println("There is an error inserting: ${e.message}")
+                        Log.e("TimeTableSetupViewModel", "Error saving time table", e)
                     }
                 }
             }
@@ -150,8 +142,8 @@ sealed interface TimeTableSetupEvent {
     data object Save : TimeTableSetupEvent
 }
 
-sealed interface UiEvent {
-    data object FinishedSaving : UiEvent
+sealed interface TimeTableSetUpUiEvent {
+    data object FinishedSaving : TimeTableSetUpUiEvent
 }
 
 val DefaultTimeTable = TimeTable(

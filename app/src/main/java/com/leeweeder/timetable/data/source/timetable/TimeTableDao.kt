@@ -5,7 +5,7 @@ import androidx.room.Delete
 import androidx.room.Query
 import androidx.room.Transaction
 import androidx.room.Upsert
-import com.leeweeder.timetable.data.source.TimeTableWithSessionsWithSubjectAndInstructor
+import com.leeweeder.timetable.data.source.TimeTableWithDetails
 import kotlinx.coroutines.flow.Flow
 
 @Dao
@@ -14,12 +14,12 @@ interface TimeTableDao {
     fun observeTimeTables(): Flow<List<TimeTable>>
 
     @Transaction
-    @Query("SELECT * FROM timetable WHERE id = :id")
-    fun observeTimeTableWithSessionsWithSubjectAndInstructorOfId(id: Int): Flow<TimeTableWithSessionsWithSubjectAndInstructor>
+    @Query("SELECT * FROM timetable")
+    fun observeTimeTablesWithDetails(): Flow<List<TimeTableWithDetails>>
 
     @Transaction
     @Query("SELECT * FROM timetable WHERE id = :id")
-    suspend fun getTimeTableWithSessionsWithSubjectAndInstructorOfId(id: Int): TimeTableWithSessionsWithSubjectAndInstructor
+    suspend fun getTimeTableWithDetails(id: Int): TimeTableWithDetails?
 
     @Query("SELECT name FROM timetable")
     fun observeTimeTableNames(): Flow<List<String>>

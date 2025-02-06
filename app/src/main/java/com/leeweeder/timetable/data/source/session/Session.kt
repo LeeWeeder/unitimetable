@@ -38,92 +38,20 @@ data class Session(
     val subjectId: Int?,
     val dayOfWeek: DayOfWeek,
     val startTime: LocalTime,
-    val type: SessionType,
-    val breakDescription: String?
+    val label: String?
 ) {
     init {
-        when (type) {
-            SessionType.Subject -> {
-                require(subjectId != null) {
-                    "Session is of Subject type yet having null subjectId. Use Vacant or Break instead or provide subject."
-                }
-            }
-
-            SessionType.Vacant -> {
-                require(subjectId == null && breakDescription == null) {
-                    "Session is of Vacant type yet having non-null subjectId or breakDescription. Use Subject or Break instead or remove subject and description."
-                }
-            }
-
-            SessionType.Break -> {
-                require(subjectId == null) {
-                    "Session is of Break type yet having non-null subjectId. Use Subject or Vacant instead or remove subject."
-                }
-            }
-
-            SessionType.Empty -> {
-                require(subjectId == null && breakDescription == null) {
-                    "Session is of Empty type yet having non-null subjectId or breakDescription. Use Subject or Break instead or remove subject and description."
-                }
-            }
+        require(!(subjectId != null && label != null)) {
+            "Cannot have both a subjectId and label at the same time"
         }
     }
 
-    /**
-     * Constructor for a new session with type [SessionType.Subject]
-     * */
-    private constructor(
-        timeTableId: Int,
-        subjectId: Int,
-        dayOfWeek: DayOfWeek,
-        startTime: LocalTime
-    ) : this(
-        timeTableId = timeTableId,
-        subjectId = subjectId,
-        dayOfWeek = dayOfWeek,
-        startTime = startTime,
-        type = SessionType.Subject,
-        breakDescription = null
-    )
-
-    /**
-     * Constructor for a new session with type [SessionType.Vacant] or [SessionType.Empty]
-     * */
-    private constructor(
-        timeTableId: Int,
-        dayOfWeek: DayOfWeek,
-        startTime: LocalTime,
-        type: SessionType
-    ) : this(
-        timeTableId = timeTableId,
-        subjectId = null,
-        dayOfWeek = dayOfWeek,
-        startTime = startTime,
-        type = type,
-        breakDescription = null
-    )
-
-    /**
-     * Constructor for a new session with type [SessionType.Break]
-     * */
-
-    private constructor(
-        timeTableId: Int,
-        dayOfWeek: DayOfWeek,
-        startTime: LocalTime,
-        breakDescription: String?
-    ) : this(
-        timeTableId = timeTableId,
-        subjectId = null,
-        dayOfWeek = dayOfWeek,
-        startTime = startTime,
-        type = SessionType.Break,
-        breakDescription = breakDescription
-    )
+    val isSubject: Boolean
+        get() = subjectId != null
 
     companion object {
         /**
-         * Create a session of [SessionType.Subject]
+         * Create a subject session
          * */
         fun subjectSession(
             timeTableId: Int,
@@ -134,59 +62,26 @@ data class Session(
             timeTableId = timeTableId,
             subjectId = subjectId,
             dayOfWeek = dayOfWeek,
-            startTime = startTime
+            startTime = startTime,
+            label = null
         )
 
         /**
-         * Create a session of [SessionType.Empty]
+         * Create an empty session
          * */
         fun emptySession(
             timeTableId: Int,
             dayOfWeek: DayOfWeek,
-            startTime: LocalTime
-        ) = Session(
-            timeTableId = timeTableId,
-            dayOfWeek = dayOfWeek,
-            startTime = startTime,
-            type = SessionType.Empty
-        )
-
-        /**
-         * Create a session of [SessionType.Vacant]
-         * */
-        fun vacantSession(
-            timeTableId: Int,
-            dayOfWeek: DayOfWeek,
-            startTime: LocalTime
-        ) = Session(
-            timeTableId = timeTableId,
-            dayOfWeek = dayOfWeek,
-            startTime = startTime,
-            type = SessionType.Vacant
-        )
-
-        /**
-         * Create a session of [SessionType.Break]
-         * */
-        fun breakSession(
-            timeTableId: Int,
-            dayOfWeek: DayOfWeek,
             startTime: LocalTime,
-            breakDescription: String?
+            label: String? = null
         ) = Session(
             timeTableId = timeTableId,
             dayOfWeek = dayOfWeek,
             startTime = startTime,
-            breakDescription = breakDescription
+            subjectId = null,
+            label = label,
         )
     }
-}
-
-enum class SessionType {
-    Subject,
-    Vacant,
-    Break,
-    Empty
 }
 
 fun Session.toSubjectSession(subjectId: Int): Session {
@@ -196,8 +91,7 @@ fun Session.toSubjectSession(subjectId: Int): Session {
         dayOfWeek = dayOfWeek,
         startTime = startTime,
         id = id,
-        type = SessionType.Subject,
-        breakDescription = null
+        label = null
     )
 }
 
@@ -207,8 +101,7 @@ fun Session.toEmptySession(): Session {
         dayOfWeek = dayOfWeek,
         startTime = startTime,
         id = id,
-        type = SessionType.Empty,
-        breakDescription = null,
-        subjectId = null
+        subjectId = null,
+        label = null
     )
 }

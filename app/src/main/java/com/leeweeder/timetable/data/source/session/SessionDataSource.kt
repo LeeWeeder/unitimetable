@@ -11,4 +11,8 @@ class SessionDataSource(
     suspend fun updateSession(session: Session) {
         dao.updateSession(session)
     }
+
+    suspend fun updateSessions(sessions: List<Session>) {
+        dao.updateSessions(sessions)
+    }
 }

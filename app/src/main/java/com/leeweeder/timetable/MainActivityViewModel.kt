@@ -29,5 +29,5 @@ class MainActivityViewModel(
 
 data class MainActivityUiState(
     val isLoading: Boolean,
-    val startDestination: Destination = Destination.Screen.HomeScreen
+    val startDestination: Destination = Destination.Screen.HomeScreen()
 )

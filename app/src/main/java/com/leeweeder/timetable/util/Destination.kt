@@ -16,7 +16,10 @@ sealed interface Destination {
     sealed interface Screen : Destination {
 
         @Serializable
-        data object HomeScreen : Screen
+        data class HomeScreen(val subjectIdToBeEdited: Int? = null) : Screen
+
+        @Serializable
+        data object SubjectsScreen : Screen
     }
 }
 

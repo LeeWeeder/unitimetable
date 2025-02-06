@@ -2,6 +2,7 @@ package com.leeweeder.timetable.di
 
 import androidx.room.Room
 import com.leeweeder.timetable.MainActivityViewModel
+import com.leeweeder.timetable.feature_widget.UnitimetableWidget
 import com.leeweeder.timetable.data.DataStoreRepository
 import com.leeweeder.timetable.data.DefaultDataStoreRepository
 import com.leeweeder.timetable.data.source.TimeTableDatabase
@@ -10,6 +11,7 @@ import com.leeweeder.timetable.data.source.session.SessionDataSource
 import com.leeweeder.timetable.data.source.subject.SubjectDataSource
 import com.leeweeder.timetable.data.source.timetable.TimeTableDataSource
 import com.leeweeder.timetable.ui.HomeViewModel
+import com.leeweeder.timetable.ui.subjects.SubjectsScreenViewModel
 import com.leeweeder.timetable.ui.timetable_setup.GetTimeTableNameViewModel
 import com.leeweeder.timetable.ui.timetable_setup.TimeTableSetupViewModel
 import org.koin.core.module.dsl.viewModel
@@ -45,12 +47,16 @@ val appModule = module {
         DefaultDataStoreRepository(get())
     }
 
+    single {
+        UnitimetableWidget(get(), get())
+    }
+
     viewModel {
         MainActivityViewModel(get())
     }
 
     viewModel {
-        HomeViewModel(get(), get(), get(), get(), get())
+        HomeViewModel(get(), get(), get(), get(), get(), get())
     }
 
     viewModel {
@@ -59,5 +65,9 @@ val appModule = module {
 
     viewModel {
         GetTimeTableNameViewModel(get())
+    }
+
+    viewModel {
+        SubjectsScreenViewModel(get(), get())
     }
 }

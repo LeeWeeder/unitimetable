@@ -12,4 +12,7 @@ interface SessionDao {
 
     @Update
     suspend fun updateSession(session: Session)
+
+    @Update
+    suspend fun updateSessions(sessions: List<Session>)
 }

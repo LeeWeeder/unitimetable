@@ -93,13 +93,13 @@ fun TimeTableSetupDialog(
 fun TimeTableSetupDialog(
     onDismissRequest: () -> Unit,
     onNavigateToHomeScreen: () -> Unit,
-    eventFlow: UiEvent?,
+    eventFlow: TimeTableSetUpUiEvent?,
     uiState: TimeTableSetupUiState,
     onEvent: (TimeTableSetupEvent) -> Unit
 ) {
     LaunchedEffect(eventFlow) {
         when (eventFlow) {
-            UiEvent.FinishedSaving -> {
+            TimeTableSetUpUiEvent.FinishedSaving -> {
                 // Done saving navigate away
                 onNavigateToHomeScreen()
             }
