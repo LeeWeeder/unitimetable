@@ -1,6 +1,7 @@
 package com.leeweeder.timetable.ui.timetable_setup
 
 import android.util.Log
+import androidx.compose.runtime.State
 import androidx.compose.runtime.mutableStateOf
 import androidx.lifecycle.SavedStateHandle
 import androidx.lifecycle.ViewModel
@@ -24,7 +25,7 @@ class TimeTableSetupViewModel(
     private val timeTableDataSource: TimeTableDataSource,
     private val sessionDataSource: SessionDataSource,
     private val dataStoreRepository: DataStoreRepository,
-    savedStateHandle: SavedStateHandle
+    private val savedStateHandle: SavedStateHandle
 ) : ViewModel() {
     private val _eventFlow = MutableStateFlow<TimeTableSetUpUiEvent?>(null)
     val eventFlow = _eventFlow.asStateFlow()
@@ -34,7 +35,7 @@ class TimeTableSetupViewModel(
             timeTable = DefaultTimeTable.copy(name = savedStateHandle.toRoute<Destination.Dialog.TimeTableSetupDialog>().timeTableName)
         )
     )
-    val uiState = _uiState
+    val uiState: State<TimeTableSetupUiState> = _uiState
 
     fun onEvent(event: TimeTableSetupEvent) {
         when (event) {
@@ -114,9 +115,11 @@ class TimeTableSetupViewModel(
 
                         sessionDataSource.insertSessions(sessions)
 
-                        dataStoreRepository.setMainTimeTableId(timeTableId)
+                        if (savedStateHandle.toRoute<Destination.Dialog.TimeTableSetupDialog>().isInitialization) {
+                            dataStoreRepository.setMainTimeTableId(timeTableId)
+                        }
 
-                        _eventFlow.emit(TimeTableSetUpUiEvent.FinishedSaving)
+                        _eventFlow.emit(TimeTableSetUpUiEvent.FinishedSaving(timeTableId))
                     } catch (e: Exception) {
                         // TODO: Implement error handling
                         Log.e("TimeTableSetupViewModel", "Error saving time table", e)
@@ -143,7 +146,7 @@ sealed interface TimeTableSetupEvent {
 }
 
 sealed interface TimeTableSetUpUiEvent {
-    data object FinishedSaving : TimeTableSetUpUiEvent
+    data class FinishedSaving(val timeTableId: Int) : TimeTableSetUpUiEvent
 }
 
 val DefaultTimeTable = TimeTable(

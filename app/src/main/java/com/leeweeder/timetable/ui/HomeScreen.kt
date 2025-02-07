@@ -90,6 +90,7 @@ import androidx.compose.ui.unit.sp
 import androidx.compose.ui.unit.toSize
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.google.android.material.color.utilities.Scheme
+import com.leeweeder.timetable.NonExistingMainTimeTableId
 import com.leeweeder.timetable.R
 import com.leeweeder.timetable.data.source.SessionAndSubjectAndInstructor
 import com.leeweeder.timetable.data.source.instructor.Instructor
@@ -119,7 +120,9 @@ import kotlin.collections.component2
 
 @Composable
 fun HomeScreen(
-    onNavigateToSubjectsScreen: () -> Unit,
+    selectedTimeTableId: Int,
+    onNavigateToSubjectsScreen: (timeTableId: Int) -> Unit,
+    onNavigateToGetNewTimeTableNameDialog: (isInitialization: Boolean, selectedTimeTableId: Int) -> Unit,
     viewModel: HomeViewModel = koinViewModel()
 ) {
     val dataState by viewModel.dataState.collectAsStateWithLifecycle()
@@ -132,12 +135,23 @@ fun HomeScreen(
         Log.d("HomeScreen", "Loading...")
     }
 
+    LaunchedEffect(Unit) {
+        if (selectedTimeTableId == NonExistingMainTimeTableId) {
+            // TODO: Implement navigating away to initialize main time table id
+        }
+    }
+
     HomeScreen(
         dataState = dataState,
         uiState = uiState,
         uiEvent = uiEvent,
         onEvent = viewModel::onEvent,
-        onNavigateToSubjectsScreen = onNavigateToSubjectsScreen
+        onNavigateToSubjectsScreen = {
+            onNavigateToSubjectsScreen(uiState.selectedTimeTable.id)
+        },
+        onNavigateToGetNewTimeTableNameDialog = {
+            onNavigateToGetNewTimeTableNameDialog(it, uiState.selectedTimeTable.id)
+        }
     )
 }
 
@@ -148,6 +162,7 @@ private fun HomeScreen(
     uiState: HomeUiState,
     uiEvent: HomeUiEvent?,
     onNavigateToSubjectsScreen: () -> Unit,
+    onNavigateToGetNewTimeTableNameDialog: (isInitialization: Boolean) -> Unit,
     onEvent: (HomeEvent) -> Unit
 ) {
     val drawerState = rememberDrawerState(initialValue = DrawerValue.Closed)
@@ -249,6 +264,12 @@ private fun HomeScreen(
         onEvent(HomeEvent.ClearUiEvent)
     }
 
+    fun closeDrawer() {
+        scope.launch {
+            drawerState.close()
+        }
+    }
+
     ModalNavigationDrawer(
         drawerContent = {
             TimeTableNavigationDrawer(
@@ -256,12 +277,11 @@ private fun HomeScreen(
                 selectedTimeTable = uiState.selectedTimeTable,
                 onTimeTableClick = { timeTableId ->
                     onEvent(HomeEvent.SelectTimeTable(timeTableId))
+                    closeDrawer()
                 },
                 onRecentSubjectClick = {
                     onEvent(HomeEvent.LoadToEditSubject(it))
-                    scope.launch {
-                        drawerState.close()
-                    }
+                    closeDrawer()
                 },
                 onNavigateToSubjectsScreen = onNavigateToSubjectsScreen,
                 dataState = dataState
@@ -283,8 +303,8 @@ private fun HomeScreen(
                             onAddNewScheduleClick = {
                                 newSubjectDialogState.reset()
                                 newSubjectDialogState.show()
-                            }, onMoreOptionsClick = {
-                                // TODO: Implement more options
+                            }, onNewTimeTableClick = {
+                                onNavigateToGetNewTimeTableNameDialog(false)
                             }
                         )
                     },
@@ -391,14 +411,6 @@ private fun HomeScreen(
 
                     if (dataState is HomeDataState.Success) {
                         val selectedTimeTableId = uiState.selectedTimeTable.id
-                        Log.d(
-                            "HomeScreen",
-                            "Selected timetable id (variable): $selectedTimeTableId"
-                        )
-                        Log.d(
-                            "HomeScreen",
-                            "Selected timetable id (state): ${uiState.selectedTimeTable.id}"
-                        )
 
                         if (uiState.isOnEditMode) {
                             EditModeGrid(
@@ -415,19 +427,6 @@ private fun HomeScreen(
                                 }
                             )
                         }
-
-                        Log.d(
-                            "HomeScreen",
-                            "Selected timetable sessions (variable): ${
-                                dataState.getSessionsWithSubjectInstructor(selectedTimeTableId)
-                            }"
-                        )
-                        Log.d(
-                            "HomeScreen",
-                            "Selected timetable sessions (state): ${
-                                dataState.getSessionsWithSubjectInstructor(uiState.selectedTimeTable.id)
-                            }"
-                        )
                     }
                 }
             }
@@ -500,6 +499,8 @@ private fun TimeTableNavigationDrawer(
                     }
                     items(dataState.timeTables) { timeTable ->
                         val selected = timeTable == selectedTimeTable
+
+                        Log.d("TimeTableNavigationDrawer", "selected time table id: ${selectedTimeTable.id}")
 
                         Box(modifier = Modifier.padding(horizontal = 8.dp)) {
                             NavigationDrawerItem(label = {
@@ -638,7 +639,7 @@ private fun TimeTableNavigationDrawer(
 sealed interface TopAppBarMode {
     data class Default(
         val onAddNewScheduleClick: () -> Unit,
-        val onMoreOptionsClick: () -> Unit
+        val onNewTimeTableClick: () -> Unit
     ) : TopAppBarMode
 
     data class EditMode(val onDoneClick: () -> Unit) : TopAppBarMode
@@ -674,7 +675,21 @@ private fun TopAppBar(
                             DropdownMenu(expanded = expanded, onDismissRequest = {
                                 expanded = false
                             }) {
-
+                                DropdownMenuItem(
+                                    text = {
+                                        Text("New timetable")
+                                    }, onClick = {
+                                        topAppBarMode.onNewTimeTableClick()
+                                        expanded = false
+                                    },
+                                    leadingIcon = {
+                                        // TODO: Change icon to add timetable
+                                        Icon(
+                                            painter = painterResource(R.drawable.add_24px),
+                                            contentDescription = null
+                                        )
+                                    }
+                                )
                             }
                         }
                     }

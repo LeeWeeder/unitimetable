@@ -2,7 +2,6 @@ package com.leeweeder.timetable.di
 
 import androidx.room.Room
 import com.leeweeder.timetable.MainActivityViewModel
-import com.leeweeder.timetable.feature_widget.UnitimetableWidget
 import com.leeweeder.timetable.data.DataStoreRepository
 import com.leeweeder.timetable.data.DefaultDataStoreRepository
 import com.leeweeder.timetable.data.source.TimeTableDatabase
@@ -10,6 +9,7 @@ import com.leeweeder.timetable.data.source.instructor.InstructorDataSource
 import com.leeweeder.timetable.data.source.session.SessionDataSource
 import com.leeweeder.timetable.data.source.subject.SubjectDataSource
 import com.leeweeder.timetable.data.source.timetable.TimeTableDataSource
+import com.leeweeder.timetable.feature_widget.UnitimetableWidget
 import com.leeweeder.timetable.ui.HomeViewModel
 import com.leeweeder.timetable.ui.subjects.SubjectsScreenViewModel
 import com.leeweeder.timetable.ui.timetable_setup.GetTimeTableNameViewModel
@@ -64,7 +64,7 @@ val appModule = module {
     }
 
     viewModel {
-        GetTimeTableNameViewModel(get())
+        GetTimeTableNameViewModel(get(), get())
     }
 
     viewModel {

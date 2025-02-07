@@ -8,17 +8,23 @@ import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
 
+const val NonExistingMainTimeTableId = -1
+
 class MainActivityViewModel(
     dataStoreRepository: DataStoreRepository
 ) : ViewModel() {
 
     val uiState = dataStoreRepository.timeTablePrefFlow.map {
-        if (it.mainTimeTableId == -1) {
-            println("Main table id got from main activity is null")
-            MainActivityUiState(isLoading = false, Destination.Dialog.GetTimeTableNameDialog)
+        if (it.mainTimeTableId == NonExistingMainTimeTableId) {
+            MainActivityUiState(
+                isLoading = false,
+                startDestination = Destination.Dialog.GetTimeTableNameDialog(
+                    isInitialization = true,
+                    selectedTimeTableId = -1
+                )
+            )
         } else {
-            println("Main table id got from main activity is ${it.mainTimeTableId}")
-            MainActivityUiState(isLoading = false)
+            MainActivityUiState(isLoading = false, mainTimeTableId = it.mainTimeTableId)
         }
     }.stateIn(
         viewModelScope,
@@ -29,5 +35,6 @@ class MainActivityViewModel(
 
 data class MainActivityUiState(
     val isLoading: Boolean,
-    val startDestination: Destination = Destination.Screen.HomeScreen()
+    val mainTimeTableId: Int = NonExistingMainTimeTableId,
+    val startDestination: Destination = Destination.Screen.HomeScreen(selectedTimeTableId = mainTimeTableId)
 )

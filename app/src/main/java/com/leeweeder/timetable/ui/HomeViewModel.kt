@@ -92,17 +92,29 @@ class HomeViewModel(
                     return@combine HomeDataState.Loading
                 }
 
-                val mainTimeTableWithDetails = timeTableWithDetails
-                    .find { it.timeTable.id == mainTableId }
+                fun findTimeTableWithDetailsById(id: Int): TimeTableWithDetails? {
+                    return timeTableWithDetails
+                        .find { it.timeTable.id == id }
+                }
+
+                val mainTimeTableWithDetails = findTimeTableWithDetailsById(mainTableId)
                     ?: return@combine HomeDataState.Error(IllegalStateException("Main timetable not found"))
 
                 val mainTimeTable = mainTimeTableWithDetails.timeTable
 
                 _uiState.update { state ->
+                    val passedSelectedTimeTableId =
+                        savedStateHandle.toRoute<Destination.Screen.HomeScreen>().selectedTimeTableId
+
+                    Log.d(TAG, "Passed selected time table id: $passedSelectedTimeTableId")
+
                     state.copy(
-                        selectedTimeTable = mainTimeTable
+                        selectedTimeTable = findTimeTableWithDetailsById(passedSelectedTimeTableId)?.timeTable
+                            ?: mainTimeTable
                     )
                 }
+
+                Log.d(TAG, "Selected time table id: ${uiState.value.selectedTimeTable.id}")
 
                 HomeDataState.Success(
                     mainTimeTableId = mainTimeTable.id,

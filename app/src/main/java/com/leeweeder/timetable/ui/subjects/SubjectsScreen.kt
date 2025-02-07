@@ -39,7 +39,7 @@ import org.koin.androidx.compose.koinViewModel
 @Composable
 fun SubjectsScreen(
     onNavigateBack: () -> Unit,
-    onNavigateToHomeScreenForSubjectEdit: (Int) -> Unit,
+    onNavigateToHomeScreenForSubjectEdit: (subjectIdToBeEdited: Int) -> Unit,
     viewModel: SubjectsScreenViewModel = koinViewModel()
 ) {
     val uiState by viewModel.subjectsWithDetails.collectAsStateWithLifecycle()
@@ -48,7 +48,9 @@ fun SubjectsScreen(
         onNavigateBack = onNavigateBack,
         onEvent = viewModel::onEvent,
         uiState = uiState,
-        onEditClick = onNavigateToHomeScreenForSubjectEdit
+        onEditClick = {
+            onNavigateToHomeScreenForSubjectEdit(it)
+        }
     )
 }
 
@@ -84,7 +86,12 @@ private fun SubjectsScreen(
                     paddingValues = it,
                     onEditClick = onEditClick,
                     onDeleteClick = { subject, sessions ->
-                        onEvent(SubjectsScreenEvent.DeleteSubject(subject = subject, sessions = sessions))
+                        onEvent(
+                            SubjectsScreenEvent.DeleteSubject(
+                                subject = subject,
+                                sessions = sessions
+                            )
+                        )
                     },
                     subjectsWithDetails = uiState.subjectsWithDetails
                 )

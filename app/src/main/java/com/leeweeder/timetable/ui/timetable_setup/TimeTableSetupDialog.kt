@@ -73,16 +73,17 @@ import java.util.Locale
 @Composable
 fun TimeTableSetupDialog(
     onDismissRequest: () -> Unit,
-    onNavigateToHomeScreen: () -> Unit,
+    onNavigateToHomeScreen: (selectedTimeTableId: Int) -> Unit,
     viewModel: TimeTableSetupViewModel = koinViewModel()
 ) {
     val uiState by viewModel.uiState
     val eventFlow by viewModel.eventFlow.collectAsStateWithLifecycle(null)
 
+
     TimeTableSetupDialog(
         onDismissRequest = onDismissRequest,
         onNavigateToHomeScreen = onNavigateToHomeScreen,
-        eventFlow = eventFlow,
+        uiEvent = eventFlow,
         uiState = uiState,
         onEvent = viewModel::onEvent
     )
@@ -92,16 +93,15 @@ fun TimeTableSetupDialog(
 @Composable
 fun TimeTableSetupDialog(
     onDismissRequest: () -> Unit,
-    onNavigateToHomeScreen: () -> Unit,
-    eventFlow: TimeTableSetUpUiEvent?,
+    onNavigateToHomeScreen: (selectedTimeTableId: Int) -> Unit,
+    uiEvent: TimeTableSetUpUiEvent?,
     uiState: TimeTableSetupUiState,
     onEvent: (TimeTableSetupEvent) -> Unit
 ) {
-    LaunchedEffect(eventFlow) {
-        when (eventFlow) {
-            TimeTableSetUpUiEvent.FinishedSaving -> {
-                // Done saving navigate away
-                onNavigateToHomeScreen()
+    LaunchedEffect(uiEvent) {
+        when (uiEvent) {
+            is TimeTableSetUpUiEvent.FinishedSaving -> {
+                onNavigateToHomeScreen(uiEvent.timeTableId)
             }
 
             null -> {

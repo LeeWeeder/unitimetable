@@ -1,6 +1,7 @@
 package com.leeweeder.timetable
 
 import android.os.Bundle
+import android.util.Log
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
@@ -14,6 +15,7 @@ import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.dialog
 import androidx.navigation.compose.rememberNavController
+import androidx.navigation.toRoute
 import com.leeweeder.timetable.ui.HomeScreen
 import com.leeweeder.timetable.ui.subjects.SubjectsScreen
 import com.leeweeder.timetable.ui.theme.TimeTableTheme
@@ -43,7 +45,8 @@ class MainActivity : ComponentActivity() {
                     val navController = rememberNavController()
                     MainNavHost(
                         navController = navController,
-                        startDestination = uiState.startDestination
+                        startDestination = uiState.startDestination,
+                        mainTimeTableId = uiState.mainTimeTableId
                     )
                 }
             }
@@ -52,7 +55,11 @@ class MainActivity : ComponentActivity() {
 }
 
 @Composable
-private fun MainNavHost(navController: NavHostController, startDestination: Destination) {
+private fun MainNavHost(
+    navController: NavHostController,
+    startDestination: Destination,
+    mainTimeTableId: Int
+) {
 
     fun navigateUp() {
         navController.navigateUp()
@@ -71,14 +78,26 @@ private fun MainNavHost(navController: NavHostController, startDestination: Dest
         startDestination = startDestination
     ) {
 
-        homeScreen { navController.navigate(Destination.Screen.SubjectsScreen) }
+        homeScreen(
+            onNavigateToSubjectsScreen = {
+                navController.navigate(it)
+            },
+            onNavigateToGetNewTimeTableNameDialog = { isInitialization, selectedTimeTableId ->
+                navController.navigate(
+                    Destination.Dialog.GetTimeTableNameDialog(
+                        isInitialization,
+                        selectedTimeTableId
+                    )
+                )
+            }
+        )
 
         timeTableSetupDialog(
             onNavigateUp = {
                 navigateUp()
             },
             onNavigateToHomeScreen = {
-                navigateAndPreventGoingBack(Destination.Screen.HomeScreen())
+                navigateAndPreventGoingBack(Destination.Screen.HomeScreen(selectedTimeTableId = it))
             }
         )
 
@@ -87,9 +106,9 @@ private fun MainNavHost(navController: NavHostController, startDestination: Dest
                 navigateUp()
             },
             onNavigateToTimeTableSetupDialog = {
-                navController.navigate(Destination.Dialog.TimeTableSetupDialog(it))
+                navController.navigate(it)
             },
-            isCancelable = startDestination == Destination.Screen.HomeScreen
+            isCancelable = mainTimeTableId != NonExistingMainTimeTableId
         )
 
         subjectsScreen(
@@ -97,29 +116,46 @@ private fun MainNavHost(navController: NavHostController, startDestination: Dest
                 navController.popBackStack()
             },
             onNavigateToHomeScreenForSubjectEdit = {
-                navigateAndPreventGoingBack(Destination.Screen.HomeScreen(it))
+                navigateAndPreventGoingBack(it)
             }
         )
     }
 }
 
 private fun NavGraphBuilder.homeScreen(
-    onNavigateToSubjectsScreen: () -> Unit
+    onNavigateToSubjectsScreen: (Destination.Screen.SubjectsScreen) -> Unit,
+    onNavigateToGetNewTimeTableNameDialog: (isInitialization: Boolean, selectedTimeTableId: Int) -> Unit
 ) {
     composable<Destination.Screen.HomeScreen> {
-        HomeScreen(onNavigateToSubjectsScreen = onNavigateToSubjectsScreen)
+        HomeScreen(
+            selectedTimeTableId = it.toRoute<Destination.Screen.HomeScreen>().selectedTimeTableId,
+            onNavigateToSubjectsScreen = {
+                onNavigateToSubjectsScreen(Destination.Screen.SubjectsScreen(it))
+            },
+            onNavigateToGetNewTimeTableNameDialog = { isInitialization, selectedTimeTableId ->
+                onNavigateToGetNewTimeTableNameDialog(isInitialization, selectedTimeTableId)
+            }
+        )
     }
 }
 
 private fun NavGraphBuilder.getTimeTableNameDialog(
     onNavigateUp: () -> Unit,
-    onNavigateToTimeTableSetupDialog: (String) -> Unit,
+    onNavigateToTimeTableSetupDialog: (Destination.Dialog.TimeTableSetupDialog) -> Unit,
     isCancelable: Boolean
 ) {
     dialog<Destination.Dialog.GetTimeTableNameDialog> {
         GetTimeTableNameDialog(
             onDismissRequest = onNavigateUp,
-            onNavigateToTimeTableSetupDialog = onNavigateToTimeTableSetupDialog,
+            onNavigateToTimeTableSetupDialog = { timeTableName, isInitialization ->
+                onNavigateToTimeTableSetupDialog(
+                    Destination.Dialog.TimeTableSetupDialog(
+                        timeTableName = timeTableName,
+                        isInitialization = isInitialization,
+                        selectedTimeTableId = it.toRoute<Destination.Dialog.GetTimeTableNameDialog>().selectedTimeTableId
+                    )
+                )
+            },
             isCancelButtonEnabled = isCancelable
         )
     }
@@ -127,9 +163,9 @@ private fun NavGraphBuilder.getTimeTableNameDialog(
 
 private fun NavGraphBuilder.timeTableSetupDialog(
     onNavigateUp: () -> Unit,
-    onNavigateToHomeScreen: () -> Unit
+    onNavigateToHomeScreen: (selectedTimeTableId: Int) -> Unit
 ) {
-    dialog<Destination.Dialog.TimeTableSetupDialog> { backStackEntry ->
+    dialog<Destination.Dialog.TimeTableSetupDialog> {
         TimeTableSetupDialog(
             onDismissRequest = onNavigateUp,
             onNavigateToHomeScreen = onNavigateToHomeScreen
@@ -139,12 +175,24 @@ private fun NavGraphBuilder.timeTableSetupDialog(
 
 private fun NavGraphBuilder.subjectsScreen(
     onNavigateBack: () -> Unit,
-    onNavigateToHomeScreenForSubjectEdit: (Int) -> Unit
+    onNavigateToHomeScreenForSubjectEdit: (Destination.Screen.HomeScreen) -> Unit
 ) {
-    composable<Destination.Screen.SubjectsScreen> {
+    composable<Destination.Screen.SubjectsScreen> { backStackEntry ->
         SubjectsScreen(
             onNavigateBack = onNavigateBack,
-            onNavigateToHomeScreenForSubjectEdit = onNavigateToHomeScreenForSubjectEdit
+            onNavigateToHomeScreenForSubjectEdit = {
+                val selectedTimeTableId =
+                    backStackEntry.toRoute<Destination.Screen.SubjectsScreen>().timeTableId
+
+                Log.d("subjectsScreen", "Selected time table id: $selectedTimeTableId")
+
+                onNavigateToHomeScreenForSubjectEdit(
+                    Destination.Screen.HomeScreen(
+                        subjectIdToBeEdited = it,
+                        selectedTimeTableId = selectedTimeTableId
+                    )
+                )
+            }
         )
     }
 }
