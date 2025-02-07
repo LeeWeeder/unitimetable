@@ -7,11 +7,9 @@ import androidx.lifecycle.SavedStateHandle
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import androidx.navigation.toRoute
-import com.leeweeder.timetable.data.DataStoreRepository
-import com.leeweeder.timetable.data.source.session.Session
-import com.leeweeder.timetable.data.source.session.SessionDataSource
-import com.leeweeder.timetable.data.source.timetable.TimeTable
-import com.leeweeder.timetable.data.source.timetable.TimeTableDataSource
+import com.leeweeder.timetable.domain.model.TimeTable
+import com.leeweeder.timetable.domain.repository.DataStoreRepository
+import com.leeweeder.timetable.domain.repository.TimeTableRepository
 import com.leeweeder.timetable.ui.util.getDays
 import com.leeweeder.timetable.ui.util.getTimes
 import com.leeweeder.timetable.util.Destination
@@ -22,8 +20,7 @@ import java.time.DayOfWeek
 import java.time.LocalTime
 
 class TimeTableSetupViewModel(
-    private val timeTableDataSource: TimeTableDataSource,
-    private val sessionDataSource: SessionDataSource,
+    private val timeTableRepository: TimeTableRepository,
     private val dataStoreRepository: DataStoreRepository,
     private val savedStateHandle: SavedStateHandle
 ) : ViewModel() {
@@ -99,21 +96,7 @@ class TimeTableSetupViewModel(
 
                         val uiState = uiState.value
                         // Insert timetable
-                        val timeTableId =
-                            timeTableDataSource.insertTimeTable(uiState.timeTable)
-
-                        val sessions = uiState.periodStartTimes
-                            .flatMap { startTime ->
-                                uiState.days.map { day ->
-                                    Session.emptySession(
-                                        timeTableId = timeTableId,
-                                        dayOfWeek = day,
-                                        startTime = startTime
-                                    )
-                                }
-                            }
-
-                        sessionDataSource.insertSessions(sessions)
+                        val timeTableId = timeTableRepository.insertTimeTable(uiState.timeTable)
 
                         if (savedStateHandle.toRoute<Destination.Dialog.TimeTableSetupDialog>().isInitialization) {
                             dataStoreRepository.setMainTimeTableId(timeTableId)

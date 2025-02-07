@@ -79,9 +79,6 @@ private fun MainNavHost(
     ) {
 
         homeScreen(
-            onNavigateToSubjectsScreen = {
-                navController.navigate(it)
-            },
             onNavigateToGetNewTimeTableNameDialog = { isInitialization, selectedTimeTableId ->
                 navController.navigate(
                     Destination.Dialog.GetTimeTableNameDialog(
@@ -123,15 +120,11 @@ private fun MainNavHost(
 }
 
 private fun NavGraphBuilder.homeScreen(
-    onNavigateToSubjectsScreen: (Destination.Screen.SubjectsScreen) -> Unit,
     onNavigateToGetNewTimeTableNameDialog: (isInitialization: Boolean, selectedTimeTableId: Int) -> Unit
 ) {
     composable<Destination.Screen.HomeScreen> {
         HomeScreen(
             selectedTimeTableId = it.toRoute<Destination.Screen.HomeScreen>().selectedTimeTableId,
-            onNavigateToSubjectsScreen = {
-                onNavigateToSubjectsScreen(Destination.Screen.SubjectsScreen(it))
-            },
             onNavigateToGetNewTimeTableNameDialog = { isInitialization, selectedTimeTableId ->
                 onNavigateToGetNewTimeTableNameDialog(isInitialization, selectedTimeTableId)
             }

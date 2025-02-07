@@ -7,14 +7,14 @@ import androidx.lifecycle.SavedStateHandle
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import androidx.navigation.toRoute
-import com.leeweeder.timetable.data.source.timetable.TimeTableDataSource
+import com.leeweeder.timetable.domain.repository.TimeTableRepository
 import com.leeweeder.timetable.util.Destination
 import kotlinx.coroutines.launch
 
 private const val TAG = "GetTimeTableNameViewModel"
 
 class GetTimeTableNameViewModel(
-    private val timeTableDataSource: TimeTableDataSource,
+    private val timeTableRepository: TimeTableRepository,
     savedStateHandle: SavedStateHandle
 ) : ViewModel() {
     private val _timeTableNames = mutableStateOf(emptyList<String>())
@@ -30,7 +30,7 @@ class GetTimeTableNameViewModel(
     init {
 
         viewModelScope.launch {
-            _timeTableNames.value = timeTableDataSource.getTimeTableNames()
+            _timeTableNames.value = timeTableRepository.getTimeTableNames()
 
             Log.d(TAG, "Time table names: ${timeTableNames.value}")
 

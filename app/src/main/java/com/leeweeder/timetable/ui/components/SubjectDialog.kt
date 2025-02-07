@@ -54,9 +54,9 @@ import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import com.leeweeder.timetable.R
-import com.leeweeder.timetable.data.source.instructor.Instructor
-import com.leeweeder.timetable.data.source.session.Session
-import com.leeweeder.timetable.data.source.subject.Subject
+import com.leeweeder.timetable.domain.model.Instructor
+import com.leeweeder.timetable.domain.model.Session
+import com.leeweeder.timetable.domain.model.Subject
 import com.leeweeder.timetable.feature_color_picker.ColorPickerDialog
 import com.leeweeder.timetable.feature_color_picker.DefaultChromaValue
 import com.leeweeder.timetable.feature_color_picker.DefaultToneValue
@@ -111,7 +111,7 @@ fun EditScheduleDialog(
     state: SubjectDialogState,
     instructors: List<Instructor>,
     onConfirmClick: (Subject, Instructor) -> Unit,
-    onDeleteSubjectClick: (Subject, List<Session>) -> Unit,
+    onDeleteSubjectClick: (Subject) -> Unit,
     onScheduleClick: (Int) -> Unit
 ) {
     var isDeleteConfirmationDialogVisible by remember { mutableStateOf(false) }
@@ -128,8 +128,7 @@ fun EditScheduleDialog(
                         code = state.code,
                         color = state.color.toArgb(),
                         instructorId = if (state.instructor.id == 0) null else state.instructor.id
-                    ),
-                    state.sessions
+                    )
                 )
                 isDeleteConfirmationDialogVisible = false
             })
@@ -650,7 +649,7 @@ private fun EditSubjectDialogPreview() {
         onConfirmClick = { _, _ -> },
         onScheduleClick = {},
         state = rememberSubjectDialogState(true),
-        onDeleteSubjectClick = { _, _ -> },
+        onDeleteSubjectClick = { },
         instructors = emptyList()
     )
 }

@@ -1,11 +1,9 @@
-package com.leeweeder.timetable.data.source.session
+package com.leeweeder.timetable.domain.model
 
 import androidx.room.Entity
 import androidx.room.ForeignKey
 import androidx.room.Index
 import androidx.room.PrimaryKey
-import com.leeweeder.timetable.data.source.subject.Subject
-import com.leeweeder.timetable.data.source.timetable.TimeTable
 import java.time.DayOfWeek
 import java.time.LocalTime
 
@@ -95,13 +93,13 @@ fun Session.toSubjectSession(subjectId: Int): Session {
     )
 }
 
-fun Session.toEmptySession(): Session {
+fun Session.toEmptySession(label: String? = null): Session {
     return Session(
         timeTableId = timeTableId,
         dayOfWeek = dayOfWeek,
         startTime = startTime,
         id = id,
         subjectId = null,
-        label = null
+        label = label
     )
 }

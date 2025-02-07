@@ -2,7 +2,7 @@ package com.leeweeder.timetable
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
-import com.leeweeder.timetable.data.DataStoreRepository
+import com.leeweeder.timetable.domain.repository.DataStoreRepository
 import com.leeweeder.timetable.util.Destination
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.map

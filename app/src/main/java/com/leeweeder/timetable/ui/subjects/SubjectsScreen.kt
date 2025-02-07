@@ -30,9 +30,7 @@ import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.leeweeder.timetable.R
-import com.leeweeder.timetable.data.source.session.Session
-import com.leeweeder.timetable.data.source.subject.Subject
-import com.leeweeder.timetable.data.source.subject.SubjectWithDetails
+import com.leeweeder.timetable.domain.relation.SubjectWithDetails
 import com.leeweeder.timetable.ui.components.IconButton
 import org.koin.androidx.compose.koinViewModel
 
@@ -85,12 +83,9 @@ private fun SubjectsScreen(
                 SubjectsList(
                     paddingValues = it,
                     onEditClick = onEditClick,
-                    onDeleteClick = { subject, sessions ->
+                    onDeleteClick = { id ->
                         onEvent(
-                            SubjectsScreenEvent.DeleteSubject(
-                                subject = subject,
-                                sessions = sessions
-                            )
+                            SubjectsScreenEvent.DeleteSubject(id)
                         )
                     },
                     subjectsWithDetails = uiState.subjectsWithDetails
@@ -129,7 +124,7 @@ private fun SubjectsList(
     paddingValues: PaddingValues,
     subjectsWithDetails: List<SubjectWithDetails>,
     onEditClick: (Int) -> Unit,
-    onDeleteClick: (Subject, List<Session>) -> Unit
+    onDeleteClick: (Int) -> Unit
 ) {
     LazyColumn(modifier = Modifier.padding(paddingValues)) {
         subjects(subjectsWithDetails, onEditClick = onEditClick, onDeleteClick = onDeleteClick)
@@ -139,17 +134,19 @@ private fun SubjectsList(
 private fun LazyListScope.subjects(
     subjectsWithDetails: List<SubjectWithDetails>,
     onEditClick: (subjectId: Int) -> Unit,
-    onDeleteClick: (Subject, List<Session>) -> Unit
+    onDeleteClick: (Int) -> Unit
 ) {
     items(subjectsWithDetails) { subjectWithDetails ->
 
         val subject = subjectWithDetails.subject
 
-        SubjectItem(subjectWithDetails, onEditClick = {
-            onEditClick(subject.id)
-        }, onDeleteClick = {
-            onDeleteClick(subject, subjectWithDetails.sessions)
-        })
+        SubjectItem(
+            subjectWithDetails, onEditClick = {
+                onEditClick(subject.id)
+            }, onDeleteClick = {
+                onDeleteClick(subject.id)
+            }
+        )
     }
 }
 

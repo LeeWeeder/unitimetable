@@ -7,19 +7,18 @@ import androidx.lifecycle.SavedStateHandle
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import androidx.navigation.toRoute
-import com.leeweeder.timetable.data.DataStoreRepository
-import com.leeweeder.timetable.data.source.SessionAndSubjectAndInstructor
-import com.leeweeder.timetable.data.source.TimeTableWithDetails
-import com.leeweeder.timetable.data.source.instructor.Instructor
-import com.leeweeder.timetable.data.source.instructor.InstructorDataSource
-import com.leeweeder.timetable.data.source.session.Session
-import com.leeweeder.timetable.data.source.session.SessionDataSource
-import com.leeweeder.timetable.data.source.session.toEmptySession
-import com.leeweeder.timetable.data.source.session.toSubjectSession
-import com.leeweeder.timetable.data.source.subject.SubjectDataSource
-import com.leeweeder.timetable.data.source.subject.SubjectWithDetails
-import com.leeweeder.timetable.data.source.timetable.TimeTable
-import com.leeweeder.timetable.data.source.timetable.TimeTableDataSource
+import com.leeweeder.timetable.domain.model.Instructor
+import com.leeweeder.timetable.domain.model.Session
+import com.leeweeder.timetable.domain.model.Subject
+import com.leeweeder.timetable.domain.model.TimeTable
+import com.leeweeder.timetable.domain.relation.SessionAndSubjectAndInstructor
+import com.leeweeder.timetable.domain.relation.SubjectWithDetails
+import com.leeweeder.timetable.domain.relation.TimeTableWithDetails
+import com.leeweeder.timetable.domain.repository.DataStoreRepository
+import com.leeweeder.timetable.domain.repository.InstructorRepository
+import com.leeweeder.timetable.domain.repository.SessionRepository
+import com.leeweeder.timetable.domain.repository.SubjectRepository
+import com.leeweeder.timetable.domain.repository.TimeTableRepository
 import com.leeweeder.timetable.ui.HomeEvent.*
 import com.leeweeder.timetable.ui.HomeUiEvent.*
 import com.leeweeder.timetable.ui.timetable_setup.DefaultTimeTable
@@ -45,10 +44,10 @@ import java.time.LocalTime
 private const val TAG = "HomeViewModel"
 
 class HomeViewModel(
-    timeTableDataSource: TimeTableDataSource,
-    private val sessionDataSource: SessionDataSource,
-    private val subjectDataSource: SubjectDataSource,
-    private val instructorDataSource: InstructorDataSource,
+    timeTableRepository: TimeTableRepository,
+    private val sessionRepository: SessionRepository,
+    private val subjectRepository: SubjectRepository,
+    private val instructorRepository: InstructorRepository,
     dataStoreRepository: DataStoreRepository,
     savedStateHandle: SavedStateHandle
 ) : ViewModel() {
@@ -71,16 +70,13 @@ class HomeViewModel(
     val dataState = dataStoreRepository.timeTablePrefFlow
         .flatMapLatest { timeTablePref ->
             combine(
-                timeTableDataSource.observeTimeTablesWithDetails().onEach {
+                timeTableRepository.observeTimeTableWithDetails().onEach {
                     Log.d(TAG, "TimeTablesWithDetails emitted: $it")
                 },
-                subjectDataSource.observeFiveRecentlyAddedSubjects().onEach {
-                    Log.d(TAG, "FiveRecentlyAddedSubjects emitted: $it")
-                },
-                instructorDataSource.observeInstructors().onEach {
+                instructorRepository.observeInstructors().onEach {
                     Log.d(TAG, "Instructors emitted: $it")
                 }
-            ) { timeTableWithDetails, fiveRecentlyAddedSubjects, instructors ->
+            ) { timeTableWithDetails, instructors ->
                 Log.d(
                     TAG,
                     "Combine block executing with mainTableId: ${timeTablePref.mainTimeTableId}"
@@ -119,7 +115,6 @@ class HomeViewModel(
                 HomeDataState.Success(
                     mainTimeTableId = mainTimeTable.id,
                     instructors = instructors,
-                    fiveRecentlyAddedSubjects = fiveRecentlyAddedSubjects,
                     timeTableWithDetails = timeTableWithDetails
                 )
             }
@@ -130,24 +125,8 @@ class HomeViewModel(
 
     fun onEvent(event: HomeEvent) {
 
-        suspend fun upsertSubject(subject: com.leeweeder.timetable.data.source.subject.Subject): Int {
-            return subjectDataSource.upsertSubject(subject)
-        }
-
-        suspend fun upsertSubjectWithInstructor(
-            subject: com.leeweeder.timetable.data.source.subject.Subject,
-            instructor: Instructor
-        ): Int {
-            val instructorId =
-                if (instructorDataSource.getInstructorById(instructor.id) == null) {
-                    instructorDataSource.upsertInstructor(instructor)
-                } else {
-                    instructor.id
-                }
-
-            val subjectToUpsert = subject.copy(instructorId = instructorId)
-
-            return upsertSubject(subjectToUpsert)
+        suspend fun upsertSubject(subject: Subject, instructor: Instructor?): Int {
+            return subjectRepository.upsertSubject(subject, instructor)
         }
 
         when (event) {
@@ -167,8 +146,7 @@ class HomeViewModel(
             is SaveSubject -> {
                 try {
                     viewModelScope.launch {
-                        val recentlyInsertedSubject =
-                            upsertSubjectWithInstructor(event.newSubject, event.instructor)
+                        val recentlyInsertedSubject = upsertSubject(event.subject, event.instructor)
 
                         onEvent(SetOnEditMode)
                         onEvent(SetActiveSubjectIdForEditing(recentlyInsertedSubject))
@@ -184,18 +162,15 @@ class HomeViewModel(
             is SetSessionWithSubject -> {
                 try {
                     viewModelScope.launch {
-                        val session = event.session
+                        val session = event.sessionId
+                        val sessionId = session.id
                         val subjectId = session.subjectId
                         val activeSubjectId = uiState.value.activeSubjectIdForScheduling!!
 
-                        if (session.subjectId == null || subjectId != activeSubjectId) {
-                            sessionDataSource.updateSession(
-                                session.toSubjectSession(
-                                    activeSubjectId
-                                )
-                            )
+                        if (subjectId == null || subjectId != activeSubjectId) {
+                            sessionRepository.updateSession(id = sessionId, subjectId = activeSubjectId)
                         } else {
-                            sessionDataSource.updateSession(session.toEmptySession())
+                            sessionRepository.updateSession(id = sessionId, label = null)
                         }
                     }
                 } catch (e: Exception) {
@@ -225,7 +200,7 @@ class HomeViewModel(
             is SaveEditedSubject -> {
                 try {
                     viewModelScope.launch {
-                        upsertSubjectWithInstructor(event.newSubject, event.instructor)
+                        upsertSubject(event.newSubject, event.instructor)
                         _eventFlow.emit(DoneEditingSubject)
                     }
                 } catch (e: Exception) {
@@ -244,7 +219,7 @@ class HomeViewModel(
                 viewModelScope.launch {
                     _eventFlow.emit(
                         FinishedLoadingToBeEditedSubject(
-                            subjectDataSource.getSubjectWithDetails(event.subjectId)
+                            subjectRepository.getSubjectWithDetailsById(event.subjectId)
                         )
                     )
                 }
@@ -254,9 +229,7 @@ class HomeViewModel(
                 viewModelScope.launch {
                     try {
                         val subjectToDelete = event.subjectToDelete
-                        subjectDataSource.deleteSubject(subjectToDelete)
-                        sessionDataSource.updateSessions(event.sessions.map { it.toEmptySession() })
-                        // TODO: Extract this to a function or a repository/use case
+                        subjectRepository.deleteSubjectById(subjectToDelete.id)
                         _eventFlow.emit(FinishedDeletingSubject(subjectToDelete))
                     } catch (e: Exception) {
                         // TODO: Implement proper error handling
@@ -267,7 +240,7 @@ class HomeViewModel(
 
             is ReinsertSubject -> {
                 viewModelScope.launch {
-                    upsertSubject(event.subject)
+                    upsertSubject(event.subject, instructor = null)
                 }
             }
         }
@@ -281,27 +254,27 @@ sealed interface HomeUiEvent {
     ) : HomeUiEvent
 
     data object DoneAddingSubject : HomeUiEvent
-    data class FinishedDeletingSubject(val deletedSubject: com.leeweeder.timetable.data.source.subject.Subject) :
+    data class FinishedDeletingSubject(val deletedSubject: Subject) :
         HomeUiEvent
 }
 
 sealed interface HomeEvent {
     data class SelectTimeTable(val newTimeTableId: Int) : HomeEvent
     data class SaveSubject(
-        val newSubject: com.leeweeder.timetable.data.source.subject.Subject,
+        val subject: Subject,
         val instructor: Instructor
     ) : HomeEvent
 
     data class ReinsertSubject(
-        val subject: com.leeweeder.timetable.data.source.subject.Subject
+        val subject: Subject
     ) : HomeEvent
 
     data class SaveEditedSubject(
-        val newSubject: com.leeweeder.timetable.data.source.subject.Subject,
+        val newSubject: Subject,
         val instructor: Instructor
     ) : HomeEvent
 
-    data class SetSessionWithSubject(val session: Session) :
+    data class SetSessionWithSubject(val sessionId: Session) :
         HomeEvent
 
     data object SetOnDefaultMode : HomeEvent
@@ -312,8 +285,7 @@ sealed interface HomeEvent {
     data object ClearUiEvent : HomeEvent
     data class LoadToEditSubject(val subjectId: Int) : HomeEvent
     data class DeleteSubject(
-        val subjectToDelete: com.leeweeder.timetable.data.source.subject.Subject,
-        val sessions: List<Session>
+        val subjectToDelete: Subject
     ) :
         HomeEvent
 }
@@ -322,7 +294,6 @@ sealed interface HomeDataState {
     data class Success(
         val mainTimeTableId: Int,
         val instructors: List<Instructor> = emptyList(),
-        val fiveRecentlyAddedSubjects: List<com.leeweeder.timetable.data.source.subject.Subject> = emptyList(),
         val timeTableWithDetails: List<TimeTableWithDetails> = emptyList(),
     ) : HomeDataState {
 
@@ -365,15 +336,15 @@ fun isSameSchedule(pair: Pair<Schedule, Schedule>): Boolean {
     val firstSession = pair.first
     val secondSession = pair.second
 
-    if (firstSession.subject != null && secondSession.subject != null) {
-        return firstSession.subject.id == secondSession.subject.id
+    if (firstSession.subjectWrapper != null && secondSession.subjectWrapper != null) {
+        return firstSession.subjectWrapper.id == secondSession.subjectWrapper.id
     }
 
     if (firstSession.label != null && secondSession.label != null) {
         return firstSession.label == secondSession.label
     }
 
-    if (firstSession.subject == null && secondSession.subject == null && firstSession.label == null && secondSession.label == null) {
+    if (firstSession.subjectWrapper == null && secondSession.subjectWrapper == null && firstSession.label == null && secondSession.label == null) {
         return false
     }
 
@@ -405,9 +376,9 @@ fun List<SessionAndSubjectAndInstructor>.toMappedSchedules(): Map<DayOfWeek, Lis
             val periodSpan = 1
 
             if (it.session.isSubject) {
-                val subject =
+                val subjectWrapper =
                     it.subjectWithInstructor!!.subject.let { sub ->
-                        Subject(
+                        SubjectWrapper(
                             id = it.session.subjectId!!,
                             description = sub.description,
                             code = sub.code,
@@ -417,7 +388,7 @@ fun List<SessionAndSubjectAndInstructor>.toMappedSchedules(): Map<DayOfWeek, Lis
                     }
 
                 Schedule.subjectSchedule(
-                    subject = subject,
+                    subjectWrapper = subjectWrapper,
                     periodSpan = periodSpan
                 )
             } else {
@@ -468,8 +439,8 @@ fun mergeSameSchedules(schedules: List<Schedule>): Schedule {
 
     val first = schedules.first()
 
-    return if (first.subject != null) {
-        Schedule.subjectSchedule(first.subject, periodSpan)
+    return if (first.subjectWrapper != null) {
+        Schedule.subjectSchedule(first.subjectWrapper, periodSpan)
     } else {
         Schedule.emptySchedule(first.label, periodSpan)
     }
@@ -477,16 +448,16 @@ fun mergeSameSchedules(schedules: List<Schedule>): Schedule {
 
 @ConsistentCopyVisibility
 data class Schedule private constructor(
-    val subject: Subject?,
+    val subjectWrapper: SubjectWrapper?,
     val periodSpan: Int,
     val label: String?
 ) {
     /** Subject */
     private constructor(
-        subject: Subject,
+        subjectWrapper: SubjectWrapper,
         periodSpan: Int
     ) : this(
-        subject = subject,
+        subjectWrapper = subjectWrapper,
         periodSpan = periodSpan,
         label = null
     )
@@ -496,7 +467,7 @@ data class Schedule private constructor(
         label: String?,
         periodSpan: Int
     ) : this(
-        subject = null,
+        subjectWrapper = null,
         periodSpan = periodSpan,
         label = label
     )
@@ -505,8 +476,8 @@ data class Schedule private constructor(
         /**
          * Creates a subject [com.leeweeder.timetable.ui.Schedule].
          * */
-        fun subjectSchedule(subject: Subject, periodSpan: Int) =
-            Schedule(subject = subject, periodSpan = periodSpan)
+        fun subjectSchedule(subjectWrapper: SubjectWrapper, periodSpan: Int) =
+            Schedule(subjectWrapper = subjectWrapper, periodSpan = periodSpan)
 
         /**
          * Creates an empty [com.leeweeder.timetable.ui.Schedule].
@@ -516,7 +487,7 @@ data class Schedule private constructor(
     }
 }
 
-data class Subject(
+data class SubjectWrapper(
     val id: Int,
     val description: String,
     val code: String,
@@ -524,7 +495,7 @@ data class Subject(
     val instructor: Instructor?
 ) {
     override fun equals(other: Any?): Boolean {
-        if (other !is Subject) {
+        if (other !is SubjectWrapper) {
             return false
         }
 

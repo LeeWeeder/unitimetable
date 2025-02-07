@@ -1,4 +1,4 @@
-package com.leeweeder.timetable.data.source.instructor
+package com.leeweeder.timetable.domain.model
 
 import androidx.room.Entity
 import androidx.room.Index

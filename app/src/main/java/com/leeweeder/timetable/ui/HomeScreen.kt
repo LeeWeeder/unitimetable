@@ -38,13 +38,10 @@ import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButtonDefaults
 import androidx.compose.material3.IconToggleButton
-import androidx.compose.material3.ListItem
-import androidx.compose.material3.ListItemDefaults
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.ModalDrawerSheet
 import androidx.compose.material3.ModalNavigationDrawer
 import androidx.compose.material3.NavigationDrawerItem
-import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.RichTooltip
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.SnackbarDuration
@@ -92,12 +89,12 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.google.android.material.color.utilities.Scheme
 import com.leeweeder.timetable.NonExistingMainTimeTableId
 import com.leeweeder.timetable.R
-import com.leeweeder.timetable.data.source.SessionAndSubjectAndInstructor
-import com.leeweeder.timetable.data.source.instructor.Instructor
-import com.leeweeder.timetable.data.source.session.Session
-import com.leeweeder.timetable.data.source.subject.Subject
-import com.leeweeder.timetable.data.source.subject.SubjectWithInstructor
-import com.leeweeder.timetable.data.source.timetable.TimeTable
+import com.leeweeder.timetable.domain.model.Instructor
+import com.leeweeder.timetable.domain.model.Session
+import com.leeweeder.timetable.domain.model.Subject
+import com.leeweeder.timetable.domain.model.TimeTable
+import com.leeweeder.timetable.domain.relation.SessionAndSubjectAndInstructor
+import com.leeweeder.timetable.domain.relation.SubjectWithInstructor
 import com.leeweeder.timetable.ui.components.EditScheduleDialog
 import com.leeweeder.timetable.ui.components.IconButton
 import com.leeweeder.timetable.ui.components.NewSubjectDialog
@@ -121,7 +118,6 @@ import kotlin.collections.component2
 @Composable
 fun HomeScreen(
     selectedTimeTableId: Int,
-    onNavigateToSubjectsScreen: (timeTableId: Int) -> Unit,
     onNavigateToGetNewTimeTableNameDialog: (isInitialization: Boolean, selectedTimeTableId: Int) -> Unit,
     viewModel: HomeViewModel = koinViewModel()
 ) {
@@ -146,9 +142,6 @@ fun HomeScreen(
         uiState = uiState,
         uiEvent = uiEvent,
         onEvent = viewModel::onEvent,
-        onNavigateToSubjectsScreen = {
-            onNavigateToSubjectsScreen(uiState.selectedTimeTable.id)
-        },
         onNavigateToGetNewTimeTableNameDialog = {
             onNavigateToGetNewTimeTableNameDialog(it, uiState.selectedTimeTable.id)
         }
@@ -161,7 +154,6 @@ private fun HomeScreen(
     dataState: HomeDataState,
     uiState: HomeUiState,
     uiEvent: HomeUiEvent?,
-    onNavigateToSubjectsScreen: () -> Unit,
     onNavigateToGetNewTimeTableNameDialog: (isInitialization: Boolean) -> Unit,
     onEvent: (HomeEvent) -> Unit
 ) {
@@ -185,7 +177,7 @@ private fun HomeScreen(
         onConfirmClick = { subject, instructor ->
             onEvent(
                 HomeEvent.SaveSubject(
-                    newSubject = subject, instructor = instructor
+                    subject = subject, instructor = instructor
                 )
             )
         },
@@ -203,8 +195,8 @@ private fun HomeScreen(
                 )
             )
         },
-        onDeleteSubjectClick = { subject, sessions ->
-            onEvent(HomeEvent.DeleteSubject(subject, sessions))
+        onDeleteSubjectClick = { subject ->
+            onEvent(HomeEvent.DeleteSubject(subject))
             editSubjectDialogState.hide()
         },
         onScheduleClick = {
@@ -279,11 +271,6 @@ private fun HomeScreen(
                     onEvent(HomeEvent.SelectTimeTable(timeTableId))
                     closeDrawer()
                 },
-                onRecentSubjectClick = {
-                    onEvent(HomeEvent.LoadToEditSubject(it))
-                    closeDrawer()
-                },
-                onNavigateToSubjectsScreen = onNavigateToSubjectsScreen,
                 dataState = dataState
             )
         }, drawerState = drawerState
@@ -439,8 +426,6 @@ private fun TimeTableNavigationDrawer(
     drawerState: DrawerState,
     selectedTimeTable: TimeTable,
     onTimeTableClick: (Int) -> Unit,
-    onRecentSubjectClick: (Int) -> Unit,
-    onNavigateToSubjectsScreen: () -> Unit,
     dataState: HomeDataState
 ) {
 
@@ -591,45 +576,6 @@ private fun TimeTableNavigationDrawer(
                             })
                         }
                     }
-                    val fiveRecentlyAddedSubjects = dataState.fiveRecentlyAddedSubjects
-                    if (fiveRecentlyAddedSubjects.isNotEmpty()) {
-                        item {
-                            Column(
-                                modifier = Modifier
-                                    .padding(top = 24.dp, bottom = 8.dp)
-                                    .padding(horizontal = 16.dp),
-                                verticalArrangement = Arrangement.spacedBy(16.dp)
-                            ) {
-                                HorizontalDivider(thickness = Dp.Hairline)
-                                LabelText("Recently added subjects")
-                            }
-                        }
-                        items(fiveRecentlyAddedSubjects) { subject ->
-                            ListItem(
-                                headlineContent = {
-                                    Text(
-                                        subject.description,
-                                        maxLines = 1,
-                                        overflow = TextOverflow.Ellipsis
-                                    )
-                                },
-                                colors = ListItemDefaults.colors(containerColor = Color.Transparent),
-                                modifier = Modifier.clickable(onClick = {
-                                    onRecentSubjectClick(subject.id)
-                                })
-                            )
-                        }
-                        item {
-                            Box(modifier = Modifier.padding(horizontal = 16.dp)) {
-                                OutlinedButton(
-                                    onClick = onNavigateToSubjectsScreen,
-                                    modifier = Modifier.fillMaxWidth()
-                                ) {
-                                    Text("See all")
-                                }
-                            }
-                        }
-                    }
                 }
             }
         }
@@ -760,8 +706,8 @@ private fun RowScope.DefaultModeGrid(
                     horizontalAlignment = Alignment.CenterHorizontally,
                     verticalArrangement = Arrangement.Center
                 ) {
-                    if (schedule.subject != null) {
-                        val argbColor = schedule.subject.color.toArgb()
+                    if (schedule.subjectWrapper != null) {
+                        val argbColor = schedule.subjectWrapper.color.toArgb()
 
                         val scheme = if (isSystemInDarkTheme()) {
                             Scheme.dark(argbColor)
@@ -800,23 +746,23 @@ private fun RowScope.DefaultModeGrid(
                             tooltip = @Composable {
                                 RichTooltip(action = {
                                     TextButton("Edit", onClick = {
-                                        onChangeToEditMode(schedule.subject.id)
+                                        onChangeToEditMode(schedule.subjectWrapper.id)
                                     })
                                 }, title = {
                                     Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
                                         Chip(
                                             iconId = R.drawable.book_24px,
-                                            text = schedule.subject.code
+                                            text = schedule.subjectWrapper.code
                                         )
                                         Text(
-                                            schedule.subject.description,
+                                            schedule.subjectWrapper.description,
                                             style = MaterialTheme.typography.bodyLargeEmphasized
                                         )
                                     }
                                 }) {
                                     Chip(
                                         iconId = R.drawable.account_box_24px,
-                                        text = schedule.subject.instructor?.name
+                                        text = schedule.subjectWrapper.instructor?.name
                                             ?: "No Instructor",
                                         iconColor = MaterialTheme.colorScheme.secondary
                                     )
@@ -837,7 +783,7 @@ private fun RowScope.DefaultModeGrid(
                                                 state.show()
                                             }
                                         } else {
-                                            onChangeToEditMode(schedule.subject.id)
+                                            onChangeToEditMode(schedule.subjectWrapper.id)
                                         }
                                     }),
                                 verticalArrangement = Arrangement.Center,
@@ -845,7 +791,7 @@ private fun RowScope.DefaultModeGrid(
                             ) {
                                 // TODO: Utilize parent size to distribute position and sizing of the texts
                                 Text(
-                                    schedule.subject.code.uppercase(),
+                                    schedule.subjectWrapper.code.uppercase(),
                                     style = MaterialTheme.typography.labelMediumEmphasized,
                                     color = scheme.onPrimary.toColor(),
                                     textAlign = TextAlign.Center
@@ -854,7 +800,7 @@ private fun RowScope.DefaultModeGrid(
 
                                 val bodySmall = MaterialTheme.typography.bodySmall
                                 val bodySmallFontSizeValue = bodySmall.fontSize.value
-                                Text(schedule.subject.description,
+                                Text(schedule.subjectWrapper.description,
                                     style = bodySmall.copy(
                                         fontSize = (bodySmallFontSizeValue - 2).sp,
                                         lineHeight = (bodySmallFontSizeValue - 1).sp
@@ -867,7 +813,7 @@ private fun RowScope.DefaultModeGrid(
                                     onTextLayout = {
                                         isTextTruncated = it.hasVisualOverflow
                                     })
-                                Text(schedule.subject.instructor?.name ?: "No instructor",
+                                Text(schedule.subjectWrapper.instructor?.name ?: "No instructor",
                                     style = MaterialTheme.typography.labelSmall,
                                     color = scheme.onPrimary.toColor(),
                                     modifier = Modifier.padding(top = 4.dp),
@@ -973,7 +919,7 @@ private fun RowScope.EditModeGrid(
         }
 }
 
-private val PreviewSessionWithSubjectAndInstructor = DayOfWeek.entries.flatMap { dayOfWeek ->
+private val PreviewSessionWithSubjectWrapperAndInstructor = DayOfWeek.entries.flatMap { dayOfWeek ->
     List(5) {
         SessionAndSubjectAndInstructor(
             session = if (it == 0 || it == 1) {
@@ -1005,7 +951,7 @@ private val PreviewSessionWithSubjectAndInstructor = DayOfWeek.entries.flatMap {
 @Composable
 private fun EditModeGridPreview() {
     Row {
-        EditModeGrid(sessionsWithSubjectAndInstructor = PreviewSessionWithSubjectAndInstructor,
+        EditModeGrid(sessionsWithSubjectAndInstructor = PreviewSessionWithSubjectWrapperAndInstructor,
             onGridClick = {})
     }
 }
@@ -1014,7 +960,7 @@ private fun EditModeGridPreview() {
 @Composable
 private fun DefaultModeGridPreview() {
     Row {
-        DefaultModeGrid(dayScheduleMap = PreviewSessionWithSubjectAndInstructor.toMappedSchedules(),
+        DefaultModeGrid(dayScheduleMap = PreviewSessionWithSubjectWrapperAndInstructor.toMappedSchedules(),
             onChangeToEditMode = { })
     }
 }

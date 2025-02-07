@@ -1,11 +1,11 @@
-package com.leeweeder.timetable.data.source
+package com.leeweeder.timetable.domain.relation
 
 import androidx.room.Embedded
 import androidx.room.Relation
-import com.leeweeder.timetable.data.source.session.Session
-import com.leeweeder.timetable.data.source.subject.Subject
-import com.leeweeder.timetable.data.source.subject.SubjectWithInstructor
-import com.leeweeder.timetable.data.source.timetable.TimeTable
+import com.leeweeder.timetable.domain.model.Instructor
+import com.leeweeder.timetable.domain.model.Session
+import com.leeweeder.timetable.domain.model.Subject
+import com.leeweeder.timetable.domain.model.TimeTable
 
 data class TimeTableWithDetails(
     @Embedded val timeTable: TimeTable,
@@ -25,4 +25,13 @@ data class SessionAndSubjectAndInstructor(
         entityColumn = "id"
     )
     val subjectWithInstructor: SubjectWithInstructor?,
+)
+
+data class SubjectWithInstructor(
+    @Embedded val subject: Subject,
+    @Relation(
+        parentColumn = "instructorId",
+        entityColumn = "id"
+    )
+    val instructor: Instructor?
 )

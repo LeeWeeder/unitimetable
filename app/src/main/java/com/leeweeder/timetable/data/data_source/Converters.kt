@@ -1,4 +1,4 @@
-package com.leeweeder.timetable.data.source
+package com.leeweeder.timetable.data.data_source
 
 import androidx.room.TypeConverter
 import java.time.DayOfWeek

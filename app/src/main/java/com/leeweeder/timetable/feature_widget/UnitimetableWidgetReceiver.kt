@@ -43,9 +43,9 @@ import androidx.glance.layout.width
 import androidx.glance.text.Text
 import androidx.glance.unit.ColorProvider
 import com.google.android.material.color.utilities.Scheme
-import com.leeweeder.timetable.data.DataStoreRepository
-import com.leeweeder.timetable.data.source.TimeTableWithDetails
-import com.leeweeder.timetable.data.source.timetable.TimeTableDataSource
+import com.leeweeder.timetable.domain.relation.TimeTableWithDetails
+import com.leeweeder.timetable.domain.repository.DataStoreRepository
+import com.leeweeder.timetable.domain.repository.TimeTableRepository
 import com.leeweeder.timetable.feature_widget.ui.theme.UnitimetableWidgetTheme
 import com.leeweeder.timetable.ui.CellBorderDirection
 import com.leeweeder.timetable.ui.Schedule
@@ -74,7 +74,7 @@ class UnitimetableWidgetReceiver : GlanceAppWidgetReceiver() {
 
 @Suppress("LocalVariableName")
 class UnitimetableWidget(
-    private val timeTableDataSource: TimeTableDataSource,
+    private val timeTableRepository: TimeTableRepository,
     private val dataStoreRepository: DataStoreRepository
 ) : GlanceAppWidget() {
 
@@ -93,7 +93,7 @@ class UnitimetableWidget(
 
         scope.launch {
             _timeTableWithDetails.value = dataStoreRepository.timeTablePrefFlow.first()
-                .let { timeTableDataSource.getTimeTableWithDetails(it.mainTimeTableId) }
+                .let { timeTableRepository.getTimeTableWithDetails(it.mainTimeTableId) }
         }
 
         provideContent {
@@ -254,8 +254,8 @@ private fun RowScope.Grid(
                     horizontalAlignment = Alignment.CenterHorizontally,
                     verticalAlignment = Alignment.CenterVertically
                 ) {
-                    if (schedule.subject != null) {
-                            val argbColor = schedule.subject.color.toArgb()
+                    if (schedule.subjectWrapper != null) {
+                            val argbColor = schedule.subjectWrapper.color.toArgb()
 
                             val scheme = if (isSystemInDarkTheme(context = context)) {
                                 Scheme.dark(argbColor)
@@ -274,7 +274,7 @@ private fun RowScope.Grid(
                                 ) {
                                     // TODO: Utilize parent size to distribute position and sizing of the texts
                                     Text(
-                                        schedule.subject.code.uppercase(),
+                                        schedule.subjectWrapper.code.uppercase(),
                                         style = MaterialTheme.typography.labelMediumEmphasized.toGlanceTextStyle(
                                             color = scheme.onPrimary.toColor(),
                                             textAlign = TextAlign.Center
@@ -288,7 +288,7 @@ private fun RowScope.Grid(
                                     val textColor = scheme.onPrimary.toColor()
 
                                     Text(
-                                        schedule.subject.description,
+                                        schedule.subjectWrapper.description,
                                         style = bodySmall.copy(
                                             fontSize = (bodySmallFontSizeValue - 2).sp,
                                             lineHeight = (bodySmallFontSizeValue - 1).sp
@@ -300,7 +300,7 @@ private fun RowScope.Grid(
                                     )
 
                                     Text(
-                                        schedule.subject.instructor?.name ?: "No instructor",
+                                        schedule.subjectWrapper.instructor?.name ?: "No instructor",
                                         style = MaterialTheme.typography.labelSmall.toGlanceTextStyle(
                                             color = textColor,
                                             textAlign = TextAlign.Center

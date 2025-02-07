@@ -1,15 +1,11 @@
-package com.leeweeder.timetable.data.source.subject
+package com.leeweeder.timetable.domain.model
 
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.toArgb
-import androidx.room.Embedded
 import androidx.room.Entity
 import androidx.room.ForeignKey
 import androidx.room.Index
 import androidx.room.PrimaryKey
-import androidx.room.Relation
-import com.leeweeder.timetable.data.source.instructor.Instructor
-import com.leeweeder.timetable.data.source.session.Session
 
 @Entity(
     foreignKeys = [
@@ -34,11 +30,16 @@ data class Subject(
     val dateAdded: Long = System.currentTimeMillis()
 ) {
     companion object {
-        fun createSubjectForInsertion(description: String, code: String, color: Color): Subject {
+        fun createSubjectForInsertion(
+            description: String,
+            code: String,
+            color: Color,
+            instructorId: Int?
+        ): Subject {
             return Subject(
                 description = description,
                 code = code,
-                instructorId = null,
+                instructorId = instructorId,
                 color = color.toArgb()
             )
         }
@@ -47,47 +48,16 @@ data class Subject(
             id: Int,
             description: String,
             code: String,
-            color: Color
+            color: Color,
+            instructorId: Int?,
         ): Subject {
             return Subject(
                 id = id,
                 description = description,
                 code = code,
                 color = color.toArgb(),
-                instructorId = null
+                instructorId = instructorId
             )
         }
     }
 }
-
-fun Subject.withInstructorId(instructorId: Int) = this.copy(instructorId = instructorId)
-
-data class SubjectWithSessionCount(
-    @Embedded
-    val subject: Subject,
-    val sessionCount: Int
-)
-
-data class SubjectWithInstructor(
-    @Embedded val subject: Subject,
-    @Relation(
-        parentColumn = "instructorId",
-        entityColumn = "id"
-    )
-    val instructor: Instructor?
-)
-
-data class SubjectWithDetails(
-    @Embedded val subject: Subject,
-    @Relation(
-        parentColumn = "instructorId",
-        entityColumn = "id"
-    )
-    val instructor: Instructor?,
-    @Relation(
-        entity = Session::class,
-        parentColumn = "id",
-        entityColumn = "subjectId"
-    )
-    val sessions: List<Session>
-)
