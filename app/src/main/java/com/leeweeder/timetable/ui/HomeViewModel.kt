@@ -2,7 +2,11 @@ package com.leeweeder.timetable.ui
 
 import android.util.Log
 import androidx.annotation.VisibleForTesting
-import androidx.compose.ui.graphics.Color
+import androidx.compose.foundation.text.input.TextFieldState
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.setValue
+import androidx.compose.runtime.snapshotFlow
 import androidx.lifecycle.SavedStateHandle
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
@@ -11,30 +15,29 @@ import com.leeweeder.timetable.domain.model.Instructor
 import com.leeweeder.timetable.domain.model.Session
 import com.leeweeder.timetable.domain.model.Subject
 import com.leeweeder.timetable.domain.model.TimeTable
-import com.leeweeder.timetable.domain.relation.SessionAndSubjectAndInstructor
-import com.leeweeder.timetable.domain.relation.SubjectWithDetails
-import com.leeweeder.timetable.domain.relation.TimeTableWithDetails
+import com.leeweeder.timetable.domain.relation.SessionWithDetails
+import com.leeweeder.timetable.domain.relation.SubjectInstructorWithId
+import com.leeweeder.timetable.domain.relation.TimeTableWithSession
 import com.leeweeder.timetable.domain.repository.DataStoreRepository
-import com.leeweeder.timetable.domain.repository.InstructorRepository
 import com.leeweeder.timetable.domain.repository.SessionRepository
-import com.leeweeder.timetable.domain.repository.SubjectRepository
+import com.leeweeder.timetable.domain.repository.SubjectInstructorRepository
 import com.leeweeder.timetable.domain.repository.TimeTableRepository
 import com.leeweeder.timetable.ui.HomeEvent.*
-import com.leeweeder.timetable.ui.HomeUiEvent.*
 import com.leeweeder.timetable.ui.timetable_setup.DefaultTimeTable
 import com.leeweeder.timetable.ui.util.getDays
 import com.leeweeder.timetable.ui.util.getTimes
 import com.leeweeder.timetable.util.Destination
-import com.leeweeder.timetable.util.toColor
 import kotlinx.coroutines.ExperimentalCoroutinesApi
+import kotlinx.coroutines.FlowPreview
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
-import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.catch
+import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.debounce
 import kotlinx.coroutines.flow.flatMapLatest
-import kotlinx.coroutines.flow.onEach
+import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
@@ -46,55 +49,30 @@ private const val TAG = "HomeViewModel"
 class HomeViewModel(
     timeTableRepository: TimeTableRepository,
     private val sessionRepository: SessionRepository,
-    private val subjectRepository: SubjectRepository,
-    private val instructorRepository: InstructorRepository,
+    private val subjectInstructorRepository: SubjectInstructorRepository,
     dataStoreRepository: DataStoreRepository,
     savedStateHandle: SavedStateHandle
 ) : ViewModel() {
     private val _uiState = MutableStateFlow(HomeUiState())
     val uiState = _uiState.asStateFlow()
 
-    private val _eventFlow = MutableStateFlow<HomeUiEvent?>(null)
-    val eventFlow: StateFlow<HomeUiEvent?> = _eventFlow.asStateFlow()
-
-    init {
-        val toBeEditedSubjectId =
-            savedStateHandle.toRoute<Destination.Screen.HomeScreen>().subjectIdToBeEdited
-
-        if (toBeEditedSubjectId != null) {
-            onEvent(LoadToEditSubject(toBeEditedSubjectId))
-        }
-    }
-
     @OptIn(ExperimentalCoroutinesApi::class)
-    val dataState = dataStoreRepository.timeTablePrefFlow
+    val homeDataState = dataStoreRepository.timeTablePrefFlow
         .flatMapLatest { timeTablePref ->
-            combine(
-                timeTableRepository.observeTimeTableWithDetails().onEach {
-                    Log.d(TAG, "TimeTablesWithDetails emitted: $it")
-                },
-                instructorRepository.observeInstructors().onEach {
-                    Log.d(TAG, "Instructors emitted: $it")
-                }
-            ) { timeTableWithDetails, instructors ->
-                Log.d(
-                    TAG,
-                    "Combine block executing with mainTableId: ${timeTablePref.mainTimeTableId}"
-                )
-
+            timeTableRepository.observeTimeTableWithDetails().map { timeTableWithDetails ->
                 val mainTableId = timeTablePref.mainTimeTableId
 
                 if (mainTableId == -1) {
-                    return@combine HomeDataState.Loading
+                    return@map HomeDataState.Loading
                 }
 
-                fun findTimeTableWithDetailsById(id: Int): TimeTableWithDetails? {
+                fun findTimeTableWithDetailsById(id: Int): TimeTableWithSession? {
                     return timeTableWithDetails
                         .find { it.timeTable.id == id }
                 }
 
                 val mainTimeTableWithDetails = findTimeTableWithDetailsById(mainTableId)
-                    ?: return@combine HomeDataState.Error(IllegalStateException("Main timetable not found"))
+                    ?: return@map HomeDataState.Error(IllegalStateException("Main timetable not found"))
 
                 val mainTimeTable = mainTimeTableWithDetails.timeTable
 
@@ -114,7 +92,6 @@ class HomeViewModel(
 
                 HomeDataState.Success(
                     mainTimeTableId = mainTimeTable.id,
-                    instructors = instructors,
                     timeTableWithDetails = timeTableWithDetails
                 )
             }
@@ -123,18 +100,62 @@ class HomeViewModel(
             HomeDataState.Error(it)
         }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000L), HomeDataState.Loading)
 
-    fun onEvent(event: HomeEvent) {
+    val subjectInstructorSearchFieldState = TextFieldState()
 
-        suspend fun upsertSubject(subject: Subject, instructor: Instructor?): Int {
-            return subjectRepository.upsertSubject(subject, instructor)
+    private val subjectInstructorBottomSheetDataState =
+        subjectInstructorRepository.observeSubjectInstructors().map {
+            Log.d("$TAG:subjectInstructorBottomSheetDataState", it.toString())
+            SubjectInstructorBottomSheetDataState.Success(it)
+        }.catch {
+            SubjectInstructorBottomSheetDataState.Error(it)
+        }.stateIn(
+            viewModelScope,
+            SharingStarted.WhileSubscribed(5_000L),
+            SubjectInstructorBottomSheetDataState.Loading
+        )
+
+    var subjectInstructorOptions: List<SubjectInstructorWithId> by mutableStateOf(emptyList())
+        private set
+
+    @OptIn(FlowPreview::class)
+    suspend fun runSearch() {
+        combine(
+            subjectInstructorBottomSheetDataState,
+            snapshotFlow { subjectInstructorSearchFieldState.text }
+                .debounce(200)
+        ) { dataState, searchFieldState ->
+            when (dataState) {
+                is SubjectInstructorBottomSheetDataState.Success -> {
+                    val searchQuery = searchFieldState.toString().lowercase().trim()
+                    if (searchQuery.isBlank()) {
+                        dataState.subjectInstructor
+                    } else {
+                        dataState.subjectInstructor.filter { subjectInstructor ->
+                            subjectInstructor.instructor.name.lowercase().contains(searchQuery) ||
+                                    subjectInstructor.subject.code.lowercase()
+                                        .contains(searchQuery) ||
+                                    subjectInstructor.subject.description.lowercase()
+                                        .contains(searchQuery)
+
+                        }
+                    }
+                }
+
+                else -> emptyList()
+            }
+
+        }.collectLatest { filteredList ->
+            subjectInstructorOptions = filteredList
         }
+    }
 
+    fun onEvent(event: HomeEvent) {
         when (event) {
             is SelectTimeTable -> {
-                if (dataState.value is HomeDataState.Success) {
+                if (homeDataState.value is HomeDataState.Success) {
                     _uiState.update { state ->
                         state.copy(
-                            selectedTimeTable = (dataState.value as HomeDataState.Success)
+                            selectedTimeTable = (homeDataState.value as HomeDataState.Success)
                                 .timeTableWithDetails
                                 .map { it.timeTable }
                                 .find { it.id == event.newTimeTableId }!!
@@ -143,32 +164,20 @@ class HomeViewModel(
                 }
             }
 
-            is SaveSubject -> {
-                try {
-                    viewModelScope.launch {
-                        val recentlyInsertedSubject = upsertSubject(event.subject, event.instructor)
-
-                        onEvent(SetOnEditMode)
-                        onEvent(SetActiveSubjectIdForEditing(recentlyInsertedSubject))
-
-                        _eventFlow.emit(DoneAddingSubject)
-                    }
-                } catch (e: Exception) {
-                    // TODO: Implement proper error handling
-                    println(e.message)
-                }
-            }
-
-            is SetSessionWithSubject -> {
+            is SetSessionWithActiveSubjectInstructor -> {
                 try {
                     viewModelScope.launch {
                         val session = event.sessionId
                         val sessionId = session.id
-                        val subjectId = session.subjectId
-                        val activeSubjectId = uiState.value.activeSubjectIdForScheduling!!
+                        val subjectInstructorId = session.subjectInstructorCrossRefId
+                        val activeSubjectId =
+                            uiState.value.activeSubjectInstructorIdForScheduling!!
 
-                        if (subjectId == null || subjectId != activeSubjectId) {
-                            sessionRepository.updateSession(id = sessionId, subjectId = activeSubjectId)
+                        if (subjectInstructorId == null || subjectInstructorId != activeSubjectId) {
+                            sessionRepository.updateSession(
+                                id = sessionId,
+                                subjectId = activeSubjectId
+                            )
                         } else {
                             sessionRepository.updateSession(id = sessionId, label = null)
                         }
@@ -179,132 +188,60 @@ class HomeViewModel(
                 }
             }
 
-            SetOnDefaultMode -> {
+            SetToDefaultMode -> {
                 _uiState.update { state ->
-                    state.copy(isOnEditMode = false, activeSubjectIdForScheduling = null)
-                }
-            }
-
-            is SetOnEditMode -> {
-                _uiState.update { state ->
-                    state.copy(isOnEditMode = true)
-                }
-            }
-
-            is SetActiveSubjectIdForEditing -> {
-                _uiState.update { state ->
-                    state.copy(activeSubjectIdForScheduling = event.id)
-                }
-            }
-
-            is SaveEditedSubject -> {
-                try {
-                    viewModelScope.launch {
-                        upsertSubject(event.newSubject, event.instructor)
-                        _eventFlow.emit(DoneEditingSubject)
-                    }
-                } catch (e: Exception) {
-                    // TODO: Implement proper error handling
-                    println(e.message)
-                }
-            }
-
-            ClearUiEvent -> {
-                viewModelScope.launch {
-                    _eventFlow.emit(null)
-                }
-            }
-
-            is LoadToEditSubject -> {
-                viewModelScope.launch {
-                    _eventFlow.emit(
-                        FinishedLoadingToBeEditedSubject(
-                            subjectRepository.getSubjectWithDetailsById(event.subjectId)
-                        )
+                    state.copy(
+                        isOnEditMode = false,
+                        activeSubjectInstructorIdForScheduling = null
                     )
                 }
             }
 
-            is DeleteSubject -> {
-                viewModelScope.launch {
-                    try {
-                        val subjectToDelete = event.subjectToDelete
-                        subjectRepository.deleteSubjectById(subjectToDelete.id)
-                        _eventFlow.emit(FinishedDeletingSubject(subjectToDelete))
-                    } catch (e: Exception) {
-                        // TODO: Implement proper error handling
-                        println(e)
-                    }
-                }
-            }
-
-            is ReinsertSubject -> {
-                viewModelScope.launch {
-                    upsertSubject(event.subject, instructor = null)
+            is SetToEditMode -> {
+                _uiState.update { state ->
+                    state.copy(
+                        activeSubjectInstructorIdForScheduling = event.id,
+                        isOnEditMode = true
+                    )
                 }
             }
         }
     }
 }
 
-sealed interface HomeUiEvent {
-    data object DoneEditingSubject : HomeUiEvent
-    data class FinishedLoadingToBeEditedSubject(
-        val subjectWithDetails: SubjectWithDetails?
-    ) : HomeUiEvent
-
-    data object DoneAddingSubject : HomeUiEvent
-    data class FinishedDeletingSubject(val deletedSubject: Subject) :
-        HomeUiEvent
-}
-
 sealed interface HomeEvent {
     data class SelectTimeTable(val newTimeTableId: Int) : HomeEvent
-    data class SaveSubject(
-        val subject: Subject,
-        val instructor: Instructor
-    ) : HomeEvent
 
-    data class ReinsertSubject(
-        val subject: Subject
-    ) : HomeEvent
-
-    data class SaveEditedSubject(
-        val newSubject: Subject,
-        val instructor: Instructor
-    ) : HomeEvent
-
-    data class SetSessionWithSubject(val sessionId: Session) :
+    data class SetSessionWithActiveSubjectInstructor(val sessionId: Session) :
         HomeEvent
 
-    data object SetOnDefaultMode : HomeEvent
-    data object SetOnEditMode : HomeEvent
+    data object SetToDefaultMode : HomeEvent
+    data class SetToEditMode(val id: Int) : HomeEvent
+}
 
-    data class SetActiveSubjectIdForEditing(val id: Int) : HomeEvent
+sealed interface SubjectInstructorBottomSheetDataState {
+    data class Success(
+        val subjectInstructor: List<SubjectInstructorWithId>
+    ) : SubjectInstructorBottomSheetDataState
 
-    data object ClearUiEvent : HomeEvent
-    data class LoadToEditSubject(val subjectId: Int) : HomeEvent
-    data class DeleteSubject(
-        val subjectToDelete: Subject
-    ) :
-        HomeEvent
+    data class Error(val throwable: Throwable) : SubjectInstructorBottomSheetDataState
+    data object Loading : SubjectInstructorBottomSheetDataState
 }
 
 sealed interface HomeDataState {
     data class Success(
         val mainTimeTableId: Int,
-        val instructors: List<Instructor> = emptyList(),
-        val timeTableWithDetails: List<TimeTableWithDetails> = emptyList(),
+        val timeTableWithDetails: List<TimeTableWithSession> = emptyList()
     ) : HomeDataState {
 
         fun getDayScheduleMap(timeTableId: Int): Map<DayOfWeek, List<Schedule>> {
             return getSessionsWithSubjectInstructor(timeTableId).toMappedSchedules()
         }
 
-        fun getSessionsWithSubjectInstructor(timeTableId: Int): List<SessionAndSubjectAndInstructor> {
+        fun getSessionsWithSubjectInstructor(timeTableId: Int): List<SessionWithDetails> {
             return timeTableWithDetails
                 .find { it.timeTable.id == timeTableId }
-                ?.sessionsWithSubjectAndInstructor
+                ?.sessions
                 ?: emptyList()
         }
 
@@ -322,7 +259,7 @@ sealed interface HomeDataState {
 data class HomeUiState(
     val selectedTimeTable: TimeTable = DefaultTimeTable,
     val isOnEditMode: Boolean = false,
-    val activeSubjectIdForScheduling: Int? = null
+    val activeSubjectInstructorIdForScheduling: Int? = null
 ) {
     val startTimes: List<LocalTime>
         get() = getTimes(selectedTimeTable.startTime, selectedTimeTable.endTime)
@@ -336,15 +273,15 @@ fun isSameSchedule(pair: Pair<Schedule, Schedule>): Boolean {
     val firstSession = pair.first
     val secondSession = pair.second
 
-    if (firstSession.subjectWrapper != null && secondSession.subjectWrapper != null) {
-        return firstSession.subjectWrapper.id == secondSession.subjectWrapper.id
+    if (firstSession.subjectInstructor != null && secondSession.subjectInstructor != null) {
+        return firstSession.subjectInstructor.id == secondSession.subjectInstructor.id
     }
 
     if (firstSession.label != null && secondSession.label != null) {
         return firstSession.label == secondSession.label
     }
 
-    if (firstSession.subjectWrapper == null && secondSession.subjectWrapper == null && firstSession.label == null && secondSession.label == null) {
+    if (firstSession.subjectInstructor == null && secondSession.subjectInstructor == null && firstSession.label == null && secondSession.label == null) {
         return false
     }
 
@@ -365,7 +302,7 @@ fun isSameSchedule(pair: Pair<Schedule, Schedule>): Boolean {
 *
 *   To set the schedule as one, indicate the periodNumbers it is belonged to
 * */
-fun List<SessionAndSubjectAndInstructor>.toMappedSchedules(): Map<DayOfWeek, List<Schedule>> {
+fun List<SessionWithDetails>.toMappedSchedules(): Map<DayOfWeek, List<Schedule>> {
     val groupedSessions = this.groupBy { it.session.dayOfWeek }
 
     // For each items in the list, check if the current item and the next item is the same, else, merge them.
@@ -376,23 +313,19 @@ fun List<SessionAndSubjectAndInstructor>.toMappedSchedules(): Map<DayOfWeek, Lis
             val periodSpan = 1
 
             if (it.session.isSubject) {
-                val subjectWrapper =
-                    it.subjectWithInstructor!!.subject.let { sub ->
-                        SubjectWrapper(
-                            id = it.session.subjectId!!,
-                            description = sub.description,
-                            code = sub.code,
-                            color = sub.color.toColor(),
-                            instructor = it.subjectWithInstructor.instructor
-                        )
-                    }
+                val subjectInstructor =
+                    SubjectInstructor(
+                        id = it.session.subjectInstructorCrossRefId!!,
+                        subject = it.subjectWithInstructor!!.subject,
+                        instructor = it.subjectWithInstructor.instructor
+                    )
 
-                Schedule.subjectSchedule(
-                    subjectWrapper = subjectWrapper,
+                Schedule.subject(
+                    subjectInstructor = subjectInstructor,
                     periodSpan = periodSpan
                 )
             } else {
-                Schedule.emptySchedule(
+                Schedule.empty(
                     label = it.session.label,
                     periodSpan = periodSpan
                 )
@@ -439,63 +372,45 @@ fun mergeSameSchedules(schedules: List<Schedule>): Schedule {
 
     val first = schedules.first()
 
-    return if (first.subjectWrapper != null) {
-        Schedule.subjectSchedule(first.subjectWrapper, periodSpan)
+    return if (first.subjectInstructor != null) {
+        Schedule.subject(first.subjectInstructor, periodSpan)
     } else {
-        Schedule.emptySchedule(first.label, periodSpan)
+        Schedule.empty(first.label, periodSpan)
     }
 }
 
 @ConsistentCopyVisibility
 data class Schedule private constructor(
-    val subjectWrapper: SubjectWrapper?,
-    val periodSpan: Int,
-    val label: String?
+    val subjectInstructor: SubjectInstructor?,
+    val label: String?,
+    val periodSpan: Int
 ) {
-    /** Subject */
-    private constructor(
-        subjectWrapper: SubjectWrapper,
-        periodSpan: Int
-    ) : this(
-        subjectWrapper = subjectWrapper,
-        periodSpan = periodSpan,
-        label = null
-    )
-
-    /** Empty */
-    private constructor(
-        label: String?,
-        periodSpan: Int
-    ) : this(
-        subjectWrapper = null,
-        periodSpan = periodSpan,
-        label = label
-    )
-
     companion object {
-        /**
-         * Creates a subject [com.leeweeder.timetable.ui.Schedule].
-         * */
-        fun subjectSchedule(subjectWrapper: SubjectWrapper, periodSpan: Int) =
-            Schedule(subjectWrapper = subjectWrapper, periodSpan = periodSpan)
+        fun subject(subjectInstructor: SubjectInstructor, periodSpan: Int): Schedule {
+            return Schedule(
+                subjectInstructor = subjectInstructor,
+                periodSpan = periodSpan,
+                label = null
+            )
+        }
 
-        /**
-         * Creates an empty [com.leeweeder.timetable.ui.Schedule].
-         * */
-        fun emptySchedule(label: String?, periodSpan: Int) =
-            Schedule(label = label, periodSpan = periodSpan)
+        fun empty(label: String?, periodSpan: Int): Schedule {
+            return Schedule(
+                subjectInstructor = null,
+                periodSpan = periodSpan,
+                label = label
+            )
+        }
     }
 }
 
-data class SubjectWrapper(
+data class SubjectInstructor(
     val id: Int,
-    val description: String,
-    val code: String,
-    val color: Color,
+    val subject: Subject?,
     val instructor: Instructor?
 ) {
     override fun equals(other: Any?): Boolean {
-        if (other !is SubjectWrapper) {
+        if (other !is SubjectInstructor) {
             return false
         }
 
@@ -509,6 +424,10 @@ data class SubjectWrapper(
     override fun hashCode(): Int {
         var result = super.hashCode()
         result = 31 * result + id
+        result = 31 * result + (subject?.hashCode() ?: 0)
+        result = 31 * result + (instructor?.hashCode() ?: 0)
         return result
     }
+
+
 }

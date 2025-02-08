@@ -4,7 +4,7 @@ import com.leeweeder.timetable.data.data_source.dao.SessionDao
 import com.leeweeder.timetable.data.data_source.dao.TimeTableDao
 import com.leeweeder.timetable.domain.model.Session
 import com.leeweeder.timetable.domain.model.TimeTable
-import com.leeweeder.timetable.domain.relation.TimeTableWithDetails
+import com.leeweeder.timetable.domain.relation.TimeTableWithSession
 import com.leeweeder.timetable.domain.repository.TimeTableRepository
 import com.leeweeder.timetable.ui.util.getDays
 import com.leeweeder.timetable.ui.util.getTimes
@@ -14,7 +14,7 @@ class TimeTableRepositoryImpl(
     private val timeTableDao: TimeTableDao,
     private val sessionDao: SessionDao
 ) : TimeTableRepository {
-    override fun observeTimeTableWithDetails(): Flow<List<TimeTableWithDetails>> {
+    override fun observeTimeTableWithDetails(): Flow<List<TimeTableWithSession>> {
         return timeTableDao.observeTimeTablesWithDetails()
     }
 
@@ -88,7 +88,7 @@ class TimeTableRepositoryImpl(
         )
     }
 
-    override suspend fun getTimeTableWithDetails(id: Int): TimeTableWithDetails? {
+    override suspend fun getTimeTableWithDetails(id: Int): TimeTableWithSession? {
         return timeTableDao.getTimeTableWithDetailsById(id)
     }
 

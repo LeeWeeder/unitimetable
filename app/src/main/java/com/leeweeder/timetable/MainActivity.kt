@@ -1,7 +1,6 @@
 package com.leeweeder.timetable
 
 import android.os.Bundle
-import android.util.Log
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
@@ -17,7 +16,7 @@ import androidx.navigation.compose.dialog
 import androidx.navigation.compose.rememberNavController
 import androidx.navigation.toRoute
 import com.leeweeder.timetable.ui.HomeScreen
-import com.leeweeder.timetable.ui.subjects.SubjectsScreen
+import com.leeweeder.timetable.ui.schedule.UpsertScheduleDialog
 import com.leeweeder.timetable.ui.theme.TimeTableTheme
 import com.leeweeder.timetable.ui.timetable_setup.GetTimeTableNameDialog
 import com.leeweeder.timetable.ui.timetable_setup.TimeTableSetupDialog
@@ -86,6 +85,9 @@ private fun MainNavHost(
                         selectedTimeTableId
                     )
                 )
+            },
+            onNavigateToUpsertScheduleDialog = {
+                navController.navigate(it)
             }
         )
 
@@ -108,25 +110,26 @@ private fun MainNavHost(
             isCancelable = mainTimeTableId != NonExistingMainTimeTableId
         )
 
-        subjectsScreen(
-            onNavigateBack = {
-                navController.popBackStack()
-            },
-            onNavigateToHomeScreenForSubjectEdit = {
-                navigateAndPreventGoingBack(it)
-            }
-        )
+        dialog<Destination.Dialog.UpsertScheduleDialog> {
+            UpsertScheduleDialog(onNavigateBack = {
+                navigateUp()
+            })
+        }
     }
 }
 
 private fun NavGraphBuilder.homeScreen(
-    onNavigateToGetNewTimeTableNameDialog: (isInitialization: Boolean, selectedTimeTableId: Int) -> Unit
+    onNavigateToGetNewTimeTableNameDialog: (isInitialization: Boolean, selectedTimeTableId: Int) -> Unit,
+    onNavigateToUpsertScheduleDialog: (Destination.Dialog.UpsertScheduleDialog) -> Unit
 ) {
     composable<Destination.Screen.HomeScreen> {
         HomeScreen(
             selectedTimeTableId = it.toRoute<Destination.Screen.HomeScreen>().selectedTimeTableId,
             onNavigateToGetNewTimeTableNameDialog = { isInitialization, selectedTimeTableId ->
                 onNavigateToGetNewTimeTableNameDialog(isInitialization, selectedTimeTableId)
+            },
+            onNavigateToUpsertScheduleDialog = {
+                onNavigateToUpsertScheduleDialog(Destination.Dialog.UpsertScheduleDialog(it))
             }
         )
     }
@@ -162,30 +165,6 @@ private fun NavGraphBuilder.timeTableSetupDialog(
         TimeTableSetupDialog(
             onDismissRequest = onNavigateUp,
             onNavigateToHomeScreen = onNavigateToHomeScreen
-        )
-    }
-}
-
-private fun NavGraphBuilder.subjectsScreen(
-    onNavigateBack: () -> Unit,
-    onNavigateToHomeScreenForSubjectEdit: (Destination.Screen.HomeScreen) -> Unit
-) {
-    composable<Destination.Screen.SubjectsScreen> { backStackEntry ->
-        SubjectsScreen(
-            onNavigateBack = onNavigateBack,
-            onNavigateToHomeScreenForSubjectEdit = {
-                val selectedTimeTableId =
-                    backStackEntry.toRoute<Destination.Screen.SubjectsScreen>().timeTableId
-
-                Log.d("subjectsScreen", "Selected time table id: $selectedTimeTableId")
-
-                onNavigateToHomeScreenForSubjectEdit(
-                    Destination.Screen.HomeScreen(
-                        subjectIdToBeEdited = it,
-                        selectedTimeTableId = selectedTimeTableId
-                    )
-                )
-            }
         )
     }
 }

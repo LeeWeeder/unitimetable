@@ -10,11 +10,14 @@ val databaseModule = module {
             get(),
             AppDatabase::class.java,
             "timetable.db"
-        ).build()
+        )
+            .addCallback(AppDatabase.callback)
+            .build()
     }
-    
+
     single { get<AppDatabase>().timeTableDao }
     single { get<AppDatabase>().sessionDao }
     single { get<AppDatabase>().subjectDao }
     single { get<AppDatabase>().instructorDao }
+    single { get<AppDatabase>().subjectInstructorCrossRefDao }
 }

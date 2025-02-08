@@ -9,7 +9,6 @@ import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.RowScope
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
@@ -18,8 +17,6 @@ import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.text.input.TextFieldLineLimits
 import androidx.compose.foundation.text.input.rememberTextFieldState
 import androidx.compose.foundation.text.input.setTextAndPlaceCursorAtEnd
-import androidx.compose.material3.AlertDialog
-import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.ExposedDropdownMenuAnchorType
@@ -44,7 +41,6 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.saveable.Saver
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
-import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.toArgb
@@ -63,7 +59,6 @@ import com.leeweeder.timetable.feature_color_picker.DefaultToneValue
 import com.leeweeder.timetable.feature_color_picker.MaxHueDegrees
 import com.leeweeder.timetable.feature_color_picker.hctToColor
 import com.leeweeder.timetable.ui.timetable_setup.components.CancelTextButton
-import com.leeweeder.timetable.ui.timetable_setup.components.TextButton
 import com.leeweeder.timetable.util.createScheme
 import com.leeweeder.timetable.util.toColor
 import kotlinx.coroutines.FlowPreview
@@ -96,8 +91,7 @@ fun NewSubjectDialog(
                         id = state.id,
                         description = state.description,
                         code = state.code,
-                        color = state.color.toArgb(),
-                        instructorId = if (state.instructor.id == 0) null else state.instructor.id
+                        color = state.color.toArgb()
                     ),
                     state.instructor
                 )
@@ -111,81 +105,13 @@ fun EditScheduleDialog(
     state: SubjectDialogState,
     instructors: List<Instructor>,
     onConfirmClick: (Subject, Instructor) -> Unit,
-    onDeleteSubjectClick: (Subject) -> Unit,
     onScheduleClick: (Int) -> Unit
 ) {
-    var isDeleteConfirmationDialogVisible by remember { mutableStateOf(false) }
 
-    AnimatedVisibility(isDeleteConfirmationDialogVisible) {
-        AlertDialog(onDismissRequest = {
-            isDeleteConfirmationDialogVisible = false
-        }, confirmButton = {
-            TextButton("Delete", color = MaterialTheme.colorScheme.error, onClick = {
-                onDeleteSubjectClick(
-                    Subject(
-                        id = state.id,
-                        description = state.description,
-                        code = state.code,
-                        color = state.color.toArgb(),
-                        instructorId = if (state.instructor.id == 0) null else state.instructor.id
-                    )
-                )
-                isDeleteConfirmationDialogVisible = false
-            })
-        }, dismissButton = {
-            CancelTextButton(onClick = {
-                isDeleteConfirmationDialogVisible = false
-            })
-        }, title = {
-            Text("Delete subject?")
-        }, icon = {
-            Icon(
-                painter = painterResource(R.drawable.delete_24px),
-                contentDescription = null,
-                tint = MaterialTheme.colorScheme.error
-            )
-        })
-    }
     BaseSubjectDialog(
         state = state,
         title = {
-            Row(
-                horizontalArrangement = Arrangement.SpaceBetween,
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(end = 4.dp),
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                Text("Edit subject")
-                Box {
-                    var expanded by remember { mutableStateOf(false) }
-
-                    IconButton(R.drawable.more_vert_24px, contentDescription = "More options") {
-                        expanded = true
-                    }
-                    DropdownMenu(
-                        expanded = expanded,
-                        onDismissRequest = {
-                            expanded = false
-                        }
-                    ) {
-                        DropdownMenuItem(
-                            text = {
-                                Text("Delete subject")
-                            },
-                            leadingIcon = {
-                                Icon(
-                                    painter = painterResource(R.drawable.delete_24px),
-                                    contentDescription = null
-                                )
-                            },
-                            onClick = {
-                                isDeleteConfirmationDialogVisible = true
-                            }
-                        )
-                    }
-                }
-            }
+            Text("Edit subject")
         },
         instructors = instructors,
         actionButtons = { isError ->
@@ -209,8 +135,7 @@ fun EditScheduleDialog(
                         id = state.id,
                         code = state.code,
                         description = state.description,
-                        color = state.color.toArgb(),
-                        instructorId = if (state.instructor.id == 0) null else state.instructor.id
+                        color = state.color.toArgb()
                     ),
                     state.instructor
                 )
@@ -649,7 +574,6 @@ private fun EditSubjectDialogPreview() {
         onConfirmClick = { _, _ -> },
         onScheduleClick = {},
         state = rememberSubjectDialogState(true),
-        onDeleteSubjectClick = { },
         instructors = emptyList()
     )
 }
@@ -666,7 +590,7 @@ private data class SessionSerializable(
     fun toSession() = Session(
         id = id,
         timeTableId = timeTableId,
-        subjectId = subjectId,
+        subjectInstructorCrossRefId = subjectId,
         dayOfWeek = DayOfWeek.of(dayOfWeek),
         startTime = LocalTime.ofSecondOfDay(startTime),
         label = label,
@@ -675,7 +599,7 @@ private data class SessionSerializable(
     companion object {
         fun ofSession(session: Session) = SessionSerializable(
             id = session.id,
-            subjectId = session.subjectId,
+            subjectId = session.subjectInstructorCrossRefId,
             startTime = session.startTime.toSecondOfDay().toLong(),
             timeTableId = session.timeTableId,
             label = session.label,

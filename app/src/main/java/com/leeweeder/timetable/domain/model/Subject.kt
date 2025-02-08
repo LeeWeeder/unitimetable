@@ -3,21 +3,12 @@ package com.leeweeder.timetable.domain.model
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.toArgb
 import androidx.room.Entity
-import androidx.room.ForeignKey
 import androidx.room.Index
 import androidx.room.PrimaryKey
 
 @Entity(
-    foreignKeys = [
-        ForeignKey(
-            entity = Instructor::class,
-            parentColumns = ["id"],
-            childColumns = ["instructorId"],
-            onDelete = ForeignKey.SET_NULL
-        )
-    ],
     indices = [
-        Index("instructorId")
+        Index("code", "description", unique = true)
     ]
 )
 data class Subject(
@@ -25,7 +16,6 @@ data class Subject(
     val id: Int = 0,
     val description: String,
     val code: String,
-    val instructorId: Int?,
     val color: Int,
     val dateAdded: Long = System.currentTimeMillis()
 ) {
@@ -34,12 +24,10 @@ data class Subject(
             description: String,
             code: String,
             color: Color,
-            instructorId: Int?
         ): Subject {
             return Subject(
                 description = description,
                 code = code,
-                instructorId = instructorId,
                 color = color.toArgb()
             )
         }
@@ -49,14 +37,12 @@ data class Subject(
             description: String,
             code: String,
             color: Color,
-            instructorId: Int?,
         ): Subject {
             return Subject(
                 id = id,
                 description = description,
                 code = code,
-                color = color.toArgb(),
-                instructorId = instructorId
+                color = color.toArgb()
             )
         }
     }

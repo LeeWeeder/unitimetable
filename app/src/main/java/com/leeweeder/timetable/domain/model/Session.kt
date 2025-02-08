@@ -16,16 +16,17 @@ import java.time.LocalTime
             onDelete = ForeignKey.CASCADE
         ),
         ForeignKey(
-            entity = Subject::class,
+            entity = SubjectInstructorCrossRef::class,
             parentColumns = ["id"],
-            childColumns = ["subjectId"],
+            childColumns = ["subjectInstructorCrossRefId"],
             onDelete = ForeignKey.SET_NULL
         )
     ],
     indices = [
         Index("timeTableId"),
-        Index("subjectId"),
-        Index("timeTableId", "dayOfWeek", "startTime", unique = true)
+        Index("subjectInstructorCrossRefId"),
+        Index("timeTableId", "dayOfWeek", "startTime", unique = true),
+        Index("timeTableId", "subjectInstructorCrossRefId")
     ]
 )
 
@@ -33,19 +34,19 @@ data class Session(
     @PrimaryKey(autoGenerate = true)
     val id: Int = 0,
     val timeTableId: Int,
-    val subjectId: Int?,
+    val subjectInstructorCrossRefId: Int?,
     val dayOfWeek: DayOfWeek,
     val startTime: LocalTime,
     val label: String?
 ) {
     init {
-        require(!(subjectId != null && label != null)) {
+        require(!(subjectInstructorCrossRefId != null && label != null)) {
             "Cannot have both a subjectId and label at the same time"
         }
     }
 
     val isSubject: Boolean
-        get() = subjectId != null
+        get() = subjectInstructorCrossRefId != null
 
     companion object {
         /**
@@ -58,7 +59,7 @@ data class Session(
             startTime: LocalTime
         ) = Session(
             timeTableId = timeTableId,
-            subjectId = subjectId,
+            subjectInstructorCrossRefId = subjectId,
             dayOfWeek = dayOfWeek,
             startTime = startTime,
             label = null
@@ -76,7 +77,7 @@ data class Session(
             timeTableId = timeTableId,
             dayOfWeek = dayOfWeek,
             startTime = startTime,
-            subjectId = null,
+            subjectInstructorCrossRefId = null,
             label = label,
         )
     }
@@ -85,7 +86,7 @@ data class Session(
 fun Session.toSubjectSession(subjectId: Int): Session {
     return Session(
         timeTableId = timeTableId,
-        subjectId = subjectId,
+        subjectInstructorCrossRefId = subjectId,
         dayOfWeek = dayOfWeek,
         startTime = startTime,
         id = id,
@@ -99,7 +100,7 @@ fun Session.toEmptySession(label: String? = null): Session {
         dayOfWeek = dayOfWeek,
         startTime = startTime,
         id = id,
-        subjectId = null,
+        subjectInstructorCrossRefId = null,
         label = label
     )
 }

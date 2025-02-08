@@ -10,7 +10,6 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.State
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.toArgb
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontStyle
 import androidx.compose.ui.text.font.FontWeight
@@ -43,7 +42,7 @@ import androidx.glance.layout.width
 import androidx.glance.text.Text
 import androidx.glance.unit.ColorProvider
 import com.google.android.material.color.utilities.Scheme
-import com.leeweeder.timetable.domain.relation.TimeTableWithDetails
+import com.leeweeder.timetable.domain.relation.TimeTableWithSession
 import com.leeweeder.timetable.domain.repository.DataStoreRepository
 import com.leeweeder.timetable.domain.repository.TimeTableRepository
 import com.leeweeder.timetable.feature_widget.ui.theme.UnitimetableWidgetTheme
@@ -86,19 +85,19 @@ class UnitimetableWidget(
     ) {
         val scope = CoroutineScope(Dispatchers.IO)
 
-        val _timeTableWithDetails =
-            mutableStateOf<TimeTableWithDetails?>(null)
-        val timeTableWithDetails: State<TimeTableWithDetails?> =
-            _timeTableWithDetails
+        val _timeTableWithSession =
+            mutableStateOf<TimeTableWithSession?>(null)
+        val timeTableWithSession: State<TimeTableWithSession?> =
+            _timeTableWithSession
 
         scope.launch {
-            _timeTableWithDetails.value = dataStoreRepository.timeTablePrefFlow.first()
+            _timeTableWithSession.value = dataStoreRepository.timeTablePrefFlow.first()
                 .let { timeTableRepository.getTimeTableWithDetails(it.mainTimeTableId) }
         }
 
         provideContent {
             UnitimetableWidgetTheme {
-                val timeTableWithDetails = timeTableWithDetails.value
+                val timeTableWithDetails = timeTableWithSession.value
 
                 if (timeTableWithDetails != null) {
                     val timeTable = timeTableWithDetails.timeTable
@@ -113,7 +112,7 @@ class UnitimetableWidget(
                         dayOfWeekNow = dayOfWeekNow,
                         startTimes = startTimes,
                         context = context,
-                        dayScheduleMap = timeTableWithDetails.sessionsWithSubjectAndInstructor.toMappedSchedules()
+                        dayScheduleMap = timeTableWithDetails.sessions.toMappedSchedules()
                     )
                 }
             }
@@ -254,8 +253,8 @@ private fun RowScope.Grid(
                     horizontalAlignment = Alignment.CenterHorizontally,
                     verticalAlignment = Alignment.CenterVertically
                 ) {
-                    if (schedule.subjectWrapper != null) {
-                            val argbColor = schedule.subjectWrapper.color.toArgb()
+                    if (schedule.subjectInstructor != null) {
+                            val argbColor = schedule.subjectInstructor.subject?.color!!
 
                             val scheme = if (isSystemInDarkTheme(context = context)) {
                                 Scheme.dark(argbColor)
@@ -274,7 +273,7 @@ private fun RowScope.Grid(
                                 ) {
                                     // TODO: Utilize parent size to distribute position and sizing of the texts
                                     Text(
-                                        schedule.subjectWrapper.code.uppercase(),
+                                        schedule.subjectInstructor.subject.code.uppercase(),
                                         style = MaterialTheme.typography.labelMediumEmphasized.toGlanceTextStyle(
                                             color = scheme.onPrimary.toColor(),
                                             textAlign = TextAlign.Center
@@ -288,7 +287,7 @@ private fun RowScope.Grid(
                                     val textColor = scheme.onPrimary.toColor()
 
                                     Text(
-                                        schedule.subjectWrapper.description,
+                                        schedule.subjectInstructor.subject.description,
                                         style = bodySmall.copy(
                                             fontSize = (bodySmallFontSizeValue - 2).sp,
                                             lineHeight = (bodySmallFontSizeValue - 1).sp
@@ -300,7 +299,7 @@ private fun RowScope.Grid(
                                     )
 
                                     Text(
-                                        schedule.subjectWrapper.instructor?.name ?: "No instructor",
+                                        schedule.subjectInstructor.instructor?.name ?: "No instructor",
                                         style = MaterialTheme.typography.labelSmall.toGlanceTextStyle(
                                             color = textColor,
                                             textAlign = TextAlign.Center

@@ -4,6 +4,7 @@ import android.annotation.SuppressLint
 import android.util.Log
 import androidx.annotation.DrawableRes
 import androidx.compose.animation.AnimatedContent
+import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
@@ -24,6 +25,7 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.text.input.TextFieldState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.AssistChip
 import androidx.compose.material3.AssistChipDefaults
@@ -38,16 +40,16 @@ import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButtonDefaults
 import androidx.compose.material3.IconToggleButton
+import androidx.compose.material3.ListItem
+import androidx.compose.material3.ListItemDefaults
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.ModalDrawerSheet
 import androidx.compose.material3.ModalNavigationDrawer
 import androidx.compose.material3.NavigationDrawerItem
 import androidx.compose.material3.RichTooltip
 import androidx.compose.material3.Scaffold
-import androidx.compose.material3.SnackbarDuration
 import androidx.compose.material3.SnackbarHost
 import androidx.compose.material3.SnackbarHostState
-import androidx.compose.material3.SnackbarResult
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TooltipBox
@@ -57,11 +59,11 @@ import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.material3.VerticalDivider
 import androidx.compose.material3.minimumInteractiveComponentSize
 import androidx.compose.material3.rememberDrawerState
+import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.material3.rememberTooltipState
 import androidx.compose.material3.surfaceColorAtElevation
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
-import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -93,12 +95,12 @@ import com.leeweeder.timetable.domain.model.Instructor
 import com.leeweeder.timetable.domain.model.Session
 import com.leeweeder.timetable.domain.model.Subject
 import com.leeweeder.timetable.domain.model.TimeTable
-import com.leeweeder.timetable.domain.relation.SessionAndSubjectAndInstructor
-import com.leeweeder.timetable.domain.relation.SubjectWithInstructor
-import com.leeweeder.timetable.ui.components.EditScheduleDialog
+import com.leeweeder.timetable.domain.relation.SessionWithDetails
+import com.leeweeder.timetable.domain.relation.SubjectInstructorWithId
+import com.leeweeder.timetable.ui.components.CreateFromSearchOrScratchButton
 import com.leeweeder.timetable.ui.components.IconButton
-import com.leeweeder.timetable.ui.components.NewSubjectDialog
-import com.leeweeder.timetable.ui.components.rememberSubjectDialogState
+import com.leeweeder.timetable.ui.components.SelectionAndAdditionBottomSheet
+import com.leeweeder.timetable.ui.components.SelectionAndAdditionBottomSheetDefaults
 import com.leeweeder.timetable.ui.timetable_setup.LabelText
 import com.leeweeder.timetable.ui.timetable_setup.components.TextButton
 import com.leeweeder.timetable.ui.util.Constants
@@ -119,11 +121,14 @@ import kotlin.collections.component2
 fun HomeScreen(
     selectedTimeTableId: Int,
     onNavigateToGetNewTimeTableNameDialog: (isInitialization: Boolean, selectedTimeTableId: Int) -> Unit,
+    onNavigateToUpsertScheduleDialog: (Int?) -> Unit,
     viewModel: HomeViewModel = koinViewModel()
 ) {
-    val dataState by viewModel.dataState.collectAsStateWithLifecycle()
+    val dataState by viewModel.homeDataState.collectAsStateWithLifecycle()
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
-    val uiEvent by viewModel.eventFlow.collectAsStateWithLifecycle()
+
+    val subjectInstructorBottomSheetOptions = viewModel.subjectInstructorOptions
+    val searchBarFieldState = viewModel.subjectInstructorSearchFieldState
 
     if (dataState is HomeDataState.Error) {
         Log.e("HomeScreen", "DataState error", (dataState as HomeDataState.Error).throwable)
@@ -140,11 +145,14 @@ fun HomeScreen(
     HomeScreen(
         dataState = dataState,
         uiState = uiState,
-        uiEvent = uiEvent,
         onEvent = viewModel::onEvent,
         onNavigateToGetNewTimeTableNameDialog = {
             onNavigateToGetNewTimeTableNameDialog(it, uiState.selectedTimeTable.id)
-        }
+        },
+        onNavigateToUpsertScheduleDialog = onNavigateToUpsertScheduleDialog,
+        subjectInstructorBottomSheetOptions = subjectInstructorBottomSheetOptions,
+        searchBarFieldState = searchBarFieldState,
+        runSearch = viewModel::runSearch
     )
 }
 
@@ -153,107 +161,77 @@ fun HomeScreen(
 private fun HomeScreen(
     dataState: HomeDataState,
     uiState: HomeUiState,
-    uiEvent: HomeUiEvent?,
     onNavigateToGetNewTimeTableNameDialog: (isInitialization: Boolean) -> Unit,
-    onEvent: (HomeEvent) -> Unit
+    onNavigateToUpsertScheduleDialog: (Int?) -> Unit,
+    onEvent: (HomeEvent) -> Unit,
+    subjectInstructorBottomSheetOptions: List<SubjectInstructorWithId>,
+    searchBarFieldState: TextFieldState,
+    runSearch: suspend () -> Unit
 ) {
     val drawerState = rememberDrawerState(initialValue = DrawerValue.Closed)
     val scope = rememberCoroutineScope()
 
-    val instructors by remember(dataState) {
-        derivedStateOf {
-            if (dataState is HomeDataState.Success) {
-                dataState.instructors
-            } else {
-                emptyList()
-            }
+    val snackBarHostState = remember { SnackbarHostState() }
+
+    var isNewScheduleEntryBottomSheetVisible by remember { mutableStateOf(false) }
+
+    val sheetState = rememberModalBottomSheetState()
+
+    LaunchedEffect(isNewScheduleEntryBottomSheetVisible) {
+        if (isNewScheduleEntryBottomSheetVisible) {
+            runSearch()
         }
     }
 
-    val newSubjectDialogState = rememberSubjectDialogState(false)
+    var isSearchComplete by remember { mutableStateOf(false) }
 
-    NewSubjectDialog(
-        state = newSubjectDialogState,
-        onConfirmClick = { subject, instructor ->
-            onEvent(
-                HomeEvent.SaveSubject(
-                    subject = subject, instructor = instructor
+    LaunchedEffect(subjectInstructorBottomSheetOptions) {
+        isSearchComplete = true
+    }
+
+    if (isSearchComplete) {
+        SelectionAndAdditionBottomSheet(
+            visible = isNewScheduleEntryBottomSheetVisible,
+            onDismissRequest = { isNewScheduleEntryBottomSheetVisible = false },
+            items = subjectInstructorBottomSheetOptions,
+            searchBarFieldState = searchBarFieldState,
+            searchBarPlaceholder = "Find schedule entry",
+            itemTransform = { item, modifier ->
+                ListItem(
+                    overlineContent = { Text(item.subject.description) },
+                    headlineContent = {
+                        Text(item.subject.description)
+                    },
+                    supportingContent = {
+                        Text(item.instructor.name)
+                    },
+                    colors = ListItemDefaults.colors(containerColor = Color.Transparent),
+                    modifier = modifier.clickable {
+                        onEvent(HomeEvent.SetToEditMode(item.id))
+                        scope.launch {
+                            sheetState.hide()
+                        }.invokeOnCompletion {
+                            isNewScheduleEntryBottomSheetVisible = false
+                        }
+                    },
+                    trailingContent = {
+                        TextButton("Edit", onClick = {
+                            onNavigateToUpsertScheduleDialog(item.id)
+                        })
+                    }
                 )
-            )
-        },
-        instructors = instructors
-    )
-
-    val editSubjectDialogState = rememberSubjectDialogState(false)
-
-    EditScheduleDialog(
-        state = editSubjectDialogState,
-        onConfirmClick = { subject, instructor ->
-            onEvent(
-                HomeEvent.SaveEditedSubject(
-                    newSubject = subject, instructor = instructor
-                )
-            )
-        },
-        onDeleteSubjectClick = { subject ->
-            onEvent(HomeEvent.DeleteSubject(subject))
-            editSubjectDialogState.hide()
-        },
-        onScheduleClick = {
-            onEvent(HomeEvent.SetActiveSubjectIdForEditing(it))
-            onEvent(HomeEvent.SetOnEditMode)
-            editSubjectDialogState.hide()
-        },
-        instructors = instructors
-    )
-
-    val snackBarHostState = remember { SnackbarHostState() }
-
-    LaunchedEffect(uiEvent) {
-        when (uiEvent) {
-            HomeUiEvent.DoneEditingSubject -> {
-                editSubjectDialogState.hide()
-            }
-
-            null -> Unit
-            is HomeUiEvent.FinishedLoadingToBeEditedSubject -> {
-                val subjectWithDetails = uiEvent.subjectWithDetails
-
-                if (subjectWithDetails == null) {
-                    return@LaunchedEffect
+            },
+            additionButtons = {
+                CreateFromSearchOrScratchButton("Create schedule entry") {
+                    onNavigateToUpsertScheduleDialog(null)
                 }
-
-                val subject = subjectWithDetails.subject
-                editSubjectDialogState.init(
-                    id = subject.id,
-                    code = subject.code,
-                    description = subject.description,
-                    color = subject.color.toColor(),
-                    instructor = subjectWithDetails.instructor ?: Instructor(name = ""),
-                    sessions = subjectWithDetails.sessions
-                )
-                editSubjectDialogState.show()
-            }
-
-            HomeUiEvent.DoneAddingSubject -> {
-                newSubjectDialogState.hide()
-            }
-
-            is HomeUiEvent.FinishedDeletingSubject -> {
-                val subject = uiEvent.deletedSubject
-                val result = snackBarHostState.showSnackbar(
-                    message = subject.code + " deleted",
-                    actionLabel = "Undo",
-                    duration = SnackbarDuration.Long
-                )
-
-                if (result == SnackbarResult.ActionPerformed) {
-                    onEvent(HomeEvent.ReinsertSubject(subject))
+            },
+            itemLabel = {
+                AnimatedVisibility(subjectInstructorBottomSheetOptions.isNotEmpty()) {
+                    SelectionAndAdditionBottomSheetDefaults.ItemLabel("My schedule entries")
                 }
-            }
-        }
-
-        onEvent(HomeEvent.ClearUiEvent)
+            }, sheetState = sheetState
+        )
     }
 
     fun closeDrawer() {
@@ -275,34 +253,27 @@ private fun HomeScreen(
             )
         }, drawerState = drawerState
     ) {
-        Scaffold(
-            snackbarHost = {
-                SnackbarHost(hostState = snackBarHostState)
-            },
-            topBar = {
-                TopAppBar(title = uiState.selectedTimeTable.name,
-                    topAppBarMode = if (uiState.isOnEditMode) {
-                        TopAppBarMode.EditMode(onDoneClick = {
-                            onEvent(HomeEvent.SetOnDefaultMode)
-                        })
-                    } else {
-                        TopAppBarMode.Default(
-                            onAddNewScheduleClick = {
-                                newSubjectDialogState.reset()
-                                newSubjectDialogState.show()
-                            }, onNewTimeTableClick = {
-                                onNavigateToGetNewTimeTableNameDialog(false)
-                            }
-                        )
-                    },
-                    onNavigationMenuClick = {
-                        scope.launch {
-                            drawerState.open()
-                        }
+        Scaffold(snackbarHost = {
+            SnackbarHost(hostState = snackBarHostState)
+        }, topBar = {
+            TopAppBar(title = uiState.selectedTimeTable.name,
+                topAppBarMode = if (uiState.isOnEditMode) {
+                    TopAppBarMode.EditMode(onDoneClick = {
+                        onEvent(HomeEvent.SetToDefaultMode)
+                    })
+                } else {
+                    TopAppBarMode.Default(onAddNewScheduleClick = {
+                        isNewScheduleEntryBottomSheetVisible = true
+                    }, onNewTimeTableClick = {
+                        onNavigateToGetNewTimeTableNameDialog(false)
+                    })
+                },
+                onNavigationMenuClick = {
+                    scope.launch {
+                        drawerState.open()
                     }
-                )
-            }
-        ) { it ->
+                })
+        }) { it ->
             Column(modifier = Modifier.padding(it)) {
                 val leaderColumnWidth = 56.dp
 
@@ -376,8 +347,7 @@ private fun HomeScreen(
                                     ) {
                                         TimeText(period)
                                         Box(
-                                            modifier = Modifier
-                                                .size(width = 4.dp, height = 3.dp),
+                                            modifier = Modifier.size(width = 4.dp, height = 3.dp),
                                             contentAlignment = Alignment.Center
                                         ) {
                                             Box(
@@ -400,19 +370,16 @@ private fun HomeScreen(
                         val selectedTimeTableId = uiState.selectedTimeTable.id
 
                         if (uiState.isOnEditMode) {
-                            EditModeGrid(
-                                dataState.getSessionsWithSubjectInstructor(
-                                    selectedTimeTableId
-                                ), onGridClick = {
-                                    onEvent(HomeEvent.SetSessionWithSubject(it))
-                                })
+                            EditModeGrid(dataState.getSessionsWithSubjectInstructor(
+                                selectedTimeTableId
+                            ), onGridClick = {
+                                onEvent(HomeEvent.SetSessionWithActiveSubjectInstructor(it))
+                            })
                         } else {
-                            DefaultModeGrid(
-                                dataState.getDayScheduleMap(selectedTimeTableId),
+                            DefaultModeGrid(dataState.getDayScheduleMap(selectedTimeTableId),
                                 onChangeToEditMode = {
-                                    onEvent(HomeEvent.LoadToEditSubject(it))
-                                }
-                            )
+                                    //onEvent(HomeEvent.LoadToEditSubject(it))
+                                })
                         }
                     }
                 }
@@ -485,7 +452,10 @@ private fun TimeTableNavigationDrawer(
                     items(dataState.timeTables) { timeTable ->
                         val selected = timeTable == selectedTimeTable
 
-                        Log.d("TimeTableNavigationDrawer", "selected time table id: ${selectedTimeTable.id}")
+                        Log.d(
+                            "TimeTableNavigationDrawer",
+                            "selected time table id: ${selectedTimeTable.id}"
+                        )
 
                         Box(modifier = Modifier.padding(horizontal = 8.dp)) {
                             NavigationDrawerItem(label = {
@@ -584,8 +554,7 @@ private fun TimeTableNavigationDrawer(
 
 sealed interface TopAppBarMode {
     data class Default(
-        val onAddNewScheduleClick: () -> Unit,
-        val onNewTimeTableClick: () -> Unit
+        val onAddNewScheduleClick: () -> Unit, val onNewTimeTableClick: () -> Unit
     ) : TopAppBarMode
 
     data class EditMode(val onDoneClick: () -> Unit) : TopAppBarMode
@@ -611,31 +580,26 @@ private fun TopAppBar(
                         Box {
                             var expanded by remember { mutableStateOf(false) }
 
-                            IconButton(
-                                R.drawable.more_vert_24px,
+                            IconButton(R.drawable.more_vert_24px,
                                 contentDescription = "Open more options menu",
                                 onClick = {
                                     expanded = true
-                                }
-                            )
+                                })
                             DropdownMenu(expanded = expanded, onDismissRequest = {
                                 expanded = false
                             }) {
-                                DropdownMenuItem(
-                                    text = {
-                                        Text("New timetable")
-                                    }, onClick = {
-                                        topAppBarMode.onNewTimeTableClick()
-                                        expanded = false
-                                    },
-                                    leadingIcon = {
-                                        // TODO: Change icon to add timetable
-                                        Icon(
-                                            painter = painterResource(R.drawable.add_24px),
-                                            contentDescription = null
-                                        )
-                                    }
-                                )
+                                DropdownMenuItem(text = {
+                                    Text("New timetable")
+                                }, onClick = {
+                                    topAppBarMode.onNewTimeTableClick()
+                                    expanded = false
+                                }, leadingIcon = {
+                                    // TODO: Change icon to add timetable
+                                    Icon(
+                                        painter = painterResource(R.drawable.add_24px),
+                                        contentDescription = null
+                                    )
+                                })
                             }
                         }
                     }
@@ -706,8 +670,8 @@ private fun RowScope.DefaultModeGrid(
                     horizontalAlignment = Alignment.CenterHorizontally,
                     verticalArrangement = Arrangement.Center
                 ) {
-                    if (schedule.subjectWrapper != null) {
-                        val argbColor = schedule.subjectWrapper.color.toArgb()
+                    if (schedule.subjectInstructor != null) {
+                        val argbColor = schedule.subjectInstructor.subject?.color!!
 
                         val scheme = if (isSystemInDarkTheme()) {
                             Scheme.dark(argbColor)
@@ -746,23 +710,23 @@ private fun RowScope.DefaultModeGrid(
                             tooltip = @Composable {
                                 RichTooltip(action = {
                                     TextButton("Edit", onClick = {
-                                        onChangeToEditMode(schedule.subjectWrapper.id)
+                                        onChangeToEditMode(schedule.subjectInstructor.id)
                                     })
                                 }, title = {
                                     Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
                                         Chip(
                                             iconId = R.drawable.book_24px,
-                                            text = schedule.subjectWrapper.code
+                                            text = schedule.subjectInstructor.subject.code
                                         )
                                         Text(
-                                            schedule.subjectWrapper.description,
+                                            schedule.subjectInstructor.subject.description,
                                             style = MaterialTheme.typography.bodyLargeEmphasized
                                         )
                                     }
                                 }) {
                                     Chip(
                                         iconId = R.drawable.account_box_24px,
-                                        text = schedule.subjectWrapper.instructor?.name
+                                        text = schedule.subjectInstructor.instructor?.name
                                             ?: "No Instructor",
                                         iconColor = MaterialTheme.colorScheme.secondary
                                     )
@@ -783,7 +747,7 @@ private fun RowScope.DefaultModeGrid(
                                                 state.show()
                                             }
                                         } else {
-                                            onChangeToEditMode(schedule.subjectWrapper.id)
+                                            onChangeToEditMode(schedule.subjectInstructor.id)
                                         }
                                     }),
                                 verticalArrangement = Arrangement.Center,
@@ -791,7 +755,7 @@ private fun RowScope.DefaultModeGrid(
                             ) {
                                 // TODO: Utilize parent size to distribute position and sizing of the texts
                                 Text(
-                                    schedule.subjectWrapper.code.uppercase(),
+                                    schedule.subjectInstructor.subject.code.uppercase(),
                                     style = MaterialTheme.typography.labelMediumEmphasized,
                                     color = scheme.onPrimary.toColor(),
                                     textAlign = TextAlign.Center
@@ -800,7 +764,7 @@ private fun RowScope.DefaultModeGrid(
 
                                 val bodySmall = MaterialTheme.typography.bodySmall
                                 val bodySmallFontSizeValue = bodySmall.fontSize.value
-                                Text(schedule.subjectWrapper.description,
+                                Text(schedule.subjectInstructor.subject.description,
                                     style = bodySmall.copy(
                                         fontSize = (bodySmallFontSizeValue - 2).sp,
                                         lineHeight = (bodySmallFontSizeValue - 1).sp
@@ -813,7 +777,7 @@ private fun RowScope.DefaultModeGrid(
                                     onTextLayout = {
                                         isTextTruncated = it.hasVisualOverflow
                                     })
-                                Text(schedule.subjectWrapper.instructor?.name ?: "No instructor",
+                                Text(schedule.subjectInstructor.instructor?.name ?: "No instructor",
                                     style = MaterialTheme.typography.labelSmall,
                                     color = scheme.onPrimary.toColor(),
                                     modifier = Modifier.padding(top = 4.dp),
@@ -854,8 +818,7 @@ private fun Modifier.border(color: Color = MaterialTheme.colorScheme.surface): M
 @SuppressLint("RestrictedApi")
 @Composable
 private fun RowScope.EditModeGrid(
-    sessionsWithSubjectAndInstructor: List<SessionAndSubjectAndInstructor>,
-    onGridClick: (Session) -> Unit
+    sessionsWithSubjectAndInstructor: List<SessionWithDetails>, onGridClick: (Session) -> Unit
 ) {
     sessionsWithSubjectAndInstructor.groupBy { it.session.dayOfWeek }
         .forEach { (_, sessionsWithSubjectAndInstructor) ->
@@ -865,11 +828,9 @@ private fun RowScope.EditModeGrid(
                         modifier = Modifier
                             .height(RowHeight)
                             .fillMaxWidth()
-                            .clickable(
-                                onClick = {
-                                    onGridClick(sessionAndSubjectAndInstructor.session)
-                                }
-                            )
+                            .clickable(onClick = {
+                                onGridClick(sessionAndSubjectAndInstructor.session)
+                            })
                     ) {
                         if (sessionAndSubjectAndInstructor.session.isSubject) {
                             val scheme = createScheme(
@@ -903,8 +864,7 @@ private fun RowScope.EditModeGrid(
                                         MaterialTheme.colorScheme.surfaceColorAtElevation(
                                             8.dp
                                         )
-                                    ),
-                                contentAlignment = Alignment.Center
+                                    ), contentAlignment = Alignment.Center
                             ) {
                                 Icon(
                                     painter = painterResource(R.drawable.add_24px),
@@ -921,7 +881,7 @@ private fun RowScope.EditModeGrid(
 
 private val PreviewSessionWithSubjectWrapperAndInstructor = DayOfWeek.entries.flatMap { dayOfWeek ->
     List(5) {
-        SessionAndSubjectAndInstructor(
+        SessionWithDetails(
             session = if (it == 0 || it == 1) {
                 Session.subjectSession(
                     timeTableId = 1,
@@ -931,18 +891,13 @@ private val PreviewSessionWithSubjectWrapperAndInstructor = DayOfWeek.entries.fl
                 )
             } else {
                 Session.emptySession(1, dayOfWeek, LocalTime.of(it, 0))
-            }, subjectWithInstructor = if (it == 0 || it == 1) {
-                SubjectWithInstructor(
-                    Subject(
-                        code = "Math 123",
-                        description = "Mathematics literature",
-                        color = Color.Blue.toArgb(),
-                        instructorId = 0
-                    ), Instructor(name = "John Doe")
-                )
-            } else {
-                null
-            }
+            }, subjectWithInstructor = SubjectInstructorWithId(
+                0, Subject(
+                    code = "Math 123",
+                    description = "Mathematics literature",
+                    color = Color.Blue.toArgb(),
+                ), instructor = Instructor(name = "John Doe")
+            )
         )
     }
 }

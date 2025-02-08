@@ -3,46 +3,56 @@ package com.leeweeder.timetable.data.repository
 import com.leeweeder.timetable.data.data_source.dao.InstructorDao
 import com.leeweeder.timetable.data.data_source.dao.SessionDao
 import com.leeweeder.timetable.data.data_source.dao.SubjectDao
+import com.leeweeder.timetable.data.data_source.dao.SubjectInstructorCrossRefDao
 import com.leeweeder.timetable.domain.model.Instructor
 import com.leeweeder.timetable.domain.model.Subject
+import com.leeweeder.timetable.domain.model.SubjectInstructorCrossRef
 import com.leeweeder.timetable.domain.model.toEmptySession
-import com.leeweeder.timetable.domain.relation.SubjectWithDetails
 import com.leeweeder.timetable.domain.repository.SubjectRepository
 import kotlinx.coroutines.flow.Flow
 
 class SubjectRepositoryImpl(
     private val subjectDao: SubjectDao,
     private val sessionDao: SessionDao,
-    private val instructorDao: InstructorDao
+    private val instructorDao: InstructorDao,
+    private val subjectInstructorCrossRefDao: SubjectInstructorCrossRefDao
 ) : SubjectRepository {
-    override suspend fun getSubjectWithDetailsById(id: Int): SubjectWithDetails? {
-        return subjectDao.getSubjectWithDetailsById(id)
-    }
-
-    override fun observeSubjectWithDetails(): Flow<List<SubjectWithDetails>> {
-        return subjectDao.observeSubjectsWithDetails()
-    }
-
     override suspend fun upsertSubject(
         subject: Subject,
-        instructor: Instructor?
+        instructor: Instructor,
+        subjectInstructorCrossRefId: Int
     ): Int {
-        require(!(subject.instructorId == null && instructor == null)) {
-            "Subject.instructorId and instructor cannot be null at the same time to prevent ${if (subject.id == 0) "adding" else "editing"}  of subject without instructor"
-        }
-
-        val instructorId =
-            if (instructor != null && instructor.id == 0) {
-                instructorDao.upsertInstructor(instructor).toInt()
-            } else {
-                subject.instructorId ?: throw NullPointerException("Instructor ID is null")
-            }
-
-        return if (instructorId != 0) {
-            subjectDao.upsertSubject(subject.copy(instructorId = instructorId)).toInt()
+        val instructorResult = instructorDao.upsertInstructor(instructor)
+        val instructorId = if (instructorResult > 0) {
+            instructorResult.toInt()
+        } else if (instructor.id != 0) {
+            instructor.id
         } else {
-            throw RuntimeException("Failed to insert subject without instructor ID")
+            throw RuntimeException("Failed to upsert instructor")
         }
+
+        val subjectResult = subjectDao.upsertSubject(subject)
+        val subjectId = if (subjectResult > 0) {
+            subjectResult.toInt()
+        } else if (subject.id != 0) {
+            subject.id
+        } else {
+            throw RuntimeException("Failed to upsert subject")
+        }
+
+        val crossRefResult = subjectInstructorCrossRefDao.upsertSubjectInstructorCrossRef(
+            SubjectInstructorCrossRef(
+                subjectInstructorCrossRefId,
+                subjectId = subjectId,
+                instructorId = instructorId
+            )
+        )
+
+        return if (crossRefResult > 0) crossRefResult.toInt() else subjectInstructorCrossRefId
+    }
+
+    override fun observeSubjects(): Flow<List<Subject>> {
+        return subjectDao.observeSubjects()
     }
 
     override suspend fun deleteSubjectById(id: Int) {

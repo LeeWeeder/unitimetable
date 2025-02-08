@@ -2,15 +2,17 @@ package com.leeweeder.timetable.domain.repository
 
 import com.leeweeder.timetable.domain.model.Instructor
 import com.leeweeder.timetable.domain.model.Subject
-import com.leeweeder.timetable.domain.relation.SubjectWithDetails
 import kotlinx.coroutines.flow.Flow
 
 interface SubjectRepository {
-    suspend fun getSubjectWithDetailsById(id: Int): SubjectWithDetails?
 
-    fun observeSubjectWithDetails(): Flow<List<SubjectWithDetails>>
+    suspend fun upsertSubject(
+        subject: Subject,
+        instructor: Instructor,
+        subjectInstructorCrossRefId: Int = 0
+    ): Int
 
-    suspend fun upsertSubject(subject: Subject, instructor: Instructor?): Int
+    fun observeSubjects(): Flow<List<Subject>>
 
     suspend fun deleteSubjectById(id: Int)
 }

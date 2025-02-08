@@ -18,6 +18,11 @@ sealed interface Destination {
             val isInitialization: Boolean = false,
             val selectedTimeTableId: Int
         ) : Dialog
+
+        @Serializable
+        data class UpsertScheduleDialog(
+            val subjectInstructorId: Int?
+        ) : Dialog
     }
 
     sealed interface Screen : Destination {
@@ -25,9 +30,6 @@ sealed interface Destination {
         @Serializable
         data class HomeScreen(val subjectIdToBeEdited: Int? = null, val selectedTimeTableId: Int) :
             Screen
-
-        @Serializable
-        data class SubjectsScreen(val timeTableId: Int) : Screen
     }
 }
 

@@ -13,10 +13,10 @@ interface SessionDao {
     @Insert
     suspend fun insertSessions(sessions: List<Session>)
 
-    @Query("UPDATE session SET label = :label, subjectId = NULL WHERE id = :id")
+    @Query("UPDATE session SET label = :label, subjectInstructorCrossRefId = NULL WHERE id = :id")
     suspend fun updateSession(id: Int, label: String?)
 
-    @Query("UPDATE session SET subjectId = :subjectId, label = NULL WHERE id = :id")
+    @Query("UPDATE session SET subjectInstructorCrossRefId = :subjectId, label = NULL WHERE id = :id")
     suspend fun updateSession(id: Int, subjectId: Int)
 
     @Update
@@ -34,6 +34,6 @@ interface SessionDao {
     @Query("SELECT * FROM session WHERE timeTableId = :timeTableId")
     suspend fun getSessionsWithTimeTableId(timeTableId: Int): List<Session>
 
-    @Query("SELECT * FROM session WHERE subjectId = :subjectId")
+    @Query("SELECT * FROM session WHERE subjectInstructorCrossRefId = :subjectId")
     suspend fun getSessionWithSubjectId(subjectId: Int) : List<Session>
 }

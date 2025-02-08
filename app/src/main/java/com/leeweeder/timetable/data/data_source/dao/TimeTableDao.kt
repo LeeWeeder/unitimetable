@@ -5,7 +5,7 @@ import androidx.room.Insert
 import androidx.room.Query
 import androidx.room.Transaction
 import com.leeweeder.timetable.domain.model.TimeTable
-import com.leeweeder.timetable.domain.relation.TimeTableWithDetails
+import com.leeweeder.timetable.domain.relation.TimeTableWithSession
 import kotlinx.coroutines.flow.Flow
 import java.time.DayOfWeek
 import java.time.LocalTime
@@ -14,11 +14,11 @@ import java.time.LocalTime
 interface TimeTableDao {
     @Transaction
     @Query("SELECT * FROM timetable")
-    fun observeTimeTablesWithDetails(): Flow<List<TimeTableWithDetails>>
+    fun observeTimeTablesWithDetails(): Flow<List<TimeTableWithSession>>
 
     @Transaction
     @Query("SELECT * FROM timetable WHERE id = :id")
-    suspend fun getTimeTableWithDetailsById(id: Int): TimeTableWithDetails
+    suspend fun getTimeTableWithDetailsById(id: Int): TimeTableWithSession
 
     @Query("UPDATE timetable SET name = :newName WHERE id = :id")
     suspend fun updateTimeTableName(id: Int, newName: String)
