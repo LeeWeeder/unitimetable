@@ -14,7 +14,7 @@ import com.leeweeder.timetable.domain.model.Session
 import com.leeweeder.timetable.domain.model.Subject
 import com.leeweeder.timetable.domain.model.SubjectInstructorCrossRef
 import com.leeweeder.timetable.domain.model.TimeTable
-import com.leeweeder.timetable.domain.relation.SubjectInstructorWithId
+import com.leeweeder.timetable.domain.relation.SubjectInstructorCrossRefWithDetails
 
 @Database(
     entities = [
@@ -25,7 +25,7 @@ import com.leeweeder.timetable.domain.relation.SubjectInstructorWithId
         SubjectInstructorCrossRef::class
     ],
     views = [
-        SubjectInstructorWithId::class
+        SubjectInstructorCrossRefWithDetails::class
     ],
     version = 1
 )

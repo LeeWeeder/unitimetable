@@ -1,8 +1,9 @@
 package com.leeweeder.timetable.data.data_source.dao
 
 import androidx.room.Dao
+import androidx.room.Insert
 import androidx.room.Query
-import androidx.room.Upsert
+import androidx.room.Update
 import com.leeweeder.timetable.domain.model.Instructor
 import kotlinx.coroutines.flow.Flow
 
@@ -14,6 +15,12 @@ interface InstructorDao {
     @Query("DELETE FROM instructor WHERE id = :id")
     suspend fun deleteInstructorById(id: Int)
 
-    @Upsert
-    suspend fun upsertInstructor(instructor: Instructor): Long
+    @Update
+    suspend fun updateInstructor(instructor: Instructor)
+
+    @Insert
+    suspend fun insertInstructor(instructor: Instructor)
+
+    @Query("SELECT * FROM instructor WHERE id = :id")
+    fun observeInstructor(id: Int): Flow<Instructor?>
 }

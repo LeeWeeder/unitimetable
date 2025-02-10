@@ -1,8 +1,8 @@
 package com.leeweeder.timetable.feature_widget
 
 import android.annotation.SuppressLint
+import android.appwidget.AppWidgetManager
 import android.content.Context
-import android.content.res.Configuration
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.ExperimentalMaterial3ExpressiveApi
 import androidx.compose.material3.MaterialTheme
@@ -41,7 +41,6 @@ import androidx.glance.layout.padding
 import androidx.glance.layout.width
 import androidx.glance.text.Text
 import androidx.glance.unit.ColorProvider
-import com.google.android.material.color.utilities.Scheme
 import com.leeweeder.timetable.domain.relation.TimeTableWithSession
 import com.leeweeder.timetable.domain.repository.DataStoreRepository
 import com.leeweeder.timetable.domain.repository.TimeTableRepository
@@ -53,6 +52,7 @@ import com.leeweeder.timetable.ui.util.Constants
 import com.leeweeder.timetable.ui.util.getDays
 import com.leeweeder.timetable.ui.util.getTimes
 import com.leeweeder.timetable.ui.util.plusOneHour
+import com.leeweeder.timetable.util.isSystemInDarkTheme
 import com.leeweeder.timetable.util.toColor
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -69,6 +69,15 @@ import kotlin.collections.forEach
 class UnitimetableWidgetReceiver : GlanceAppWidgetReceiver() {
     override val glanceAppWidget: GlanceAppWidget by inject(UnitimetableWidget::class.java)
 
+    // Add this to specify the configuration activity
+    override fun onUpdate(
+        context: Context,
+        appWidgetManager: AppWidgetManager,
+        appWidgetIds: IntArray
+    ) {
+        super.onUpdate(context, appWidgetManager, appWidgetIds)
+        // Configuration activity will be launched before the widget is added
+    }
 }
 
 @Suppress("LocalVariableName")
@@ -254,70 +263,64 @@ private fun RowScope.Grid(
                     verticalAlignment = Alignment.CenterVertically
                 ) {
                     if (schedule.subjectInstructor != null) {
-                            val argbColor = schedule.subjectInstructor.subject?.color!!
+                        val scheme =
+                            schedule.subjectInstructor.hue.createScheme(isSystemInDarkTheme(context))
 
-                            val scheme = if (isSystemInDarkTheme(context = context)) {
-                                Scheme.dark(argbColor)
-                            } else {
-                                Scheme.light(argbColor)
+                        BorderContainer {
+                            Column(
+                                modifier = GlanceModifier
+                                    .fillMaxSize()
+                                    .background(color = scheme.primary.toColor())
+                                    .padding(4.dp),
+                                verticalAlignment = Alignment.CenterVertically,
+                                horizontalAlignment = Alignment.CenterHorizontally
+                            ) {
+                                // TODO: Utilize parent size to distribute position and sizing of the texts
+                                Text(
+                                    schedule.subjectInstructor.subject!!.code.uppercase(),
+                                    style = MaterialTheme.typography.labelMediumEmphasized.toGlanceTextStyle(
+                                        color = scheme.onPrimary.toColor(),
+                                        textAlign = TextAlign.Center
+                                    ),
+                                    // TODO: Implement auto-size for subject code
+                                )
+
+                                val bodySmall = MaterialTheme.typography.bodySmall
+                                val bodySmallFontSizeValue = bodySmall.fontSize.value
+
+                                val textColor = scheme.onPrimary.toColor()
+
+                                Text(
+                                    schedule.subjectInstructor.subject.description,
+                                    style = bodySmall.copy(
+                                        fontSize = (bodySmallFontSizeValue - 2).sp,
+                                        lineHeight = (bodySmallFontSizeValue - 1).sp
+                                    ).toGlanceTextStyle(
+                                        color = textColor,
+                                        textAlign = TextAlign.Center
+                                    ),
+                                    maxLines = subjectDescriptionMaxLine
+                                )
+
+                                Text(
+                                    schedule.subjectInstructor.instructor?.name ?: "No instructor",
+                                    style = MaterialTheme.typography.labelSmall.toGlanceTextStyle(
+                                        color = textColor,
+                                        textAlign = TextAlign.Center
+                                    ),
+                                    modifier = GlanceModifier.padding(top = 4.dp),
+                                    maxLines = instructorNameMaxLine
+                                )
                             }
-
-                            BorderContainer {
-                                Column(
-                                    modifier = GlanceModifier
-                                        .fillMaxSize()
-                                        .background(color = scheme.primary.toColor())
-                                        .padding(4.dp),
-                                    verticalAlignment = Alignment.CenterVertically,
-                                    horizontalAlignment = Alignment.CenterHorizontally
-                                ) {
-                                    // TODO: Utilize parent size to distribute position and sizing of the texts
-                                    Text(
-                                        schedule.subjectInstructor.subject.code.uppercase(),
-                                        style = MaterialTheme.typography.labelMediumEmphasized.toGlanceTextStyle(
-                                            color = scheme.onPrimary.toColor(),
-                                            textAlign = TextAlign.Center
-                                        ),
-                                        // TODO: Implement auto-size for subject code
-                                    )
-
-                                    val bodySmall = MaterialTheme.typography.bodySmall
-                                    val bodySmallFontSizeValue = bodySmall.fontSize.value
-
-                                    val textColor = scheme.onPrimary.toColor()
-
-                                    Text(
-                                        schedule.subjectInstructor.subject.description,
-                                        style = bodySmall.copy(
-                                            fontSize = (bodySmallFontSizeValue - 2).sp,
-                                            lineHeight = (bodySmallFontSizeValue - 1).sp
-                                        ).toGlanceTextStyle(
-                                            color = textColor,
-                                            textAlign = TextAlign.Center
-                                        ),
-                                        maxLines = subjectDescriptionMaxLine
-                                    )
-
-                                    Text(
-                                        schedule.subjectInstructor.instructor?.name ?: "No instructor",
-                                        style = MaterialTheme.typography.labelSmall.toGlanceTextStyle(
-                                            color = textColor,
-                                            textAlign = TextAlign.Center
-                                        ),
-                                        modifier = GlanceModifier.padding(top = 4.dp),
-                                        maxLines = instructorNameMaxLine
-                                    )
-                                }
-                            }
-                        } else {
-                            BorderContainer {
-                                Box(
-                                    modifier = GlanceModifier
-                                        .fillMaxSize(),
-                                    contentAlignment = Alignment.Center
-                                ) {
-                                    Text(if (schedule.label != null) schedule.label else "Break")
-                                }
+                        }
+                    } else {
+                        BorderContainer {
+                            Box(
+                                modifier = GlanceModifier
+                                    .fillMaxSize(),
+                                contentAlignment = Alignment.Center
+                            ) {
+                                Text(if (schedule.label != null) schedule.label else "Break")
                             }
                         }
                     }
@@ -325,6 +328,7 @@ private fun RowScope.Grid(
             }
         }
     }
+}
 
 @ConsistentCopyVisibility
 data class BorderSize private constructor(
@@ -487,14 +491,5 @@ fun TextAlign.toGlanceTextAlign(): androidx.glance.text.TextAlign {
         androidx.glance.text.TextAlign.Start
     } else {
         androidx.glance.text.TextAlign.Left
-    }
-}
-
-fun isSystemInDarkTheme(context: Context): Boolean {
-    return when (context.theme.resources.configuration.uiMode and Configuration.UI_MODE_NIGHT_MASK) {
-        Configuration.UI_MODE_NIGHT_YES -> true
-        Configuration.UI_MODE_NIGHT_NO -> false
-        Configuration.UI_MODE_NIGHT_UNDEFINED -> false
-        else -> false
     }
 }

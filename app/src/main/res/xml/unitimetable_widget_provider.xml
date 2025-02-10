@@ -6,6 +6,8 @@
     android:previewImage="@mipmap/ic_launcher"
     android:initialLayout="@layout/glance_default_loading_layout"
     android:updatePeriodMillis="0"
-    android:widgetCategory="home_screen">
+    android:widgetCategory="home_screen"
+    android:configure="com.leeweeder.timetable.feature_widget.WidgetConfigurationActivity"
+    android:widgetFeatures="reconfigurable">
 
 </appwidget-provider>

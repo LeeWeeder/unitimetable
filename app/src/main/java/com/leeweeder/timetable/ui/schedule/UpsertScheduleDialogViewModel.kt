@@ -1,77 +1,89 @@
 package com.leeweeder.timetable.ui.schedule
 
-import androidx.compose.foundation.text.input.TextFieldState
+import android.database.sqlite.SQLiteConstraintException
+import android.util.Log
 import androidx.compose.runtime.State
-import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.setValue
-import androidx.compose.runtime.snapshotFlow
 import androidx.lifecycle.SavedStateHandle
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import androidx.navigation.toRoute
 import com.leeweeder.timetable.domain.model.Instructor
 import com.leeweeder.timetable.domain.model.Subject
+import com.leeweeder.timetable.domain.model.SubjectInstructorCrossRef
+import com.leeweeder.timetable.domain.repository.InstructorRepository
 import com.leeweeder.timetable.domain.repository.SubjectInstructorRepository
 import com.leeweeder.timetable.domain.repository.SubjectRepository
+import com.leeweeder.timetable.ui.components.selection_and_addition_bottom_sheet.SelectionAndAdditionBottomSheetStateFactory
+import com.leeweeder.timetable.ui.schedule.UpsertScheduleDialogUiEvent.*
 import com.leeweeder.timetable.util.Destination
-import kotlinx.coroutines.FlowPreview
+import com.leeweeder.timetable.util.Hue
+import com.leeweeder.timetable.util.randomHue
+import kotlinx.coroutines.ExperimentalCoroutinesApi
+import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
+import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.catch
-import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.flow.combine
-import kotlinx.coroutines.flow.debounce
-import kotlinx.coroutines.flow.map
+import kotlinx.coroutines.flow.flatMapLatest
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 
 class UpsertScheduleDialogViewModel(
     private val subjectInstructorRepository: SubjectInstructorRepository,
     private val subjectRepository: SubjectRepository,
+    private val instructorRepository: InstructorRepository,
     savedStateHandle: SavedStateHandle
 ) : ViewModel() {
     private val _uiState = mutableStateOf(UpsertScheduleDialogUiState())
     val uiState: State<UpsertScheduleDialogUiState> = _uiState
 
-    val subjectSearchFieldState = TextFieldState()
+    private val _eventFlow = MutableStateFlow<UpsertScheduleDialogUiEvent?>(null)
+    val eventFlow: StateFlow<UpsertScheduleDialogUiEvent?> = _eventFlow.asStateFlow()
 
-    private val subjectBottomSheetDataState = subjectRepository.observeSubjects()
-        .map { SubjectBottomSheetDataState.Success(it) }
-        .catch { SubjectBottomSheetDataState.Error(it) }
+    private val _selectedSubjectId = MutableStateFlow(0)
+    private val selectedSubjectId: StateFlow<Int> = _selectedSubjectId.asStateFlow()
+
+    private val _selectedInstructorId = MutableStateFlow(0)
+    private val selectedInstructorId: StateFlow<Int> = _selectedInstructorId.asStateFlow()
+
+    @OptIn(ExperimentalCoroutinesApi::class)
+    val dataState = combine(
+        selectedSubjectId,
+        selectedInstructorId
+    ) { subjectId, instructorId -> Pair(subjectId, instructorId) }
+        .flatMapLatest { (subjectId, instructorId) ->
+            combine(
+                subjectRepository.observeSubject(subjectId),
+                instructorRepository.observeInstructor(instructorId)
+            ) { subject, instructor ->
+                UpsertScheduleDialogDataState.Success(subject, instructor)
+            }
+        }
+        .catch { UpsertScheduleDialogDataState.Error(it) }
         .stateIn(
-            viewModelScope, SharingStarted.WhileSubscribed(5_000L),
-            SubjectBottomSheetDataState.Loading
+            viewModelScope, SharingStarted.WhileSubscribed(5000),
+            UpsertScheduleDialogDataState.Loading
         )
 
-    var subjectOptions: List<Subject> by mutableStateOf(emptyList())
-        private set
+    private val selectionAndAdditionBottomSheetStateFactory =
+        SelectionAndAdditionBottomSheetStateFactory(viewModelScope)
 
-    @OptIn(FlowPreview::class)
-    suspend fun runSubjectSearch() {
-        combine(
-            subjectBottomSheetDataState,
-            snapshotFlow { subjectSearchFieldState.text }.debounce(200)
-        ) { dataState, searchFieldState ->
-            when (dataState) {
-                is SubjectBottomSheetDataState.Success -> {
-                    val searchQuery = searchFieldState.toString().lowercase().trim()
-                    if (searchQuery.isBlank()) {
-                        dataState.subjects
-                    } else {
-                        dataState.subjects.filter { subject ->
-                            subject.code.lowercase()
-                                .contains(searchQuery) || subject.description.lowercase()
-                                .contains(searchQuery)
-                        }
-                    }
-                }
+    val subjectBottomSheetState =
+        selectionAndAdditionBottomSheetStateFactory.create(
+            subjectRepository.observeSubjects()
+        ) { subject, searchQuery ->
+            subject.code.lowercase()
+                .contains(searchQuery.lowercase()) || subject.description.lowercase()
+                .contains(searchQuery.lowercase())
 
-                else -> emptyList()
-            }
-        }.collectLatest { filteredList ->
-            subjectOptions = filteredList
         }
-    }
+
+    val instructorBottomSheetState =
+        selectionAndAdditionBottomSheetStateFactory.create(instructorRepository.observeInstructors()) { instructor, searchQuery ->
+            instructor.name.lowercase().contains(searchQuery.lowercase())
+        }
 
     init {
         val subjectInstructorId =
@@ -83,27 +95,104 @@ class UpsertScheduleDialogViewModel(
                     subjectInstructorRepository.getSubjectInstructorWithId(subjectInstructorId)
 
                 _uiState.value = uiState.value.copy(
-                    selectedSubject = subjectInstructorWithId.subject,
-                    selectedInstructor = subjectInstructorWithId.instructor,
-                    mode = UpsertScheduleDialogMode.Update
+                    selectedHue = subjectInstructorWithId.hue,
+                    id = subjectInstructorWithId.id
                 )
+
+                viewModelScope.launch {
+                    _selectedSubjectId.emit(subjectInstructorWithId.subject.id)
+                    _selectedInstructorId.emit(subjectInstructorWithId.instructor.id)
+                }
             } else {
                 _uiState.value = uiState.value.copy(
-                    mode = UpsertScheduleDialogMode.Insert
+                    selectedHue = randomHue(),
+                    id = null
                 )
+            }
+        }
+    }
+
+    fun onEvent(event: UpsertScheduleDialogEvent) {
+        when (event) {
+            is UpsertScheduleDialogEvent.SetSelectedSubject -> {
+                viewModelScope.launch {
+                    _selectedSubjectId.emit(event.subjectId)
+                    Log.d("UpsertScheduleDialogViewModel", "emitted, event: ${event.subjectId}")
+                }
+            }
+
+            is UpsertScheduleDialogEvent.SetSelectedInstructor -> {
+                viewModelScope.launch {
+                    _selectedInstructorId.emit(event.instructorId)
+                }
+            }
+
+            is UpsertScheduleDialogEvent.SetSelectedHue -> {
+                _uiState.value = uiState.value.copy(
+                    selectedHue = event.value
+                )
+            }
+
+            UpsertScheduleDialogEvent.Save -> {
+                viewModelScope.launch {
+                    try {
+                        if (uiState.value.id == null) {
+                            subjectInstructorRepository.insertSubjectInstructor(
+                                SubjectInstructorCrossRef(
+                                    hue = uiState.value.selectedHue,
+                                    subjectId = selectedSubjectId.value,
+                                    instructorId = selectedInstructorId.value
+                                )
+                            )
+                        } else {
+                            subjectInstructorRepository.updateSubjectInstructor(
+                                SubjectInstructorCrossRef(
+                                    id = uiState.value.id!!,
+                                    hue = uiState.value.selectedHue,
+                                    subjectId = selectedSubjectId.value,
+                                    instructorId = selectedInstructorId.value
+                                )
+                            )
+                        }
+
+                        _eventFlow.emit(DoneSaving)
+                    } catch (_: SQLiteConstraintException) {
+                        _eventFlow.emit(ShowSnackbar("Failed to save schedule entry. This subject and instructor combination already exists."))
+                    }
+                }
+            }
+
+            UpsertScheduleDialogEvent.ClearUiEvent -> {
+                viewModelScope.launch {
+                    _eventFlow.emit(null)
+                }
             }
         }
     }
 }
 
-data class UpsertScheduleDialogUiState(
-    val selectedSubject: Subject? = null,
-    val selectedInstructor: Instructor? = null,
-    val mode: UpsertScheduleDialogMode = UpsertScheduleDialogMode.Insert
-)
-
-sealed interface SubjectBottomSheetDataState {
-    data class Success(val subjects: List<Subject>) : SubjectBottomSheetDataState
-    data class Error(val throwable: Throwable) : SubjectBottomSheetDataState
-    data object Loading : SubjectBottomSheetDataState
+sealed interface UpsertScheduleDialogUiEvent {
+    data class ShowSnackbar(val message: String) : UpsertScheduleDialogUiEvent
+    data object DoneSaving : UpsertScheduleDialogUiEvent
 }
+
+sealed interface UpsertScheduleDialogEvent {
+    data class SetSelectedSubject(val subjectId: Int) : UpsertScheduleDialogEvent
+    data class SetSelectedInstructor(val instructorId: Int) : UpsertScheduleDialogEvent
+    data class SetSelectedHue(val value: Hue) : UpsertScheduleDialogEvent
+    data object Save : UpsertScheduleDialogEvent
+    data object ClearUiEvent : UpsertScheduleDialogEvent
+}
+
+sealed interface UpsertScheduleDialogDataState {
+    data class Success(val subject: Subject?, val instructor: Instructor?) :
+        UpsertScheduleDialogDataState
+
+    data object Loading : UpsertScheduleDialogDataState
+    data class Error(val throwable: Throwable) : UpsertScheduleDialogDataState
+}
+
+data class UpsertScheduleDialogUiState(
+    val selectedHue: Hue = Hue.UNSPECIFIED,
+    val id: Int? = null
+)

@@ -2,11 +2,6 @@ package com.leeweeder.timetable.ui
 
 import android.util.Log
 import androidx.annotation.VisibleForTesting
-import androidx.compose.foundation.text.input.TextFieldState
-import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.setValue
-import androidx.compose.runtime.snapshotFlow
 import androidx.lifecycle.SavedStateHandle
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
@@ -16,26 +11,23 @@ import com.leeweeder.timetable.domain.model.Session
 import com.leeweeder.timetable.domain.model.Subject
 import com.leeweeder.timetable.domain.model.TimeTable
 import com.leeweeder.timetable.domain.relation.SessionWithDetails
-import com.leeweeder.timetable.domain.relation.SubjectInstructorWithId
 import com.leeweeder.timetable.domain.relation.TimeTableWithSession
 import com.leeweeder.timetable.domain.repository.DataStoreRepository
 import com.leeweeder.timetable.domain.repository.SessionRepository
 import com.leeweeder.timetable.domain.repository.SubjectInstructorRepository
 import com.leeweeder.timetable.domain.repository.TimeTableRepository
 import com.leeweeder.timetable.ui.HomeEvent.*
+import com.leeweeder.timetable.ui.components.selection_and_addition_bottom_sheet.SelectionAndAdditionBottomSheetStateFactory
 import com.leeweeder.timetable.ui.timetable_setup.DefaultTimeTable
 import com.leeweeder.timetable.ui.util.getDays
 import com.leeweeder.timetable.ui.util.getTimes
 import com.leeweeder.timetable.util.Destination
+import com.leeweeder.timetable.util.Hue
 import kotlinx.coroutines.ExperimentalCoroutinesApi
-import kotlinx.coroutines.FlowPreview
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.catch
-import kotlinx.coroutines.flow.collectLatest
-import kotlinx.coroutines.flow.combine
-import kotlinx.coroutines.flow.debounce
 import kotlinx.coroutines.flow.flatMapLatest
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
@@ -100,54 +92,19 @@ class HomeViewModel(
             HomeDataState.Error(it)
         }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000L), HomeDataState.Loading)
 
-    val subjectInstructorSearchFieldState = TextFieldState()
+    private val selectionAndAdditionBottomSheetStateFactory =
+        SelectionAndAdditionBottomSheetStateFactory(viewModelScope)
 
-    private val subjectInstructorBottomSheetDataState =
-        subjectInstructorRepository.observeSubjectInstructors().map {
-            Log.d("$TAG:subjectInstructorBottomSheetDataState", it.toString())
-            SubjectInstructorBottomSheetDataState.Success(it)
-        }.catch {
-            SubjectInstructorBottomSheetDataState.Error(it)
-        }.stateIn(
-            viewModelScope,
-            SharingStarted.WhileSubscribed(5_000L),
-            SubjectInstructorBottomSheetDataState.Loading
-        )
-
-    var subjectInstructorOptions: List<SubjectInstructorWithId> by mutableStateOf(emptyList())
-        private set
-
-    @OptIn(FlowPreview::class)
-    suspend fun runSearch() {
-        combine(
-            subjectInstructorBottomSheetDataState,
-            snapshotFlow { subjectInstructorSearchFieldState.text }
-                .debounce(200)
-        ) { dataState, searchFieldState ->
-            when (dataState) {
-                is SubjectInstructorBottomSheetDataState.Success -> {
-                    val searchQuery = searchFieldState.toString().lowercase().trim()
-                    if (searchQuery.isBlank()) {
-                        dataState.subjectInstructor
-                    } else {
-                        dataState.subjectInstructor.filter { subjectInstructor ->
-                            subjectInstructor.instructor.name.lowercase().contains(searchQuery) ||
-                                    subjectInstructor.subject.code.lowercase()
-                                        .contains(searchQuery) ||
-                                    subjectInstructor.subject.description.lowercase()
-                                        .contains(searchQuery)
-
-                        }
-                    }
-                }
-
-                else -> emptyList()
+    val scheduleEntryBottomSheetState =
+        selectionAndAdditionBottomSheetStateFactory
+            .create(
+                subjectInstructorRepository.observeSubjectInstructors()
+            ) { subjectInstructor, searchQuery ->
+                val searchQuery = searchQuery.lowercase()
+                subjectInstructor.instructor.name.lowercase().contains(searchQuery) ||
+                        subjectInstructor.subject.code.lowercase().contains(searchQuery) ||
+                        subjectInstructor.subject.description.lowercase().contains(searchQuery)
             }
-
-        }.collectLatest { filteredList ->
-            subjectInstructorOptions = filteredList
-        }
-    }
 
     fun onEvent(event: HomeEvent) {
         when (event) {
@@ -170,13 +127,13 @@ class HomeViewModel(
                         val session = event.sessionId
                         val sessionId = session.id
                         val subjectInstructorId = session.subjectInstructorCrossRefId
-                        val activeSubjectId =
+                        val activeSubjectInstructorCrossRefId =
                             uiState.value.activeSubjectInstructorIdForScheduling!!
 
-                        if (subjectInstructorId == null || subjectInstructorId != activeSubjectId) {
+                        if (subjectInstructorId == null || subjectInstructorId != activeSubjectInstructorCrossRefId) {
                             sessionRepository.updateSession(
                                 id = sessionId,
-                                subjectId = activeSubjectId
+                                crossRefId = activeSubjectInstructorCrossRefId
                             )
                         } else {
                             sessionRepository.updateSession(id = sessionId, label = null)
@@ -217,15 +174,6 @@ sealed interface HomeEvent {
 
     data object SetToDefaultMode : HomeEvent
     data class SetToEditMode(val id: Int) : HomeEvent
-}
-
-sealed interface SubjectInstructorBottomSheetDataState {
-    data class Success(
-        val subjectInstructor: List<SubjectInstructorWithId>
-    ) : SubjectInstructorBottomSheetDataState
-
-    data class Error(val throwable: Throwable) : SubjectInstructorBottomSheetDataState
-    data object Loading : SubjectInstructorBottomSheetDataState
 }
 
 sealed interface HomeDataState {
@@ -317,7 +265,8 @@ fun List<SessionWithDetails>.toMappedSchedules(): Map<DayOfWeek, List<Schedule>>
                     SubjectInstructor(
                         id = it.session.subjectInstructorCrossRefId!!,
                         subject = it.subjectWithInstructor!!.subject,
-                        instructor = it.subjectWithInstructor.instructor
+                        instructor = it.subjectWithInstructor.instructor,
+                        hue = it.subjectWithInstructor.hue
                     )
 
                 Schedule.subject(
@@ -406,6 +355,7 @@ data class Schedule private constructor(
 
 data class SubjectInstructor(
     val id: Int,
+    val hue: Hue,
     val subject: Subject?,
     val instructor: Instructor?
 ) {

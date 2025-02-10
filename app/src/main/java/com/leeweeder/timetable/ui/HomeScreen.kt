@@ -4,7 +4,6 @@ import android.annotation.SuppressLint
 import android.util.Log
 import androidx.annotation.DrawableRes
 import androidx.compose.animation.AnimatedContent
-import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
@@ -25,7 +24,7 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.rememberScrollState
-import androidx.compose.foundation.text.input.TextFieldState
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.AssistChip
 import androidx.compose.material3.AssistChipDefaults
@@ -40,8 +39,6 @@ import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButtonDefaults
 import androidx.compose.material3.IconToggleButton
-import androidx.compose.material3.ListItem
-import androidx.compose.material3.ListItemDefaults
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.ModalDrawerSheet
 import androidx.compose.material3.ModalNavigationDrawer
@@ -59,7 +56,6 @@ import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.material3.VerticalDivider
 import androidx.compose.material3.minimumInteractiveComponentSize
 import androidx.compose.material3.rememberDrawerState
-import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.material3.rememberTooltipState
 import androidx.compose.material3.surfaceColorAtElevation
 import androidx.compose.runtime.Composable
@@ -74,7 +70,6 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.RectangleShape
-import androidx.compose.ui.graphics.toArgb
 import androidx.compose.ui.layout.onGloballyPositioned
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.res.painterResource
@@ -88,7 +83,6 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.unit.toSize
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
-import com.google.android.material.color.utilities.Scheme
 import com.leeweeder.timetable.NonExistingMainTimeTableId
 import com.leeweeder.timetable.R
 import com.leeweeder.timetable.domain.model.Instructor
@@ -96,16 +90,20 @@ import com.leeweeder.timetable.domain.model.Session
 import com.leeweeder.timetable.domain.model.Subject
 import com.leeweeder.timetable.domain.model.TimeTable
 import com.leeweeder.timetable.domain.relation.SessionWithDetails
-import com.leeweeder.timetable.domain.relation.SubjectInstructorWithId
-import com.leeweeder.timetable.ui.components.CreateFromSearchOrScratchButton
+import com.leeweeder.timetable.domain.relation.SubjectInstructorCrossRefWithDetails
 import com.leeweeder.timetable.ui.components.IconButton
-import com.leeweeder.timetable.ui.components.SelectionAndAdditionBottomSheet
-import com.leeweeder.timetable.ui.components.SelectionAndAdditionBottomSheetDefaults
+import com.leeweeder.timetable.ui.components.selection_and_addition_bottom_sheet.CreateButtonConfig
+import com.leeweeder.timetable.ui.components.selection_and_addition_bottom_sheet.CreateButtonProperties
+import com.leeweeder.timetable.ui.components.selection_and_addition_bottom_sheet.ItemTransform
+import com.leeweeder.timetable.ui.components.selection_and_addition_bottom_sheet.SelectionAndAdditionBottomSheet
+import com.leeweeder.timetable.ui.components.selection_and_addition_bottom_sheet.SelectionAndAdditionBottomSheetConfig
+import com.leeweeder.timetable.ui.components.selection_and_addition_bottom_sheet.SelectionAndAdditionBottomSheetStateHolder
+import com.leeweeder.timetable.ui.components.selection_and_addition_bottom_sheet.rememberSelectionAndAdditionBottomSheetController
 import com.leeweeder.timetable.ui.timetable_setup.LabelText
 import com.leeweeder.timetable.ui.timetable_setup.components.TextButton
 import com.leeweeder.timetable.ui.util.Constants
 import com.leeweeder.timetable.ui.util.plusOneHour
-import com.leeweeder.timetable.util.createScheme
+import com.leeweeder.timetable.util.randomHue
 import com.leeweeder.timetable.util.toColor
 import kotlinx.coroutines.launch
 import org.koin.androidx.compose.koinViewModel
@@ -127,9 +125,6 @@ fun HomeScreen(
     val dataState by viewModel.homeDataState.collectAsStateWithLifecycle()
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
 
-    val subjectInstructorBottomSheetOptions = viewModel.subjectInstructorOptions
-    val searchBarFieldState = viewModel.subjectInstructorSearchFieldState
-
     if (dataState is HomeDataState.Error) {
         Log.e("HomeScreen", "DataState error", (dataState as HomeDataState.Error).throwable)
     } else if (dataState is HomeDataState.Loading) {
@@ -150,12 +145,11 @@ fun HomeScreen(
             onNavigateToGetNewTimeTableNameDialog(it, uiState.selectedTimeTable.id)
         },
         onNavigateToUpsertScheduleDialog = onNavigateToUpsertScheduleDialog,
-        subjectInstructorBottomSheetOptions = subjectInstructorBottomSheetOptions,
-        searchBarFieldState = searchBarFieldState,
-        runSearch = viewModel::runSearch
+        scheduleEntryBottomSheetState = viewModel.scheduleEntryBottomSheetState
     )
 }
 
+@SuppressLint("RestrictedApi")
 @OptIn(ExperimentalMaterial3Api::class, ExperimentalMaterial3ExpressiveApi::class)
 @Composable
 private fun HomeScreen(
@@ -164,75 +158,51 @@ private fun HomeScreen(
     onNavigateToGetNewTimeTableNameDialog: (isInitialization: Boolean) -> Unit,
     onNavigateToUpsertScheduleDialog: (Int?) -> Unit,
     onEvent: (HomeEvent) -> Unit,
-    subjectInstructorBottomSheetOptions: List<SubjectInstructorWithId>,
-    searchBarFieldState: TextFieldState,
-    runSearch: suspend () -> Unit
+    scheduleEntryBottomSheetState: SelectionAndAdditionBottomSheetStateHolder<SubjectInstructorCrossRefWithDetails>
 ) {
     val drawerState = rememberDrawerState(initialValue = DrawerValue.Closed)
     val scope = rememberCoroutineScope()
 
     val snackBarHostState = remember { SnackbarHostState() }
 
-    var isNewScheduleEntryBottomSheetVisible by remember { mutableStateOf(false) }
+    val newScheduleEntryController = rememberSelectionAndAdditionBottomSheetController()
 
-    val sheetState = rememberModalBottomSheetState()
-
-    LaunchedEffect(isNewScheduleEntryBottomSheetVisible) {
-        if (isNewScheduleEntryBottomSheetVisible) {
-            runSearch()
-        }
-    }
-
-    var isSearchComplete by remember { mutableStateOf(false) }
-
-    LaunchedEffect(subjectInstructorBottomSheetOptions) {
-        isSearchComplete = true
-    }
-
-    if (isSearchComplete) {
-        SelectionAndAdditionBottomSheet(
-            visible = isNewScheduleEntryBottomSheetVisible,
-            onDismissRequest = { isNewScheduleEntryBottomSheetVisible = false },
-            items = subjectInstructorBottomSheetOptions,
-            searchBarFieldState = searchBarFieldState,
-            searchBarPlaceholder = "Find schedule entry",
-            itemTransform = { item, modifier ->
-                ListItem(
-                    overlineContent = { Text(item.subject.description) },
-                    headlineContent = {
-                        Text(item.subject.description)
-                    },
-                    supportingContent = {
-                        Text(item.instructor.name)
-                    },
-                    colors = ListItemDefaults.colors(containerColor = Color.Transparent),
-                    modifier = modifier.clickable {
-                        onEvent(HomeEvent.SetToEditMode(item.id))
-                        scope.launch {
-                            sheetState.hide()
-                        }.invokeOnCompletion {
-                            isNewScheduleEntryBottomSheetVisible = false
-                        }
-                    },
-                    trailingContent = {
-                        TextButton("Edit", onClick = {
-                            onNavigateToUpsertScheduleDialog(item.id)
-                        })
-                    }
-                )
-            },
-            additionButtons = {
-                CreateFromSearchOrScratchButton("Create schedule entry") {
+    SelectionAndAdditionBottomSheet(
+        controller = newScheduleEntryController,
+        state = scheduleEntryBottomSheetState,
+        config = SelectionAndAdditionBottomSheetConfig(
+            searchPlaceholderTitle = "schedule entry",
+            itemLabel = "Schedule entries",
+            onItemClick = { onEvent(HomeEvent.SetToEditMode(it.id)) },
+            onItemEdit = { onNavigateToUpsertScheduleDialog(it.id) },
+            actionButtonConfig = CreateButtonConfig(
+                fromScratch = CreateButtonProperties.FromScratch(label = "schedule") {
                     onNavigateToUpsertScheduleDialog(null)
                 }
-            },
-            itemLabel = {
-                AnimatedVisibility(subjectInstructorBottomSheetOptions.isNotEmpty()) {
-                    SelectionAndAdditionBottomSheetDefaults.ItemLabel("My schedule entries")
+            ),
+            itemTransform = ItemTransform(
+                headlineText = {
+                    it.subject.description
+                },
+                overlineText = {
+                    it.subject.code
+                },
+                supportingText = {
+                    it.instructor.name
+                },
+                trailingContent = {
+                    Box(
+                        modifier = Modifier
+                            .size(24.dp)
+                            .background(
+                                color = it.hue.createScheme(isSystemInDarkTheme()).primary.toColor(),
+                                shape = CircleShape
+                            )
+                    )
                 }
-            }, sheetState = sheetState
+            ),
         )
-    }
+    )
 
     fun closeDrawer() {
         scope.launch {
@@ -263,7 +233,7 @@ private fun HomeScreen(
                     })
                 } else {
                     TopAppBarMode.Default(onAddNewScheduleClick = {
-                        isNewScheduleEntryBottomSheetVisible = true
+                        newScheduleEntryController.show()
                     }, onNewTimeTableClick = {
                         onNavigateToGetNewTimeTableNameDialog(false)
                     })
@@ -671,13 +641,8 @@ private fun RowScope.DefaultModeGrid(
                     verticalArrangement = Arrangement.Center
                 ) {
                     if (schedule.subjectInstructor != null) {
-                        val argbColor = schedule.subjectInstructor.subject?.color!!
-
-                        val scheme = if (isSystemInDarkTheme()) {
-                            Scheme.dark(argbColor)
-                        } else {
-                            Scheme.light(argbColor)
-                        }
+                        val scheme =
+                            schedule.subjectInstructor.hue.createScheme(isSystemInDarkTheme())
 
                         var isTextTruncated by remember { mutableStateOf(false) }
 
@@ -716,7 +681,7 @@ private fun RowScope.DefaultModeGrid(
                                     Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
                                         Chip(
                                             iconId = R.drawable.book_24px,
-                                            text = schedule.subjectInstructor.subject.code
+                                            text = schedule.subjectInstructor.subject!!.code
                                         )
                                         Text(
                                             schedule.subjectInstructor.subject.description,
@@ -755,7 +720,7 @@ private fun RowScope.DefaultModeGrid(
                             ) {
                                 // TODO: Utilize parent size to distribute position and sizing of the texts
                                 Text(
-                                    schedule.subjectInstructor.subject.code.uppercase(),
+                                    schedule.subjectInstructor.subject!!.code.uppercase(),
                                     style = MaterialTheme.typography.labelMediumEmphasized,
                                     color = scheme.onPrimary.toColor(),
                                     textAlign = TextAlign.Center
@@ -833,10 +798,10 @@ private fun RowScope.EditModeGrid(
                             })
                     ) {
                         if (sessionAndSubjectAndInstructor.session.isSubject) {
-                            val scheme = createScheme(
-                                sessionAndSubjectAndInstructor.subjectWithInstructor!!.subject.color.toColor(),
-                                isSystemInDarkTheme()
-                            )
+                            val scheme =
+                                sessionAndSubjectAndInstructor.subjectWithInstructor!!.hue.createScheme(
+                                    isSystemInDarkTheme()
+                                )
 
                             Box(
                                 modifier = Modifier
@@ -891,12 +856,11 @@ private val PreviewSessionWithSubjectWrapperAndInstructor = DayOfWeek.entries.fl
                 )
             } else {
                 Session.emptySession(1, dayOfWeek, LocalTime.of(it, 0))
-            }, subjectWithInstructor = SubjectInstructorWithId(
-                0, Subject(
+            }, subjectWithInstructor = SubjectInstructorCrossRefWithDetails(
+                0, subject = Subject(
                     code = "Math 123",
                     description = "Mathematics literature",
-                    color = Color.Blue.toArgb(),
-                ), instructor = Instructor(name = "John Doe")
+                ), instructor = Instructor(name = "John Doe"), hue = randomHue()
             )
         )
     }

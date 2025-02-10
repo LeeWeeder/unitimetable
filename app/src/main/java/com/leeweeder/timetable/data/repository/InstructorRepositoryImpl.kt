@@ -16,7 +16,15 @@ class InstructorRepositoryImpl(
         instructorDao.deleteInstructorById(id)
     }
 
-    override suspend fun upsertInstructor(instructor: Instructor) {
-        instructorDao.upsertInstructor(instructor)
+    override suspend fun insertInstructor(instructor: Instructor) {
+        instructorDao.insertInstructor(instructor)
+    }
+
+    override suspend fun updateInstructor(instructor: Instructor) {
+        instructorDao.updateInstructor(instructor)
+    }
+
+    override fun observeInstructor(id: Int): Flow<Instructor?> {
+        return instructorDao.observeInstructor(id)
     }
 }

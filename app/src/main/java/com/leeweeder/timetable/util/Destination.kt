@@ -23,6 +23,19 @@ sealed interface Destination {
         data class UpsertScheduleDialog(
             val subjectInstructorId: Int?
         ) : Dialog
+
+        @Serializable
+        data class UpsertSubjectDialog(
+            val id: Int,
+            val description: String,
+            val code: String
+        ) : Dialog
+
+        @Serializable
+        data class UpsertInstructorDialog(
+            val id: Int,
+            val name: String
+        ) : Dialog
     }
 
     sealed interface Screen : Destination {

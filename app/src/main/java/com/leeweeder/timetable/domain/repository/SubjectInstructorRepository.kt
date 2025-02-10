@@ -1,10 +1,15 @@
 package com.leeweeder.timetable.domain.repository
 
-import com.leeweeder.timetable.domain.relation.SubjectInstructorWithId
+import com.leeweeder.timetable.domain.model.SubjectInstructorCrossRef
+import com.leeweeder.timetable.domain.relation.SubjectInstructorCrossRefWithDetails
 import kotlinx.coroutines.flow.Flow
 
 interface SubjectInstructorRepository {
-    fun observeSubjectInstructors(): Flow<List<SubjectInstructorWithId>>
+    fun observeSubjectInstructors(): Flow<List<SubjectInstructorCrossRefWithDetails>>
 
-    suspend fun getSubjectInstructorWithId(id: Int): SubjectInstructorWithId
+    suspend fun getSubjectInstructorWithId(id: Int): SubjectInstructorCrossRefWithDetails
+
+    suspend fun insertSubjectInstructor(subjectInstructor: SubjectInstructorCrossRef)
+
+    suspend fun updateSubjectInstructor(subjectInstructor: SubjectInstructorCrossRef)
 }

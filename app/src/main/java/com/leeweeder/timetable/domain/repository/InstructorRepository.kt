@@ -8,5 +8,9 @@ interface InstructorRepository {
 
     suspend fun deleteInstructorById(id: Int)
 
-    suspend fun upsertInstructor(instructor: Instructor)
+    suspend fun insertInstructor(instructor: Instructor)
+
+    suspend fun updateInstructor(instructor: Instructor)
+
+    fun observeInstructor(id: Int): Flow<Instructor?>
 }

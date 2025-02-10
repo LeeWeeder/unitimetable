@@ -21,5 +21,5 @@ data class SessionWithDetails(
         parentColumn = "subjectInstructorCrossRefId",
         entityColumn = "id"
     )
-    val subjectWithInstructor: SubjectInstructorWithId?
+    val subjectWithInstructor: SubjectInstructorCrossRefWithDetails?
 )

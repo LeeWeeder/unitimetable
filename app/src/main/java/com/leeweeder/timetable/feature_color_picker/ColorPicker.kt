@@ -1,6 +1,7 @@
 package com.leeweeder.timetable.feature_color_picker
 
 import android.annotation.SuppressLint
+import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.animateColor
 import androidx.compose.animation.core.animateDp
 import androidx.compose.animation.core.updateTransition
@@ -13,11 +14,9 @@ import androidx.compose.foundation.interaction.Interaction
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.interaction.PressInteraction
 import androidx.compose.foundation.isSystemInDarkTheme
-import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.BoxWithConstraintsScope
-import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.offset
@@ -34,7 +33,6 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableFloatStateOf
-import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateListOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -43,10 +41,8 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.drawBehind
-import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.toArgb
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.res.painterResource
@@ -54,125 +50,77 @@ import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.dp
-import com.google.android.material.color.utilities.Hct
 import com.leeweeder.timetable.R
 import com.leeweeder.timetable.ui.timetable_setup.components.CancelTextButton
 import com.leeweeder.timetable.ui.timetable_setup.components.TextButton
-import com.leeweeder.timetable.util.createScheme
+import com.leeweeder.timetable.util.Hue
+import com.leeweeder.timetable.util.randomHue
 import com.leeweeder.timetable.util.toColor
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import kotlin.math.roundToInt
 
+@SuppressLint("RestrictedApi")
 @Composable
 fun ColorPickerDialog(
+    visible: Boolean,
     onDismissRequest: () -> Unit,
-    initialColor: Color,
-    onConfirmClick: (Color) -> Unit,
-    title: String
+    initialHue: Hue,
+    onConfirmClick: (Hue) -> Unit
 ) {
-    var color by remember { mutableStateOf(initialColor) }
+    var hue by remember(visible, initialHue) { mutableStateOf(initialHue) }
 
-    AlertDialog(
-        onDismissRequest = onDismissRequest,
-        confirmButton = {
-            TextButton(
-                "Confirm",
-                onClick = {
-                    onConfirmClick(color)
+    AnimatedVisibility(visible) {
+        AlertDialog(
+            onDismissRequest = onDismissRequest,
+            confirmButton = {
+                TextButton(
+                    "Confirm",
+                    onClick = {
+                        onConfirmClick(hue)
+                    }
+                )
+            }, dismissButton = {
+                CancelTextButton(onDismissRequest)
+            }, title = {
+                Text("Select color")
+            }, text = {
+                ColorPicker(hue = hue) {
+                    hue = it
                 }
-            )
-        }, dismissButton = {
-            CancelTextButton(onDismissRequest)
-        }, title = {
-            Text(title)
-        }, text = {
-            ColorPicker(initialColor = color) {
-                color = it
+            }, icon = {
+                Icon(
+                    painter = painterResource(R.drawable.palette_24px),
+                    contentDescription = "Selected color",
+                    tint = hue.createScheme(isSystemInDarkTheme()).primary.toColor(),
+                    modifier = Modifier
+                        .size(36.dp)
+                )
             }
-        }
+        )
+    }
+}
+
+@Preview
+@Composable
+private fun ColorPickerDialogPreview() {
+    ColorPickerDialog(
+        visible = true,
+        onDismissRequest = {},
+        initialHue = randomHue(),
+        onConfirmClick = {},
     )
 }
 
 @SuppressLint("RestrictedApi")
 @Composable
-fun ColorPicker(initialColor: Color, onColorChange: (Color) -> Unit) {
-    val initialHctColor = Hct.fromInt(initialColor.toArgb())
+private fun ColorPicker(hue: Hue, onHueChange: (Hue) -> Unit) {
+    val isDarkTheme = isSystemInDarkTheme()
 
-    var hue by remember { mutableIntStateOf(initialHctColor.hue.roundToInt()) }
-    var chroma by remember { mutableIntStateOf(initialHctColor.chroma.roundToInt()) }
-    var tone by remember { mutableIntStateOf(initialHctColor.tone.roundToInt()) }
-
-    val color by remember {
-        derivedStateOf {
-            hctToColor(hue, chroma, tone)
-        }
+    val colors = List(Hue.MAX_HUE_DEGREES) {
+        Hue(it).createScheme(isDarkTheme).primary.toColor()
     }
 
-    val isDarkMode = isSystemInDarkTheme()
-
-    val displayColor by remember {
-        derivedStateOf {
-            val scheme = createScheme(color = color, isDarkTheme = isDarkMode)
-            scheme.primary.toColor()
-        }
-    }
-
-    LaunchedEffect(color) {
-        onColorChange(color)
-    }
-
-    Column(
-        verticalArrangement = Arrangement.spacedBy(16.dp),
-        horizontalAlignment = Alignment.CenterHorizontally
-    ) {
-        Icon(
-            painter = painterResource(R.drawable.palette_24px),
-            contentDescription = "Selected color",
-            tint = displayColor,
-            modifier = Modifier
-                .size(36.dp)
-        )
-
-        HueSelectionBox(
-            initialHueDegrees = hue,
-            chroma = Hct.fromInt(displayColor.toArgb()).chroma.roundToInt(),
-            tone = Hct.fromInt(displayColor.toArgb()).tone.roundToInt(),
-            onHueChange = {
-                hue = it
-            }
-        )
-    }
-}
-
-@SuppressLint("RestrictedApi")
-fun hctToColor(hue: Int, chroma: Int, tone: Int): Color {
-    return Hct.from(hue.toDouble(), chroma.toDouble(), tone.toDouble()).toInt().toColor()
-}
-
-@SuppressLint("RestrictedApi")
-@Composable
-private fun HueSelectionBox(
-    initialHueDegrees: Int,
-    onHueChange: (Int) -> Unit,
-    chroma: Int,
-    tone: Int
-) {
-    SelectionBox(colors = List(MaxHueDegrees) {
-        hctToColor(it, chroma, tone)
-    }, initialPositionPx = { maxWidth ->
-        (initialHueDegrees.toFloat() / MaxHueDegrees * maxWidth)
-    }) {
-        onHueChange(it.roundToInt())
-    }
-}
-
-@Composable
-private fun SelectionBox(
-    colors: List<Color>,
-    initialPositionPx: (maxWidth: Float) -> Float = { 0f },
-    onValueChange: (Float) -> Unit
-) {
     var value by remember { mutableFloatStateOf(0f) }
 
     val density = LocalDensity.current
@@ -185,17 +133,24 @@ private fun SelectionBox(
 
     LaunchedEffect(maxWidth) {
         if (maxWidth > 0 && offsetX == 0f) {
-            offsetX = initialPositionPx(maxWidth) - pickerRadius
+            offsetX = (hue.value.toFloat() / Hue.MAX_HUE_DEGREES * maxWidth) - pickerRadius
         }
-    }
-
-    LaunchedEffect(value) {
-        onValueChange(value)
     }
 
     val interactionSource = remember { MutableInteractionSource() }
 
     val scope = rememberCoroutineScope()
+
+    fun onHueChange() {
+        onHueChange(
+            Hue(
+                (offsetX / maxWidth * colors.size.toFloat()).coerceIn(
+                    0f,
+                    colors.size.toFloat() - 1
+                ).roundToInt()
+            )
+        )
+    }
 
     BoxWithConstraints(
         modifier = Modifier
@@ -213,6 +168,7 @@ private fun SelectionBox(
                         )
 
                         offsetX = newOffsetX
+                        onHueChange()
                         scope.launch {
                             val pressInteraction = PressInteraction.Press(offset)
                             interactionSource.emit(pressInteraction)
@@ -226,16 +182,12 @@ private fun SelectionBox(
             this@BoxWithConstraints.maxWidth.toPx()
         }
 
-        value = (offsetX / maxWidth * colors.size.toFloat()).coerceIn(
-            0f,
-            colors.size.toFloat() - 1
-        )
-
         Picker(
             selectorBoxWidth = this.maxWidth,
             offsetX = offsetX,
             onDrag = { delta ->
                 offsetX = delta.coerceIn(-pickerRadius, maxWidth - pickerRadius)
+                onHueChange()
             },
             interactionSource = interactionSource
         )
@@ -329,26 +281,10 @@ private fun BoxWithConstraintsScope.Picker(
 private val PickerSize = 24.dp
 private val SelectionBoxHeight = 56.dp
 
-const val DefaultToneValue = 40
-const val DefaultChromaValue = 48
-
-const val MaxHueDegrees = 360
-
-@Preview
-@Composable
-private fun HueSelectionPreview() {
-    HueSelectionBox(
-        onHueChange = {},
-        initialHueDegrees = 0,
-        chroma = DefaultChromaValue,
-        tone = DefaultToneValue
-    )
-}
-
 @Preview
 @Composable
 private fun ColorPickerPreview() {
-    ColorPicker(initialColor = MaterialTheme.colorScheme.primary, onColorChange = {})
+    ColorPicker(hue = Hue(1), onHueChange = {})
 }
 
 

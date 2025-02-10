@@ -11,7 +11,7 @@ class SessionRepositoryImpl(
         sessionDao.updateSession(id = id, label = label)
     }
 
-    override suspend fun updateSession(id: Int, subjectId: Int) {
-        sessionDao.updateSession(id = id, subjectId = subjectId)
+    override suspend fun updateSession(id: Int, crossRefId: Int) {
+        sessionDao.updateSession(id = id, crossRefId = crossRefId)
     }
 }

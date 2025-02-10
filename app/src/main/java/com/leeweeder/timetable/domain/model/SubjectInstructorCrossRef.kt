@@ -4,6 +4,7 @@ import androidx.room.Entity
 import androidx.room.ForeignKey
 import androidx.room.Index
 import androidx.room.PrimaryKey
+import com.leeweeder.timetable.util.Hue
 
 @Entity(
     indices = [
@@ -17,18 +18,21 @@ import androidx.room.PrimaryKey
             parentColumns = ["id"],
             childColumns = ["subjectId"],
             onDelete = ForeignKey.CASCADE,
+            onUpdate = ForeignKey.CASCADE
         ),
         ForeignKey(
             entity = Instructor::class,
             parentColumns = ["id"],
             childColumns = ["instructorId"],
             onDelete = ForeignKey.CASCADE,
+            onUpdate = ForeignKey.CASCADE,
         )
     ]
 )
 data class SubjectInstructorCrossRef(
     @PrimaryKey(autoGenerate = true)
     val id: Int = 0,
+    val hue: Hue,
     val subjectId: Int,
     val instructorId: Int
 )

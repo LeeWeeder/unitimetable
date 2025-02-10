@@ -16,7 +16,9 @@ import androidx.navigation.compose.dialog
 import androidx.navigation.compose.rememberNavController
 import androidx.navigation.toRoute
 import com.leeweeder.timetable.ui.HomeScreen
+import com.leeweeder.timetable.ui.instructor.UpsertInstructorDialog
 import com.leeweeder.timetable.ui.schedule.UpsertScheduleDialog
+import com.leeweeder.timetable.ui.subject.UpsertSubjectDialog
 import com.leeweeder.timetable.ui.theme.TimeTableTheme
 import com.leeweeder.timetable.ui.timetable_setup.GetTimeTableNameDialog
 import com.leeweeder.timetable.ui.timetable_setup.TimeTableSetupDialog
@@ -111,7 +113,36 @@ private fun MainNavHost(
         )
 
         dialog<Destination.Dialog.UpsertScheduleDialog> {
-            UpsertScheduleDialog(onNavigateBack = {
+            UpsertScheduleDialog(
+                onNavigateBack = {
+                    navigateUp()
+                }, onNavigateToUpsertSubjectDialog = {
+                    navController.navigate(
+                        Destination.Dialog.UpsertSubjectDialog(
+                            id = it?.id ?: 0,
+                            description = it?.description ?: "",
+                            code = it?.code ?: ""
+                        )
+                    )
+                }, onNavigateToUpsertInstructorDialog = {
+                    navController.navigate(
+                        Destination.Dialog.UpsertInstructorDialog(
+                            id = it?.id ?: 0,
+                            name = it?.name ?: ""
+                        )
+                    )
+                }
+            )
+        }
+
+        dialog<Destination.Dialog.UpsertSubjectDialog> {
+            UpsertSubjectDialog(onDismissRequest = {
+                navigateUp()
+            })
+        }
+
+        dialog<Destination.Dialog.UpsertInstructorDialog> {
+            UpsertInstructorDialog(onDismissRequest = {
                 navigateUp()
             })
         }

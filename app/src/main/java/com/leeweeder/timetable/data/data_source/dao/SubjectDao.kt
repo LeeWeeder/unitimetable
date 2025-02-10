@@ -1,21 +1,29 @@
 package com.leeweeder.timetable.data.data_source.dao
 
 import androidx.room.Dao
+import androidx.room.Insert
 import androidx.room.Query
-import androidx.room.Transaction
-import androidx.room.Upsert
+import androidx.room.Update
 import com.leeweeder.timetable.domain.model.Subject
 import kotlinx.coroutines.flow.Flow
 
 @Dao
 interface SubjectDao {
-    @Transaction
     @Query("SELECT * FROM subject")
     fun observeSubjects(): Flow<List<Subject>>
 
-    @Upsert
-    suspend fun upsertSubject(subject: Subject): Long
+    @Update
+    suspend fun updateSubject(subject: Subject)
+
+    @Insert
+    suspend fun insertSubject(subject: Subject): Long
 
     @Query("DELETE FROM subject WHERE id = :id")
     suspend fun deleteSubjectById(id: Int)
+
+    @Query("SELECT * FROM subject WHERE id = :id")
+    suspend fun getSubjectById(id: Int): Subject?
+
+    @Query("SELECT * FROM subject WHERE id = :id")
+    fun observeSubject(id: Int): Flow<Subject?>
 }
