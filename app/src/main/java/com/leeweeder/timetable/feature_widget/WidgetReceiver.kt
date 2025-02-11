@@ -242,7 +242,8 @@ fun Widget(
             LabelContainer(modifier = GlanceModifier.width(leaderColumnWidth).fillMaxHeight()) {
                 Column(modifier = GlanceModifier.fillMaxSize()) {
                     startTimes.forEachIndexed { index, period ->
-                        val style = MaterialTheme.typography.labelSmall
+                        val style =
+                            MaterialTheme.typography.labelSmall.copy(fontSize = MaterialTheme.typography.labelSmall.fontSize * SCALE)
 
                         @Composable
                         fun TimeText(time: LocalTime) {
@@ -282,6 +283,8 @@ fun Widget(
     }
 }
 
+private const val SCALE = 0.9f
+
 @SuppressLint("RestrictedApi")
 @OptIn(ExperimentalMaterial3ExpressiveApi::class, ExperimentalMaterial3Api::class)
 @Composable
@@ -296,7 +299,7 @@ private fun RowScope.Grid(
         ) {
             schedules.forEach { schedule ->
 
-                val subjectDescriptionMaxLine = if (schedule.periodSpan == 1) 2 else Int.MAX_VALUE
+                val subjectDescriptionMaxLine = if (schedule.periodSpan == 1) 1 else Int.MAX_VALUE
                 val instructorNameMaxLine = if (schedule.periodSpan == 1) 1 else Int.MAX_VALUE
 
                 Column(
@@ -314,21 +317,22 @@ private fun RowScope.Grid(
                                 modifier = GlanceModifier
                                     .fillMaxSize()
                                     .background(color = scheme.primary.toColor())
-                                    .padding(4.dp),
+                                    .padding(2.dp),
                                 verticalAlignment = Alignment.CenterVertically,
                                 horizontalAlignment = Alignment.CenterHorizontally
                             ) {
                                 // TODO: Utilize parent size to distribute position and sizing of the texts
                                 Text(
                                     schedule.subjectInstructor.subject!!.code.uppercase(),
-                                    style = MaterialTheme.typography.labelMediumEmphasized.toGlanceTextStyle(
+                                    style = MaterialTheme.typography.labelSmallEmphasized.copy(fontSize = MaterialTheme.typography.labelSmallEmphasized.fontSize * SCALE).toGlanceTextStyle(
                                         color = scheme.onPrimary.toColor(),
                                         textAlign = TextAlign.Center
                                     ),
                                     // TODO: Implement auto-size for subject code
                                 )
 
-                                val bodySmall = MaterialTheme.typography.bodySmall
+                                val bodySmall =
+                                    MaterialTheme.typography.bodySmall.copy(fontSize = MaterialTheme.typography.bodySmall.fontSize * SCALE)
                                 val bodySmallFontSizeValue = bodySmall.fontSize.value
 
                                 val textColor = scheme.onPrimary.toColor()
@@ -347,11 +351,11 @@ private fun RowScope.Grid(
 
                                 Text(
                                     schedule.subjectInstructor.instructor?.name ?: "No instructor",
-                                    style = MaterialTheme.typography.labelSmall.toGlanceTextStyle(
-                                        color = textColor,
-                                        textAlign = TextAlign.Center
-                                    ),
-                                    modifier = GlanceModifier.padding(top = 4.dp),
+                                    style = MaterialTheme.typography.labelSmall.copy(fontSize = MaterialTheme.typography.labelSmall.fontSize * SCALE)
+                                        .toGlanceTextStyle(
+                                            color = textColor,
+                                            textAlign = TextAlign.Center
+                                        ),
                                     maxLines = instructorNameMaxLine
                                 )
                             }
