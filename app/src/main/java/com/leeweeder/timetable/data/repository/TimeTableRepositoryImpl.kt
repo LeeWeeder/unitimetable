@@ -18,6 +18,10 @@ class TimeTableRepositoryImpl(
         return timeTableDao.observeTimeTablesWithDetails()
     }
 
+    override fun observeTimeTables(): Flow<List<TimeTable>> {
+        return timeTableDao.observeTimeTables()
+    }
+
     /**
      * Insert a new timetable and its associated sessions
      *
@@ -94,5 +98,9 @@ class TimeTableRepositoryImpl(
 
     override suspend fun getTimeTableNames(): List<String> {
         return timeTableDao.getTimeTableNames()
+    }
+
+    override suspend fun getTimetableById(id: Int): TimeTable? {
+        return timeTableDao.getTimetableById(id)
     }
 }

@@ -95,10 +95,10 @@ import com.leeweeder.timetable.ui.components.IconButton
 import com.leeweeder.timetable.ui.components.selection_and_addition_bottom_sheet.CreateButtonConfig
 import com.leeweeder.timetable.ui.components.selection_and_addition_bottom_sheet.CreateButtonProperties
 import com.leeweeder.timetable.ui.components.selection_and_addition_bottom_sheet.ItemTransform
-import com.leeweeder.timetable.ui.components.selection_and_addition_bottom_sheet.SelectionAndAdditionBottomSheet
-import com.leeweeder.timetable.ui.components.selection_and_addition_bottom_sheet.SelectionAndAdditionBottomSheetConfig
-import com.leeweeder.timetable.ui.components.selection_and_addition_bottom_sheet.SelectionAndAdditionBottomSheetStateHolder
-import com.leeweeder.timetable.ui.components.selection_and_addition_bottom_sheet.rememberSelectionAndAdditionBottomSheetController
+import com.leeweeder.timetable.ui.components.selection_and_addition_bottom_sheet.SearchableBottomSheet
+import com.leeweeder.timetable.ui.components.selection_and_addition_bottom_sheet.SearchableBottomSheetConfig
+import com.leeweeder.timetable.ui.components.selection_and_addition_bottom_sheet.SearchableBottomSheetStateHolder
+import com.leeweeder.timetable.ui.components.selection_and_addition_bottom_sheet.rememberSearchableBottomSheetController
 import com.leeweeder.timetable.ui.timetable_setup.LabelText
 import com.leeweeder.timetable.ui.timetable_setup.components.TextButton
 import com.leeweeder.timetable.ui.util.Constants
@@ -158,19 +158,19 @@ private fun HomeScreen(
     onNavigateToGetNewTimeTableNameDialog: (isInitialization: Boolean) -> Unit,
     onNavigateToUpsertScheduleDialog: (Int?) -> Unit,
     onEvent: (HomeEvent) -> Unit,
-    scheduleEntryBottomSheetState: SelectionAndAdditionBottomSheetStateHolder<SubjectInstructorCrossRefWithDetails>
+    scheduleEntryBottomSheetState: SearchableBottomSheetStateHolder<SubjectInstructorCrossRefWithDetails>
 ) {
     val drawerState = rememberDrawerState(initialValue = DrawerValue.Closed)
     val scope = rememberCoroutineScope()
 
     val snackBarHostState = remember { SnackbarHostState() }
 
-    val newScheduleEntryController = rememberSelectionAndAdditionBottomSheetController()
+    val newScheduleEntryController = rememberSearchableBottomSheetController()
 
-    SelectionAndAdditionBottomSheet(
+    SearchableBottomSheet(
         controller = newScheduleEntryController,
         state = scheduleEntryBottomSheetState,
-        config = SelectionAndAdditionBottomSheetConfig(
+        config = SearchableBottomSheetConfig(
             searchPlaceholderTitle = "schedule entry",
             itemLabel = "Schedule entries",
             onItemClick = { onEvent(HomeEvent.SetToEditMode(it.id)) },

@@ -23,7 +23,7 @@ sealed interface SelectionAndAdditionBottomSheetState<T> {
     class Loading<T> : SelectionAndAdditionBottomSheetState<T>
 }
 
-class SelectionAndAdditionBottomSheetStateHolder<T> {
+class SearchableBottomSheetStateHolder<T> {
     val searchFieldState = TextFieldState()
 
     @Suppress("PropertyName")
@@ -33,13 +33,13 @@ class SelectionAndAdditionBottomSheetStateHolder<T> {
     internal lateinit var runSearch: suspend () -> Unit
 }
 
-class SelectionAndAdditionBottomSheetStateFactory(private val scope: CoroutineScope) {
+class SearchableBottomSheetStateFactory(private val scope: CoroutineScope) {
     @OptIn(FlowPreview::class)
     fun <T> create(
         dataFlow: Flow<List<T>>,
         searchPredicate: (T, String) -> Boolean
-    ): SelectionAndAdditionBottomSheetStateHolder<T> {
-        val stateHolder = SelectionAndAdditionBottomSheetStateHolder<T>()
+    ): SearchableBottomSheetStateHolder<T> {
+        val stateHolder = SearchableBottomSheetStateHolder<T>()
 
         val dataState = dataFlow
             .map { SelectionAndAdditionBottomSheetState.Success(it) }

@@ -16,6 +16,9 @@ interface TimeTableDao {
     @Query("SELECT * FROM timetable")
     fun observeTimeTablesWithDetails(): Flow<List<TimeTableWithSession>>
 
+    @Query("SELECT * FROM timetable")
+    fun observeTimeTables(): Flow<List<TimeTable>>
+
     @Transaction
     @Query("SELECT * FROM timetable WHERE id = :id")
     suspend fun getTimeTableWithDetailsById(id: Int): TimeTableWithSession
@@ -49,4 +52,7 @@ interface TimeTableDao {
 
     @Query("SELECT name FROM timetable")
     suspend fun getTimeTableNames(): List<String>
+
+    @Query("SELECT * FROM timetable WHERE id = :id")
+    suspend fun getTimetableById(id: Int): TimeTable?
 }

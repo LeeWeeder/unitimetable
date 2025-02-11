@@ -14,7 +14,7 @@ import com.leeweeder.timetable.domain.model.SubjectInstructorCrossRef
 import com.leeweeder.timetable.domain.repository.InstructorRepository
 import com.leeweeder.timetable.domain.repository.SubjectInstructorRepository
 import com.leeweeder.timetable.domain.repository.SubjectRepository
-import com.leeweeder.timetable.ui.components.selection_and_addition_bottom_sheet.SelectionAndAdditionBottomSheetStateFactory
+import com.leeweeder.timetable.ui.components.selection_and_addition_bottom_sheet.SearchableBottomSheetStateFactory
 import com.leeweeder.timetable.ui.schedule.UpsertScheduleDialogUiEvent.*
 import com.leeweeder.timetable.util.Destination
 import com.leeweeder.timetable.util.Hue
@@ -67,11 +67,11 @@ class UpsertScheduleDialogViewModel(
             UpsertScheduleDialogDataState.Loading
         )
 
-    private val selectionAndAdditionBottomSheetStateFactory =
-        SelectionAndAdditionBottomSheetStateFactory(viewModelScope)
+    private val searchableBottomSheetStateFactory =
+        SearchableBottomSheetStateFactory(viewModelScope)
 
     val subjectBottomSheetState =
-        selectionAndAdditionBottomSheetStateFactory.create(
+        searchableBottomSheetStateFactory.create(
             subjectRepository.observeSubjects()
         ) { subject, searchQuery ->
             subject.code.lowercase()
@@ -81,7 +81,7 @@ class UpsertScheduleDialogViewModel(
         }
 
     val instructorBottomSheetState =
-        selectionAndAdditionBottomSheetStateFactory.create(instructorRepository.observeInstructors()) { instructor, searchQuery ->
+        searchableBottomSheetStateFactory.create(instructorRepository.observeInstructors()) { instructor, searchQuery ->
             instructor.name.lowercase().contains(searchQuery.lowercase())
         }
 

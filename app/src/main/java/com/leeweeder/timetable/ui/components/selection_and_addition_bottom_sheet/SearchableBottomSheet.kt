@@ -4,7 +4,6 @@ import androidx.compose.animation.AnimatedContent
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
-import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.ColumnScope
 import androidx.compose.foundation.layout.Row
@@ -49,6 +48,12 @@ import com.leeweeder.timetable.ui.timetable_setup.components.TextButton
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.launch
 
+/**
+ * For transforming purposes. This used to have uniform view of the items.
+ *
+ * Might be removed if use case for custom list item view is needed.
+ *
+ * */
 data class ItemTransform<T>(
     val headlineText: (T) -> String,
     val supportingText: ((T) -> String)? = null,
@@ -56,21 +61,21 @@ data class ItemTransform<T>(
     val trailingContent: (@Composable (T) -> Unit)? = null
 )
 
-data class SelectionAndAdditionBottomSheetConfig<T>(
+data class SearchableBottomSheetConfig<T>(
     val searchPlaceholderTitle: String,
     val itemLabel: String,
     val onItemClick: (T) -> Unit,
-    val onItemEdit: (T) -> Unit,
-    val actionButtonConfig: CreateButtonConfig,
+    val onItemEdit: ((T) -> Unit)? = null,
+    val actionButtonConfig: CreateButtonConfig? = null,
     val itemTransform: ItemTransform<T>
 )
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun <T> SelectionAndAdditionBottomSheet(
-    controller: SelectionAndAdditionBottomSheetController,
-    state: SelectionAndAdditionBottomSheetStateHolder<T>,
-    config: SelectionAndAdditionBottomSheetConfig<T>
+fun <T> SearchableBottomSheet(
+    controller: SearchableBottomSheetController,
+    state: SearchableBottomSheetStateHolder<T>,
+    config: SearchableBottomSheetConfig<T>
 ) {
     LaunchedEffect(controller.isVisible) {
         if (controller.isVisible) {
@@ -104,9 +109,9 @@ fun <T> SelectionAndAdditionBottomSheet(
 @OptIn(ExperimentalMaterial3Api::class, ExperimentalMaterial3ExpressiveApi::class)
 @Composable
 private fun <T> ColumnScope.SelectionAndAdditionBottomSheetContent(
-    controller: SelectionAndAdditionBottomSheetController,
-    state: SelectionAndAdditionBottomSheetStateHolder<T>,
-    config: SelectionAndAdditionBottomSheetConfig<T>
+    controller: SearchableBottomSheetController,
+    state: SearchableBottomSheetStateHolder<T>,
+    config: SearchableBottomSheetConfig<T>
 ) {
     val searchFieldState = state.searchFieldState
     SearchBarDefaults.InputField(
@@ -140,55 +145,50 @@ private fun <T> ColumnScope.SelectionAndAdditionBottomSheetContent(
 
     val actionButtonConfig = config.actionButtonConfig
 
-    @Composable
-    fun CreateFromScratchButton() {
-        CreateFromSearchOrScratchButton(
-            "new ${actionButtonConfig.fromScratch.label.lowercase().trim()} from scratch",
-            onClick = actionButtonConfig.fromScratch.onClick
-        )
-    }
+    if (actionButtonConfig != null) {
+        @Composable
+        fun CreateFromScratchButton() {
+            CreateFromSearchOrScratchButton(
+                "new ${actionButtonConfig.fromScratch.label.lowercase().trim()} from scratch",
+                onClick = actionButtonConfig.fromScratch.onClick
+            )
+        }
 
-    if (actionButtonConfig.fromQuery == null || actionButtonConfig.fromQuery.isEmpty()) {
-        CreateFromScratchButton()
-    } else {
-        AnimatedContent(searchFieldState.text.isBlank()) { isBlank ->
-            if (isBlank) {
-                CreateFromScratchButton()
-            } else {
-                Column {
-                    actionButtonConfig.fromQuery.forEach { properties ->
-                        CreateFromSearchOrScratchButton(
-                            "${properties.label.lowercase().trim()} \"${searchFieldState.text}\""
-                        ) {
-                            properties.onClick(searchFieldState.text.toString())
+        if (actionButtonConfig.fromQuery == null || actionButtonConfig.fromQuery.isEmpty()) {
+            CreateFromScratchButton()
+        } else {
+            AnimatedContent(searchFieldState.text.isBlank()) { isBlank ->
+                if (isBlank) {
+                    CreateFromScratchButton()
+                } else {
+                    Column {
+                        actionButtonConfig.fromQuery.forEach { properties ->
+                            CreateFromSearchOrScratchButton(
+                                "${
+                                    properties.label.lowercase().trim()
+                                } \"${properties.transform(searchFieldState.text.toString())}\""
+                            ) {
+                                properties.onClick(properties.transform(searchFieldState.text.toString()))
+                            }
                         }
                     }
                 }
             }
         }
+
+        HorizontalDivider(thickness = Dp.Hairline)
     }
 
-    HorizontalDivider(thickness = Dp.Hairline)
-
-    AnimatedVisibility(state.searchResults.isNotEmpty()) {
-        Column {
-            Box(
-                modifier = Modifier
-                    .padding(horizontal = 16.dp)
-                    .padding(top = 24.dp, bottom = 4.dp)
-            ) {
-                Text(
-                    config.itemLabel,
-                    style = MaterialTheme.typography.bodyMediumEmphasized,
-                    color = MaterialTheme.colorScheme.outline
-                )
-            }
-            HorizontalDivider(
-                thickness = Dp.Hairline,
-                color = MaterialTheme.colorScheme.outlineVariant,
-                modifier = Modifier.padding(horizontal = 16.dp)
-            )
-        }
+    AnimatedVisibility(
+        state.searchResults.isNotEmpty(), modifier = Modifier
+            .padding(horizontal = 16.dp)
+            .padding(top = 24.dp, bottom = 4.dp)
+    ) {
+        Text(
+            config.itemLabel,
+            style = MaterialTheme.typography.bodyMediumEmphasized,
+            color = MaterialTheme.colorScheme.outline
+        )
     }
 
     LazyColumn {
@@ -222,9 +222,11 @@ private fun <T> ColumnScope.SelectionAndAdditionBottomSheetContent(
                         config.itemTransform.trailingContent?.let {
                             it(item)
                         }
-                        TextButton("Edit", onClick = {
-                            config.onItemEdit(item)
-                        })
+                        config.onItemEdit?.let {
+                            TextButton("Edit", onClick = {
+                                it(item)
+                            })
+                        }
                     }
                 }
             )
@@ -241,7 +243,11 @@ sealed class CreateButtonProperties(open val label: String) {
     data class FromScratch(override val label: String, val onClick: () -> Unit) :
         CreateButtonProperties(label)
 
-    data class FromQuery(override val label: String, val onClick: (searchQuery: String) -> Unit) :
+    data class FromQuery(
+        override val label: String,
+        val transform: (String) -> String = { it },
+        val onClick: (searchQuery: String) -> Unit
+    ) :
         CreateButtonProperties(label)
 }
 
@@ -251,9 +257,9 @@ sealed class CreateButtonProperties(open val label: String) {
 private fun SelectionAndAdditionBottomSheetPreview() {
     Column {
         SelectionAndAdditionBottomSheetContent(
-            state = SelectionAndAdditionBottomSheetStateHolder<String>(),
-            controller = rememberSelectionAndAdditionBottomSheetController(),
-            config = SelectionAndAdditionBottomSheetConfig(
+            state = SearchableBottomSheetStateHolder<String>(),
+            controller = rememberSearchableBottomSheetController(),
+            config = SearchableBottomSheetConfig(
                 searchPlaceholderTitle = "Item",
                 itemLabel = "Items",
                 onItemClick = {
@@ -264,8 +270,8 @@ private fun SelectionAndAdditionBottomSheetPreview() {
                 },
                 actionButtonConfig = CreateButtonConfig(
                     fromScratch = CreateButtonProperties.FromScratch(
-                        "item",
-                        {}), fromQuery = listOf()
+                        "item"
+                    ) {}, fromQuery = listOf()
                 ),
                 itemTransform = ItemTransform(
                     headlineText = {
@@ -292,7 +298,7 @@ fun CreateFromSearchOrScratchButton(text: String, onClick: () -> Unit) {
 }
 
 @OptIn(ExperimentalMaterial3Api::class)
-class SelectionAndAdditionBottomSheetController(
+class SearchableBottomSheetController(
     private val scope: CoroutineScope,
     private val sheetState: SheetState
 ) {
@@ -322,8 +328,8 @@ class SelectionAndAdditionBottomSheetController(
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun rememberSelectionAndAdditionBottomSheetController(): SelectionAndAdditionBottomSheetController {
+fun rememberSearchableBottomSheetController(): SearchableBottomSheetController {
     val scope = rememberCoroutineScope()
     val sheetState = rememberModalBottomSheetState()
-    return remember { SelectionAndAdditionBottomSheetController(scope, sheetState) }
+    return remember { SearchableBottomSheetController(scope, sheetState) }
 }

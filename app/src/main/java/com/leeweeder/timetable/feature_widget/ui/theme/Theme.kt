@@ -157,7 +157,7 @@ private object UnitimetableWidgetTheme {
 }
 
 @Composable
-fun UnitimetableWidgetTheme(
+fun WidgetTheme(
     // Dynamic color is available on Android 12+
     dynamicColor: Boolean = true,
     content: @Composable() () -> Unit

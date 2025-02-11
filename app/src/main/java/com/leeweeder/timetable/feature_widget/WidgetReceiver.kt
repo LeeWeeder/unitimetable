@@ -7,8 +7,11 @@ import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.ExperimentalMaterial3ExpressiveApi
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.State
 import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontStyle
@@ -18,16 +21,20 @@ import androidx.compose.ui.text.style.TextDecoration
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.datastore.core.DataStore
+import androidx.datastore.preferences.core.Preferences
 import androidx.glance.GlanceId
 import androidx.glance.GlanceModifier
 import androidx.glance.GlanceTheme
 import androidx.glance.LocalContext
 import androidx.glance.LocalSize
 import androidx.glance.appwidget.GlanceAppWidget
+import androidx.glance.appwidget.GlanceAppWidgetManager
 import androidx.glance.appwidget.GlanceAppWidgetReceiver
 import androidx.glance.appwidget.SizeMode
 import androidx.glance.appwidget.provideContent
 import androidx.glance.background
+import androidx.glance.currentState
 import androidx.glance.layout.Alignment
 import androidx.glance.layout.Box
 import androidx.glance.layout.Column
@@ -39,12 +46,14 @@ import androidx.glance.layout.fillMaxWidth
 import androidx.glance.layout.height
 import androidx.glance.layout.padding
 import androidx.glance.layout.width
+import androidx.glance.state.GlanceStateDefinition
 import androidx.glance.text.Text
 import androidx.glance.unit.ColorProvider
 import com.leeweeder.timetable.domain.relation.TimeTableWithSession
-import com.leeweeder.timetable.domain.repository.DataStoreRepository
 import com.leeweeder.timetable.domain.repository.TimeTableRepository
-import com.leeweeder.timetable.feature_widget.ui.theme.UnitimetableWidgetTheme
+import com.leeweeder.timetable.feature_widget.data.repository.WidgetPreferencesDataStoreRepositoryImpl
+import com.leeweeder.timetable.feature_widget.domain.WidgetPreferenceDataStoreRepository
+import com.leeweeder.timetable.feature_widget.ui.theme.WidgetTheme
 import com.leeweeder.timetable.ui.CellBorderDirection
 import com.leeweeder.timetable.ui.Schedule
 import com.leeweeder.timetable.ui.toMappedSchedules
@@ -54,11 +63,9 @@ import com.leeweeder.timetable.ui.util.getTimes
 import com.leeweeder.timetable.ui.util.plusOneHour
 import com.leeweeder.timetable.util.isSystemInDarkTheme
 import com.leeweeder.timetable.util.toColor
-import kotlinx.coroutines.CoroutineScope
-import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
 import org.koin.java.KoinJavaComponent.inject
+import java.io.File
 import java.time.DayOfWeek
 import java.time.LocalDate
 import java.time.LocalTime
@@ -67,7 +74,7 @@ import java.util.Locale
 import kotlin.collections.forEach
 
 class UnitimetableWidgetReceiver : GlanceAppWidgetReceiver() {
-    override val glanceAppWidget: GlanceAppWidget by inject(UnitimetableWidget::class.java)
+    override val glanceAppWidget: GlanceAppWidget by inject(Widget::class.java)
 
     // Add this to specify the configuration activity
     override fun onUpdate(
@@ -81,9 +88,9 @@ class UnitimetableWidgetReceiver : GlanceAppWidgetReceiver() {
 }
 
 @Suppress("LocalVariableName")
-class UnitimetableWidget(
+class Widget(
     private val timeTableRepository: TimeTableRepository,
-    private val dataStoreRepository: DataStoreRepository
+    private val widgetPreferenceDataStoreRepository: WidgetPreferenceDataStoreRepository
 ) : GlanceAppWidget() {
 
     override val sizeMode = SizeMode.Exact
@@ -92,20 +99,32 @@ class UnitimetableWidget(
         context: Context,
         id: GlanceId
     ) {
-        val scope = CoroutineScope(Dispatchers.IO)
-
-        val _timeTableWithSession =
-            mutableStateOf<TimeTableWithSession?>(null)
-        val timeTableWithSession: State<TimeTableWithSession?> =
-            _timeTableWithSession
-
-        scope.launch {
-            _timeTableWithSession.value = dataStoreRepository.timeTablePrefFlow.first()
-                .let { timeTableRepository.getTimeTableWithDetails(it.mainTimeTableId) }
-        }
 
         provideContent {
-            UnitimetableWidgetTheme {
+            val timeTableId =
+                currentState<Preferences>()[WidgetPreferencesDataStoreRepositoryImpl.createWidgetKey(
+                    GlanceAppWidgetManager(context).getAppWidgetId(id)
+                )]
+
+            val _timeTableWithSession = remember { mutableStateOf<TimeTableWithSession?>(null) }
+            val timeTableWithSession: State<TimeTableWithSession?> =
+                _timeTableWithSession
+
+            val scope = rememberCoroutineScope()
+
+            LaunchedEffect(timeTableId) {
+                scope.launch {
+                    _timeTableWithSession.value = timeTableRepository.getTimeTableWithDetails(
+                        widgetPreferenceDataStoreRepository.readWidgetPreferences(
+                            GlanceAppWidgetManager(
+                                context
+                            ).getAppWidgetId(id)
+                        ) ?: 0
+                    )
+                }
+            }
+
+            WidgetTheme {
                 val timeTableWithDetails = timeTableWithSession.value
 
                 if (timeTableWithDetails != null) {
@@ -116,7 +135,7 @@ class UnitimetableWidget(
                     )
                     val dayOfWeekNow = LocalDate.now().dayOfWeek
                     val startTimes = getTimes(timeTable.startTime, timeTable.endTime)
-                    UnitimetableWidget(
+                    Widget(
                         days = days,
                         dayOfWeekNow = dayOfWeekNow,
                         startTimes = startTimes,
@@ -127,10 +146,34 @@ class UnitimetableWidget(
             }
         }
     }
+
+    override suspend fun onDelete(context: Context, glanceId: GlanceId) {
+        super.onDelete(context, glanceId)
+        val widgetId = glanceId.toString().toIntOrNull() ?: return
+        widgetPreferenceDataStoreRepository.deleteWidgetPreferences(widgetId)
+    }
+
+    override val stateDefinition: GlanceStateDefinition<Preferences>
+        get() = object : GlanceStateDefinition<Preferences> {
+            override suspend fun getDataStore(
+                context: Context,
+                fileKey: String
+            ): DataStore<Preferences> {
+                return WidgetPreferencesDataStoreRepositoryImpl(context)
+            }
+
+            override fun getLocation(
+                context: Context,
+                fileKey: String
+            ): File {
+                TODO("Not yet implemented")
+            }
+
+        }
 }
 
 @Composable
-fun UnitimetableWidget(
+fun Widget(
     days: List<DayOfWeek>,
     dayOfWeekNow: DayOfWeek,
     startTimes: List<LocalTime>,

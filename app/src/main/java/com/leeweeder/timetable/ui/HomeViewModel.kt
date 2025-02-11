@@ -17,7 +17,7 @@ import com.leeweeder.timetable.domain.repository.SessionRepository
 import com.leeweeder.timetable.domain.repository.SubjectInstructorRepository
 import com.leeweeder.timetable.domain.repository.TimeTableRepository
 import com.leeweeder.timetable.ui.HomeEvent.*
-import com.leeweeder.timetable.ui.components.selection_and_addition_bottom_sheet.SelectionAndAdditionBottomSheetStateFactory
+import com.leeweeder.timetable.ui.components.selection_and_addition_bottom_sheet.SearchableBottomSheetStateFactory
 import com.leeweeder.timetable.ui.timetable_setup.DefaultTimeTable
 import com.leeweeder.timetable.ui.util.getDays
 import com.leeweeder.timetable.ui.util.getTimes
@@ -92,11 +92,11 @@ class HomeViewModel(
             HomeDataState.Error(it)
         }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000L), HomeDataState.Loading)
 
-    private val selectionAndAdditionBottomSheetStateFactory =
-        SelectionAndAdditionBottomSheetStateFactory(viewModelScope)
+    private val searchableBottomSheetStateFactory =
+        SearchableBottomSheetStateFactory(viewModelScope)
 
     val scheduleEntryBottomSheetState =
-        selectionAndAdditionBottomSheetStateFactory
+        searchableBottomSheetStateFactory
             .create(
                 subjectInstructorRepository.observeSubjectInstructors()
             ) { subjectInstructor, searchQuery ->

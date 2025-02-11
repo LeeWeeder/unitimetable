@@ -8,6 +8,8 @@ interface TimeTableRepository {
 
     fun observeTimeTableWithDetails(): Flow<List<TimeTableWithSession>>
 
+    fun observeTimeTables(): Flow<List<TimeTable>>
+
     suspend fun insertTimeTable(timeTable: TimeTable): Int
 
     suspend fun deleteTimeTableById(id: Int)
@@ -19,4 +21,6 @@ interface TimeTableRepository {
     suspend fun getTimeTableWithDetails(id: Int): TimeTableWithSession?
 
     suspend fun getTimeTableNames(): List<String>
+
+    suspend fun getTimetableById(id: Int): TimeTable?
 }

@@ -1,7 +1,9 @@
 package com.leeweeder.timetable
 
+import android.graphics.Color
 import android.os.Bundle
 import androidx.activity.ComponentActivity
+import androidx.activity.SystemBarStyle
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
 import androidx.compose.runtime.Composable
@@ -19,7 +21,7 @@ import com.leeweeder.timetable.ui.HomeScreen
 import com.leeweeder.timetable.ui.instructor.UpsertInstructorDialog
 import com.leeweeder.timetable.ui.schedule.UpsertScheduleDialog
 import com.leeweeder.timetable.ui.subject.UpsertSubjectDialog
-import com.leeweeder.timetable.ui.theme.TimeTableTheme
+import com.leeweeder.timetable.ui.theme.AppTheme
 import com.leeweeder.timetable.ui.timetable_setup.GetTimeTableNameDialog
 import com.leeweeder.timetable.ui.timetable_setup.TimeTableSetupDialog
 import com.leeweeder.timetable.util.Destination
@@ -37,10 +39,15 @@ class MainActivity : ComponentActivity() {
             viewModel.uiState.value.isLoading
         }
 
-        enableEdgeToEdge()
+        enableEdgeToEdge(
+            navigationBarStyle = SystemBarStyle.auto(
+                lightScrim = Color.TRANSPARENT,
+                darkScrim = Color.TRANSPARENT
+            )
+        )
 
         setContent {
-            TimeTableTheme {
+            AppTheme {
                 val uiState by viewModel.uiState.collectAsStateWithLifecycle()
                 if (!uiState.isLoading) {
                     val navController = rememberNavController()
