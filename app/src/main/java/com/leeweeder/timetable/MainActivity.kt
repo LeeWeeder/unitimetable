@@ -119,7 +119,7 @@ private fun MainNavHost(
             isCancelable = mainTimeTableId != NonExistingMainTimeTableId
         )
 
-        dialog<Destination.Dialog.UpsertScheduleDialog> {
+        dialog<Destination.Dialog.UpsertScheduleDialog> { backStackEntry ->
             UpsertScheduleDialog(
                 onNavigateBack = {
                     navigateUp()
@@ -136,6 +136,14 @@ private fun MainNavHost(
                         Destination.Dialog.UpsertInstructorDialog(
                             id = it?.id ?: 0,
                             name = it?.name ?: ""
+                        )
+                    )
+                },
+                onNavigateToHomeScreen = {
+                    navigateAndPreventGoingBack(
+                        Destination.Screen.HomeScreen(
+                            subjectInstructorIdToBeScheduled = it,
+                            selectedTimeTableId = backStackEntry.toRoute<Destination.Dialog.UpsertScheduleDialog>().timeTableId
                         )
                     )
                 }
@@ -166,8 +174,13 @@ private fun NavGraphBuilder.homeScreen(
             onNavigateToGetNewTimeTableNameDialog = { isInitialization, selectedTimeTableId ->
                 onNavigateToGetNewTimeTableNameDialog(isInitialization, selectedTimeTableId)
             },
-            onNavigateToUpsertScheduleDialog = {
-                onNavigateToUpsertScheduleDialog(Destination.Dialog.UpsertScheduleDialog(it))
+            onNavigateToUpsertScheduleDialog = { subjectInstructorIdToBeScheduled, selectedTimeTableId ->
+                onNavigateToUpsertScheduleDialog(
+                    Destination.Dialog.UpsertScheduleDialog(
+                        subjectInstructorIdToBeScheduled,
+                        selectedTimeTableId
+                    )
+                )
             }
         )
     }

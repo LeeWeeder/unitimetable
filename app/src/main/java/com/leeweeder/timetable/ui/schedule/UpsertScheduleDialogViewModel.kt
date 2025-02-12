@@ -136,7 +136,7 @@ class UpsertScheduleDialogViewModel(
             UpsertScheduleDialogEvent.Save -> {
                 viewModelScope.launch {
                     try {
-                        if (uiState.value.id == null) {
+                        val subjectInstructorId = if (uiState.value.id == null) {
                             subjectInstructorRepository.insertSubjectInstructor(
                                 SubjectInstructorCrossRef(
                                     hue = uiState.value.selectedHue,
@@ -153,9 +153,10 @@ class UpsertScheduleDialogViewModel(
                                     instructorId = selectedInstructorId.value
                                 )
                             )
+                            uiState.value.id!!
                         }
 
-                        _eventFlow.emit(DoneSaving)
+                        _eventFlow.emit(DoneSaving(subjectInstructorId))
                     } catch (_: SQLiteConstraintException) {
                         _eventFlow.emit(ShowSnackbar("Failed to save schedule entry. This subject and instructor combination already exists."))
                     }
@@ -173,7 +174,7 @@ class UpsertScheduleDialogViewModel(
 
 sealed interface UpsertScheduleDialogUiEvent {
     data class ShowSnackbar(val message: String) : UpsertScheduleDialogUiEvent
-    data object DoneSaving : UpsertScheduleDialogUiEvent
+    data class DoneSaving(val subjectInstructorId: Int) : UpsertScheduleDialogUiEvent
 }
 
 sealed interface UpsertScheduleDialogEvent {

@@ -119,7 +119,7 @@ import kotlin.collections.component2
 fun HomeScreen(
     selectedTimeTableId: Int,
     onNavigateToGetNewTimeTableNameDialog: (isInitialization: Boolean, selectedTimeTableId: Int) -> Unit,
-    onNavigateToUpsertScheduleDialog: (Int?) -> Unit,
+    onNavigateToUpsertScheduleDialog: (Int?, Int) -> Unit,
     viewModel: HomeViewModel = koinViewModel()
 ) {
     val dataState by viewModel.homeDataState.collectAsStateWithLifecycle()
@@ -156,7 +156,7 @@ private fun HomeScreen(
     dataState: HomeDataState,
     uiState: HomeUiState,
     onNavigateToGetNewTimeTableNameDialog: (isInitialization: Boolean) -> Unit,
-    onNavigateToUpsertScheduleDialog: (Int?) -> Unit,
+    onNavigateToUpsertScheduleDialog: (subjectInstructorId: Int?, selectedTimeTableId: Int) -> Unit,
     onEvent: (HomeEvent) -> Unit,
     scheduleEntryBottomSheetState: SearchableBottomSheetStateHolder<SubjectInstructorCrossRefWithDetails>
 ) {
@@ -174,10 +174,10 @@ private fun HomeScreen(
             searchPlaceholderTitle = "schedule entry",
             itemLabel = "Schedule entries",
             onItemClick = { onEvent(HomeEvent.SetToEditMode(it.id)) },
-            onItemEdit = { onNavigateToUpsertScheduleDialog(it.id) },
+            onItemEdit = { onNavigateToUpsertScheduleDialog(it.id, uiState.selectedTimeTable.id) },
             actionButtonConfig = CreateButtonConfig(
                 fromScratch = CreateButtonProperties.FromScratch(label = "schedule") {
-                    onNavigateToUpsertScheduleDialog(null)
+                    onNavigateToUpsertScheduleDialog(null, uiState.selectedTimeTable.id)
                 }
             ),
             itemTransform = ItemTransform(

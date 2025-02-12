@@ -17,8 +17,8 @@ class SubjectInstructorRepositoryImpl(private val subjectInstructorCrossRefDao: 
             ?: throw IllegalStateException("There is no SubjectInstructor with id: $id")
     }
 
-    override suspend fun insertSubjectInstructor(subjectInstructor: SubjectInstructorCrossRef) {
-        subjectInstructorCrossRefDao.insertSubjectInstructorCrossRef(subjectInstructor)
+    override suspend fun insertSubjectInstructor(subjectInstructor: SubjectInstructorCrossRef): Int {
+        return subjectInstructorCrossRefDao.insertSubjectInstructorCrossRef(subjectInstructor).toInt()
     }
 
     override suspend fun updateSubjectInstructor(subjectInstructor: SubjectInstructorCrossRef) {

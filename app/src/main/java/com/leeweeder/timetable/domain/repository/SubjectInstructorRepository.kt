@@ -9,7 +9,7 @@ interface SubjectInstructorRepository {
 
     suspend fun getSubjectInstructorWithId(id: Int): SubjectInstructorCrossRefWithDetails
 
-    suspend fun insertSubjectInstructor(subjectInstructor: SubjectInstructorCrossRef)
+    suspend fun insertSubjectInstructor(subjectInstructor: SubjectInstructorCrossRef): Int
 
     suspend fun updateSubjectInstructor(subjectInstructor: SubjectInstructorCrossRef)
 }
