@@ -15,7 +15,7 @@ interface SubjectInstructorCrossRefDao {
     suspend fun updateSubjectInstructorCrossRef(subjectInstructorCrossRef: SubjectInstructorCrossRef)
 
     @Insert
-    suspend fun insertSubjectInstructorCrossRef(subjectInstructorCrossRef: SubjectInstructorCrossRef)
+    suspend fun insertSubjectInstructorCrossRef(subjectInstructorCrossRef: SubjectInstructorCrossRef): Long
 
     @Transaction
     @Query("SELECT * FROM subject_instructor_view")

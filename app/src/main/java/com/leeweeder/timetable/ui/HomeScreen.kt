@@ -119,7 +119,7 @@ import kotlin.collections.component2
 fun HomeScreen(
     selectedTimeTableId: Int,
     onNavigateToGetNewTimeTableNameDialog: (isInitialization: Boolean, selectedTimeTableId: Int) -> Unit,
-    onNavigateToUpsertScheduleDialog: (Int?) -> Unit,
+    onNavigateToUpsertScheduleDialog: (Int?, Int) -> Unit,
     viewModel: HomeViewModel = koinViewModel()
 ) {
     val dataState by viewModel.homeDataState.collectAsStateWithLifecycle()
@@ -156,7 +156,7 @@ private fun HomeScreen(
     dataState: HomeDataState,
     uiState: HomeUiState,
     onNavigateToGetNewTimeTableNameDialog: (isInitialization: Boolean) -> Unit,
-    onNavigateToUpsertScheduleDialog: (Int?) -> Unit,
+    onNavigateToUpsertScheduleDialog: (subjectInstructorId: Int?, selectedTimeTableId: Int) -> Unit,
     onEvent: (HomeEvent) -> Unit,
     scheduleEntryBottomSheetState: SearchableBottomSheetStateHolder<SubjectInstructorCrossRefWithDetails>
 ) {
@@ -174,10 +174,10 @@ private fun HomeScreen(
             searchPlaceholderTitle = "schedule entry",
             itemLabel = "Schedule entries",
             onItemClick = { onEvent(HomeEvent.SetToEditMode(it.id)) },
-            onItemEdit = { onNavigateToUpsertScheduleDialog(it.id) },
+            onItemEdit = { onNavigateToUpsertScheduleDialog(it.id, uiState.selectedTimeTable.id) },
             actionButtonConfig = CreateButtonConfig(
                 fromScratch = CreateButtonProperties.FromScratch(label = "schedule") {
-                    onNavigateToUpsertScheduleDialog(null)
+                    onNavigateToUpsertScheduleDialog(null, uiState.selectedTimeTable.id)
                 }
             ),
             itemTransform = ItemTransform(
@@ -348,8 +348,12 @@ private fun HomeScreen(
                         } else {
                             DefaultModeGrid(dataState.getDayScheduleMap(selectedTimeTableId),
                                 onChangeToEditMode = {
-                                    //onEvent(HomeEvent.LoadToEditSubject(it))
-                                })
+                                    onNavigateToUpsertScheduleDialog(
+                                        it,
+                                        uiState.selectedTimeTable.id
+                                    )
+                                }
+                            )
                         }
                     }
                 }
@@ -626,7 +630,8 @@ private fun CellBorder(borderDirection: CellBorderDirection) {
 @OptIn(ExperimentalMaterial3ExpressiveApi::class, ExperimentalMaterial3Api::class)
 @Composable
 private fun RowScope.DefaultModeGrid(
-    dayScheduleMap: Map<DayOfWeek, List<Schedule>>, onChangeToEditMode: (subjectId: Int) -> Unit
+    dayScheduleMap: Map<DayOfWeek, List<Schedule>>,
+    onChangeToEditMode: (subjectInstructorId: Int) -> Unit
 ) {
     dayScheduleMap.forEach { (_, schedules) ->
         Column(modifier = Modifier.weight(1f)) {

@@ -106,6 +106,15 @@ class HomeViewModel(
                         subjectInstructor.subject.description.lowercase().contains(searchQuery)
             }
 
+    init {
+        // Check if there is a subjectInstructorId passed on navigation to this screen (not null)
+        // If so, set the mode to edit with the passed id
+
+        savedStateHandle.toRoute<Destination.Screen.HomeScreen>().subjectInstructorIdToBeScheduled?.let {
+            onEvent(SetToEditMode(it))
+        }
+    }
+
     fun onEvent(event: HomeEvent) {
         when (event) {
             is SelectTimeTable -> {

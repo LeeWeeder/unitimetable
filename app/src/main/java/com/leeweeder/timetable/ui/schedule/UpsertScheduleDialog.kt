@@ -55,6 +55,7 @@ import org.koin.androidx.compose.koinViewModel
 @Composable
 fun UpsertScheduleDialog(
     onNavigateBack: () -> Unit,
+    onNavigateToHomeScreen: (Int) -> Unit,
     onNavigateToUpsertSubjectDialog: (Subject?) -> Unit,
     onNavigateToUpsertInstructorDialog: (Instructor?) -> Unit,
     viewModel: UpsertScheduleDialogViewModel = koinViewModel()
@@ -63,6 +64,7 @@ fun UpsertScheduleDialog(
 
     UpsertScheduleDialog(
         onNavigateBack = onNavigateBack,
+        onNavigateToHomeScreen = onNavigateToHomeScreen,
         uiState = uiState,
         dataState = viewModel.dataState.collectAsStateWithLifecycle().value,
         eventFlow = viewModel.eventFlow.collectAsStateWithLifecycle().value,
@@ -79,6 +81,7 @@ fun UpsertScheduleDialog(
 @Composable
 private fun UpsertScheduleDialog(
     onNavigateBack: () -> Unit,
+    onNavigateToHomeScreen: (Int) -> Unit,
     uiState: UpsertScheduleDialogUiState,
     dataState: UpsertScheduleDialogDataState,
     eventFlow: UpsertScheduleDialogUiEvent?,
@@ -92,8 +95,8 @@ private fun UpsertScheduleDialog(
 
     LaunchedEffect(eventFlow) {
         when (eventFlow) {
-            UpsertScheduleDialogUiEvent.DoneSaving -> {
-                onNavigateBack()
+            is UpsertScheduleDialogUiEvent.DoneSaving -> {
+                onNavigateToHomeScreen(eventFlow.subjectInstructorId)
             }
 
             is UpsertScheduleDialogUiEvent.ShowSnackbar -> {
@@ -296,6 +299,7 @@ private fun UpsertScheduleDialogPreview() {
     Box(Modifier.fillMaxSize()) {
         UpsertScheduleDialog(
             onNavigateBack = {},
+            onNavigateToHomeScreen = {},
             onNavigateToUpsertSubjectDialog = {},
             onNavigateToUpsertInstructorDialog = {},
             uiState = UpsertScheduleDialogUiState(),
