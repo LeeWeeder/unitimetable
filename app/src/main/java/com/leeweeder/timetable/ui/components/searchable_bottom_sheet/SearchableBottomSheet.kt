@@ -1,4 +1,4 @@
-package com.leeweeder.timetable.ui.components.selection_and_addition_bottom_sheet
+package com.leeweeder.timetable.ui.components.searchable_bottom_sheet
 
 import androidx.compose.animation.AnimatedContent
 import androidx.compose.animation.AnimatedVisibility

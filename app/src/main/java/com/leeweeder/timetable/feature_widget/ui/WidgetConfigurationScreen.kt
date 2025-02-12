@@ -25,11 +25,11 @@ import com.leeweeder.timetable.R
 import com.leeweeder.timetable.domain.model.TimeTable
 import com.leeweeder.timetable.feature_widget.UnitimetableWidgetReceiver
 import com.leeweeder.timetable.ui.components.SelectionField
-import com.leeweeder.timetable.ui.components.selection_and_addition_bottom_sheet.ItemTransform
-import com.leeweeder.timetable.ui.components.selection_and_addition_bottom_sheet.SearchableBottomSheet
-import com.leeweeder.timetable.ui.components.selection_and_addition_bottom_sheet.SearchableBottomSheetConfig
-import com.leeweeder.timetable.ui.components.selection_and_addition_bottom_sheet.SearchableBottomSheetStateHolder
-import com.leeweeder.timetable.ui.components.selection_and_addition_bottom_sheet.rememberSearchableBottomSheetController
+import com.leeweeder.timetable.ui.components.searchable_bottom_sheet.ItemTransform
+import com.leeweeder.timetable.ui.components.searchable_bottom_sheet.SearchableBottomSheet
+import com.leeweeder.timetable.ui.components.searchable_bottom_sheet.SearchableBottomSheetConfig
+import com.leeweeder.timetable.ui.components.searchable_bottom_sheet.SearchableBottomSheetStateHolder
+import com.leeweeder.timetable.ui.components.searchable_bottom_sheet.rememberSearchableBottomSheetController
 import org.koin.androidx.compose.koinViewModel
 
 @Composable

@@ -1,4 +1,4 @@
-package com.leeweeder.timetable.ui.components.selection_and_addition_bottom_sheet
+package com.leeweeder.timetable.ui.components.searchable_bottom_sheet
 
 import android.util.Log
 import androidx.compose.foundation.text.input.TextFieldState
