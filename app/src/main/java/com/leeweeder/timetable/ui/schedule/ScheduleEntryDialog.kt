@@ -41,28 +41,28 @@ import com.leeweeder.timetable.feature_color_picker.ColorPickerDialog
 import com.leeweeder.timetable.ui.components.BaseSelectionField
 import com.leeweeder.timetable.ui.components.IconButton
 import com.leeweeder.timetable.ui.components.SelectionField
-import com.leeweeder.timetable.ui.components.selection_and_addition_bottom_sheet.CreateButtonConfig
-import com.leeweeder.timetable.ui.components.selection_and_addition_bottom_sheet.CreateButtonProperties
-import com.leeweeder.timetable.ui.components.selection_and_addition_bottom_sheet.ItemTransform
-import com.leeweeder.timetable.ui.components.selection_and_addition_bottom_sheet.SearchableBottomSheet
-import com.leeweeder.timetable.ui.components.selection_and_addition_bottom_sheet.SearchableBottomSheetConfig
-import com.leeweeder.timetable.ui.components.selection_and_addition_bottom_sheet.SearchableBottomSheetStateHolder
-import com.leeweeder.timetable.ui.components.selection_and_addition_bottom_sheet.rememberSearchableBottomSheetController
+import com.leeweeder.timetable.ui.components.searchable_bottom_sheet.CreateButtonConfig
+import com.leeweeder.timetable.ui.components.searchable_bottom_sheet.CreateButtonProperties
+import com.leeweeder.timetable.ui.components.searchable_bottom_sheet.ItemTransform
+import com.leeweeder.timetable.ui.components.searchable_bottom_sheet.SearchableBottomSheet
+import com.leeweeder.timetable.ui.components.searchable_bottom_sheet.SearchableBottomSheetConfig
+import com.leeweeder.timetable.ui.components.searchable_bottom_sheet.SearchableBottomSheetStateHolder
+import com.leeweeder.timetable.ui.components.searchable_bottom_sheet.rememberSearchableBottomSheetController
 import com.leeweeder.timetable.util.Hue
 import com.leeweeder.timetable.util.toColor
 import org.koin.androidx.compose.koinViewModel
 
 @Composable
-fun UpsertScheduleDialog(
+fun ScheduleEntryDialog(
     onNavigateBack: () -> Unit,
     onNavigateToHomeScreen: (Int) -> Unit,
     onNavigateToUpsertSubjectDialog: (Subject?) -> Unit,
     onNavigateToUpsertInstructorDialog: (Instructor?) -> Unit,
-    viewModel: UpsertScheduleDialogViewModel = koinViewModel()
+    viewModel: ScheduleEntryDialogViewModel = koinViewModel()
 ) {
     val uiState by viewModel.uiState
 
-    UpsertScheduleDialog(
+    ScheduleEntryDialog(
         onNavigateBack = onNavigateBack,
         onNavigateToHomeScreen = onNavigateToHomeScreen,
         uiState = uiState,
@@ -79,34 +79,34 @@ fun UpsertScheduleDialog(
 @SuppressLint("RestrictedApi")
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-private fun UpsertScheduleDialog(
+private fun ScheduleEntryDialog(
     onNavigateBack: () -> Unit,
     onNavigateToHomeScreen: (Int) -> Unit,
-    uiState: UpsertScheduleDialogUiState,
-    dataState: UpsertScheduleDialogDataState,
-    eventFlow: UpsertScheduleDialogUiEvent?,
+    uiState: ScheduleEntryDialogUiState,
+    dataState: ScheduleEntryDialogDataState,
+    eventFlow: ScheduleEntryDialogUiEvent?,
     subjectBottomSheetState: SearchableBottomSheetStateHolder<Subject>,
     instructorBottomSheetState: SearchableBottomSheetStateHolder<Instructor>,
     onNavigateToUpsertSubjectDialog: (Subject?) -> Unit,
     onNavigateToUpsertInstructorDialog: (Instructor?) -> Unit,
-    onEvent: (UpsertScheduleDialogEvent) -> Unit
+    onEvent: (ScheduleEntryDialogEvent) -> Unit
 ) {
     val snackbarHostState = remember { SnackbarHostState() }
 
     LaunchedEffect(eventFlow) {
         when (eventFlow) {
-            is UpsertScheduleDialogUiEvent.DoneSaving -> {
+            is ScheduleEntryDialogUiEvent.DoneSaving -> {
                 onNavigateToHomeScreen(eventFlow.subjectInstructorId)
             }
 
-            is UpsertScheduleDialogUiEvent.ShowSnackbar -> {
+            is ScheduleEntryDialogUiEvent.ShowSnackbar -> {
                 snackbarHostState.showSnackbar(message = eventFlow.message)
             }
 
             null -> Unit
         }
 
-        onEvent(UpsertScheduleDialogEvent.ClearUiEvent)
+        onEvent(ScheduleEntryDialogEvent.ClearUiEventEntry)
     }
 
     val subjectBottomSheetController = rememberSearchableBottomSheetController()
@@ -118,7 +118,7 @@ private fun UpsertScheduleDialog(
             searchPlaceholderTitle = "subject",
             itemLabel = "Subjects",
             onItemClick = {
-                onEvent(UpsertScheduleDialogEvent.SetSelectedSubject(it.id))
+                onEvent(ScheduleEntryDialogEvent.SetSelectedSubject(it.id))
             },
             onItemEdit = {
                 onNavigateToUpsertSubjectDialog(it)
@@ -162,7 +162,7 @@ private fun UpsertScheduleDialog(
         },
         initialHue = uiState.selectedHue
     ) {
-        onEvent(UpsertScheduleDialogEvent.SetSelectedHue(it))
+        onEvent(ScheduleEntryDialogEvent.SetSelectedHue(it))
         isColorPickerDialogVisible = false
     }
 
@@ -172,7 +172,7 @@ private fun UpsertScheduleDialog(
             searchPlaceholderTitle = "instructor",
             itemLabel = "Instructors",
             onItemClick = {
-                onEvent(UpsertScheduleDialogEvent.SetSelectedInstructor(it.id))
+                onEvent(ScheduleEntryDialogEvent.SetSelectedInstructor(it.id))
             },
             onItemEdit = {
                 onNavigateToUpsertInstructorDialog(it)
@@ -220,7 +220,7 @@ private fun UpsertScheduleDialog(
                 verticalArrangement = Arrangement.spacedBy(32.dp)
             ) {
                 val selectedSubject =
-                    if (dataState is UpsertScheduleDialogDataState.Success) dataState.subject else null
+                    if (dataState is ScheduleEntryDialogDataState.Success) dataState.subject else null
                 SelectionField(
                     label = "Subject",
                     placeholder = "Select subject",
@@ -232,7 +232,7 @@ private fun UpsertScheduleDialog(
                 }
 
                 val selectedInstructor =
-                    if (dataState is UpsertScheduleDialogDataState.Success) dataState.instructor else null
+                    if (dataState is ScheduleEntryDialogDataState.Success) dataState.instructor else null
                 SelectionField(
                     label = "Instructor",
                     placeholder = "Select instructor",
@@ -281,7 +281,7 @@ private fun UpsertScheduleDialog(
                 Spacer(modifier = Modifier.height(8.dp))
                 Button(
                     onClick = {
-                        onEvent(UpsertScheduleDialogEvent.Save)
+                        onEvent(ScheduleEntryDialogEvent.Save)
                     },
                     modifier = Modifier.align(Alignment.End),
                     enabled = selectedSubject != null && selectedInstructor != null
@@ -297,13 +297,13 @@ private fun UpsertScheduleDialog(
 @Composable
 private fun UpsertScheduleDialogPreview() {
     Box(Modifier.fillMaxSize()) {
-        UpsertScheduleDialog(
+        ScheduleEntryDialog(
             onNavigateBack = {},
             onNavigateToHomeScreen = {},
             onNavigateToUpsertSubjectDialog = {},
             onNavigateToUpsertInstructorDialog = {},
-            uiState = UpsertScheduleDialogUiState(),
-            dataState = UpsertScheduleDialogDataState.Success(null, null),
+            uiState = ScheduleEntryDialogUiState(),
+            dataState = ScheduleEntryDialogDataState.Success(null, null),
             eventFlow = null,
             subjectBottomSheetState = SearchableBottomSheetStateHolder<Subject>(),
             instructorBottomSheetState = SearchableBottomSheetStateHolder<Instructor>(),

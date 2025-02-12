@@ -3,7 +3,7 @@ package com.leeweeder.timetable.di
 import com.leeweeder.timetable.MainActivityViewModel
 import com.leeweeder.timetable.ui.HomeViewModel
 import com.leeweeder.timetable.ui.instructor.UpsertInstructorDialogViewModel
-import com.leeweeder.timetable.ui.schedule.UpsertScheduleDialogViewModel
+import com.leeweeder.timetable.ui.schedule.ScheduleEntryDialogViewModel
 import com.leeweeder.timetable.ui.subject.UpsertSubjectDialogViewModel
 import com.leeweeder.timetable.ui.timetable_setup.GetTimeTableNameViewModel
 import com.leeweeder.timetable.ui.timetable_setup.TimeTableSetupViewModel
@@ -28,7 +28,7 @@ val viewModelModule = module {
     }
 
     viewModel {
-        UpsertScheduleDialogViewModel(get(), get(), get(), get())
+        ScheduleEntryDialogViewModel(get(), get(), get(), get())
     }
 
     viewModel {

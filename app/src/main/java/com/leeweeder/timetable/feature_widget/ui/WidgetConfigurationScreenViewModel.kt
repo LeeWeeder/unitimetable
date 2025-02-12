@@ -8,7 +8,7 @@ import com.leeweeder.timetable.domain.model.TimeTable
 import com.leeweeder.timetable.domain.repository.DataStoreRepository
 import com.leeweeder.timetable.domain.repository.TimeTableRepository
 import com.leeweeder.timetable.feature_widget.domain.WidgetPreferenceDataStoreRepository
-import com.leeweeder.timetable.ui.components.selection_and_addition_bottom_sheet.SearchableBottomSheetStateFactory
+import com.leeweeder.timetable.ui.components.searchable_bottom_sheet.SearchableBottomSheetStateFactory
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow

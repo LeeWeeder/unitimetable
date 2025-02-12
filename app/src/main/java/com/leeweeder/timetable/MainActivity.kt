@@ -19,7 +19,7 @@ import androidx.navigation.compose.rememberNavController
 import androidx.navigation.toRoute
 import com.leeweeder.timetable.ui.HomeScreen
 import com.leeweeder.timetable.ui.instructor.UpsertInstructorDialog
-import com.leeweeder.timetable.ui.schedule.UpsertScheduleDialog
+import com.leeweeder.timetable.ui.schedule.ScheduleEntryDialog
 import com.leeweeder.timetable.ui.subject.UpsertSubjectDialog
 import com.leeweeder.timetable.ui.theme.AppTheme
 import com.leeweeder.timetable.ui.timetable_setup.GetTimeTableNameDialog
@@ -95,7 +95,7 @@ private fun MainNavHost(
                     )
                 )
             },
-            onNavigateToUpsertScheduleDialog = {
+            onNavigateToScheduleEntryDialog = {
                 navController.navigate(it)
             }
         )
@@ -119,8 +119,8 @@ private fun MainNavHost(
             isCancelable = mainTimeTableId != NonExistingMainTimeTableId
         )
 
-        dialog<Destination.Dialog.UpsertScheduleDialog> { backStackEntry ->
-            UpsertScheduleDialog(
+        dialog<Destination.Dialog.ScheduleEntryDialog> { backStackEntry ->
+            ScheduleEntryDialog(
                 onNavigateBack = {
                     navigateUp()
                 }, onNavigateToUpsertSubjectDialog = {
@@ -143,7 +143,7 @@ private fun MainNavHost(
                     navigateAndPreventGoingBack(
                         Destination.Screen.HomeScreen(
                             subjectInstructorIdToBeScheduled = it,
-                            selectedTimeTableId = backStackEntry.toRoute<Destination.Dialog.UpsertScheduleDialog>().timeTableId
+                            selectedTimeTableId = backStackEntry.toRoute<Destination.Dialog.ScheduleEntryDialog>().timeTableId
                         )
                     )
                 }
@@ -166,7 +166,7 @@ private fun MainNavHost(
 
 private fun NavGraphBuilder.homeScreen(
     onNavigateToGetNewTimeTableNameDialog: (isInitialization: Boolean, selectedTimeTableId: Int) -> Unit,
-    onNavigateToUpsertScheduleDialog: (Destination.Dialog.UpsertScheduleDialog) -> Unit
+    onNavigateToScheduleEntryDialog: (Destination.Dialog.ScheduleEntryDialog) -> Unit
 ) {
     composable<Destination.Screen.HomeScreen> {
         HomeScreen(
@@ -174,9 +174,9 @@ private fun NavGraphBuilder.homeScreen(
             onNavigateToGetNewTimeTableNameDialog = { isInitialization, selectedTimeTableId ->
                 onNavigateToGetNewTimeTableNameDialog(isInitialization, selectedTimeTableId)
             },
-            onNavigateToUpsertScheduleDialog = { subjectInstructorIdToBeScheduled, selectedTimeTableId ->
-                onNavigateToUpsertScheduleDialog(
-                    Destination.Dialog.UpsertScheduleDialog(
+            onNavigateToScheduleEntryDialog = { subjectInstructorIdToBeScheduled, selectedTimeTableId ->
+                onNavigateToScheduleEntryDialog(
+                    Destination.Dialog.ScheduleEntryDialog(
                         subjectInstructorIdToBeScheduled,
                         selectedTimeTableId
                     )
