@@ -28,7 +28,7 @@ class SubjectRepositoryImpl(
 
     override suspend fun deleteSubjectById(id: Int) {
         sessionDao.updateSessions(
-            sessionDao.getSessionWithSubjectId(id).map { it.toEmptySession() }
+            sessionDao.getSessionWithSubjectInstructorCrossRefId(id).map { it.toEmptySession() }
         )
         subjectDao.deleteSubjectById(id)
     }

@@ -83,10 +83,10 @@ data class Session(
     }
 }
 
-fun Session.toSubjectSession(subjectId: Int): Session {
+fun Session.toScheduledSession(subjectInstructorCrossRefId: Int): Session {
     return Session(
         timeTableId = timeTableId,
-        subjectInstructorCrossRefId = subjectId,
+        subjectInstructorCrossRefId = subjectInstructorCrossRefId,
         dayOfWeek = dayOfWeek,
         startTime = startTime,
         id = id,

@@ -115,7 +115,7 @@ fun AlertDialog(
 
 @Composable
 fun RowScope.AlertDialogActionButtons(onCancelClick: () -> Unit, onOkayClick: () -> Unit) {
-    CancelTextButton(onCancelClick)
+    CancelTextButton(onClick = onCancelClick)
     OkayTextButton(onOkayClick)
 }
 

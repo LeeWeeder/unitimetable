@@ -35,5 +35,5 @@ interface SessionDao {
     suspend fun getSessionsWithTimeTableId(timeTableId: Int): List<Session>
 
     @Query("SELECT * FROM session WHERE subjectInstructorCrossRefId = :crossRefId")
-    suspend fun getSessionWithSubjectId(crossRefId: Int) : List<Session>
+    suspend fun getSessionWithSubjectInstructorCrossRefId(crossRefId: Int) : List<Session>
 }

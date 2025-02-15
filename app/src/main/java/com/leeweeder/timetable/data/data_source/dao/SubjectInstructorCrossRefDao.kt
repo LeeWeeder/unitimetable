@@ -23,5 +23,11 @@ interface SubjectInstructorCrossRefDao {
 
     @Transaction
     @Query("SELECT * FROM subject_instructor_view WHERE id = :id")
-    suspend fun getSubjectInstructorWithId(id: Int): SubjectInstructorCrossRefWithDetails?
+    suspend fun getSubjectInstructorById(id: Int): SubjectInstructorCrossRefWithDetails?
+
+    @Query("SELECT * FROM subjectinstructorcrossref WHERE id = :id")
+    suspend fun getSubjectInstructorCrossRefById(id: Int): SubjectInstructorCrossRef?
+
+    @Query("DELETE FROM subjectinstructorcrossref WHERE id = :id")
+    suspend fun deleteSubjectInstructorCrossRefById(id: Int)
 }

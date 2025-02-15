@@ -12,7 +12,11 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
+import androidx.compose.material3.ButtonDefaults
+import androidx.compose.material3.DropdownMenu
+import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.LargeTopAppBar
 import androidx.compose.material3.MaterialTheme
@@ -36,33 +40,39 @@ import androidx.compose.ui.window.DialogProperties
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.leeweeder.timetable.R
 import com.leeweeder.timetable.domain.model.Instructor
+import com.leeweeder.timetable.domain.model.Session
 import com.leeweeder.timetable.domain.model.Subject
+import com.leeweeder.timetable.domain.model.SubjectInstructorCrossRef
 import com.leeweeder.timetable.feature_color_picker.ColorPickerDialog
 import com.leeweeder.timetable.ui.components.BaseSelectionField
+import com.leeweeder.timetable.ui.components.Icon
 import com.leeweeder.timetable.ui.components.IconButton
 import com.leeweeder.timetable.ui.components.SelectionField
-import com.leeweeder.timetable.ui.components.selection_and_addition_bottom_sheet.CreateButtonConfig
-import com.leeweeder.timetable.ui.components.selection_and_addition_bottom_sheet.CreateButtonProperties
-import com.leeweeder.timetable.ui.components.selection_and_addition_bottom_sheet.ItemTransform
-import com.leeweeder.timetable.ui.components.selection_and_addition_bottom_sheet.SearchableBottomSheet
-import com.leeweeder.timetable.ui.components.selection_and_addition_bottom_sheet.SearchableBottomSheetConfig
-import com.leeweeder.timetable.ui.components.selection_and_addition_bottom_sheet.SearchableBottomSheetStateHolder
-import com.leeweeder.timetable.ui.components.selection_and_addition_bottom_sheet.rememberSearchableBottomSheetController
+import com.leeweeder.timetable.ui.components.searchable_bottom_sheet.CreateButtonConfig
+import com.leeweeder.timetable.ui.components.searchable_bottom_sheet.CreateButtonProperties
+import com.leeweeder.timetable.ui.components.searchable_bottom_sheet.ItemTransform
+import com.leeweeder.timetable.ui.components.searchable_bottom_sheet.SearchableBottomSheet
+import com.leeweeder.timetable.ui.components.searchable_bottom_sheet.SearchableBottomSheetConfig
+import com.leeweeder.timetable.ui.components.searchable_bottom_sheet.SearchableBottomSheetStateHolder
+import com.leeweeder.timetable.ui.components.searchable_bottom_sheet.rememberSearchableBottomSheetController
+import com.leeweeder.timetable.ui.timetable_setup.components.CancelTextButton
+import com.leeweeder.timetable.ui.timetable_setup.components.TextButtonWithIcon
 import com.leeweeder.timetable.util.Hue
 import com.leeweeder.timetable.util.toColor
 import org.koin.androidx.compose.koinViewModel
 
 @Composable
-fun UpsertScheduleDialog(
+fun ScheduleEntryDialog(
     onNavigateBack: () -> Unit,
     onNavigateToHomeScreen: (Int) -> Unit,
     onNavigateToUpsertSubjectDialog: (Subject?) -> Unit,
     onNavigateToUpsertInstructorDialog: (Instructor?) -> Unit,
-    viewModel: UpsertScheduleDialogViewModel = koinViewModel()
+    onSuccessfulScheduleEntryDeletion: (SubjectInstructorCrossRef, affectedSessions: List<Session>) -> Unit,
+    viewModel: ScheduleEntryDialogViewModel = koinViewModel()
 ) {
     val uiState by viewModel.uiState
 
-    UpsertScheduleDialog(
+    ScheduleEntryDialog(
         onNavigateBack = onNavigateBack,
         onNavigateToHomeScreen = onNavigateToHomeScreen,
         uiState = uiState,
@@ -72,41 +82,83 @@ fun UpsertScheduleDialog(
         instructorBottomSheetState = viewModel.instructorBottomSheetState,
         onNavigateToUpsertSubjectDialog = onNavigateToUpsertSubjectDialog,
         onNavigateToUpsertInstructorDialog = onNavigateToUpsertInstructorDialog,
-        onEvent = viewModel::onEvent
+        onEvent = viewModel::onEvent,
+        onSuccessfulScheduleEntryDeletion = onSuccessfulScheduleEntryDeletion
     )
 }
 
 @SuppressLint("RestrictedApi")
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-private fun UpsertScheduleDialog(
+private fun ScheduleEntryDialog(
     onNavigateBack: () -> Unit,
     onNavigateToHomeScreen: (Int) -> Unit,
-    uiState: UpsertScheduleDialogUiState,
-    dataState: UpsertScheduleDialogDataState,
-    eventFlow: UpsertScheduleDialogUiEvent?,
+    uiState: ScheduleEntryDialogUiState,
+    dataState: ScheduleEntryDialogDataState,
+    eventFlow: ScheduleEntryDialogUiEvent?,
     subjectBottomSheetState: SearchableBottomSheetStateHolder<Subject>,
     instructorBottomSheetState: SearchableBottomSheetStateHolder<Instructor>,
     onNavigateToUpsertSubjectDialog: (Subject?) -> Unit,
     onNavigateToUpsertInstructorDialog: (Instructor?) -> Unit,
-    onEvent: (UpsertScheduleDialogEvent) -> Unit
+    onEvent: (ScheduleEntryDialogEvent) -> Unit,
+    onSuccessfulScheduleEntryDeletion: (SubjectInstructorCrossRef, affectedSessions: List<Session>) -> Unit
 ) {
     val snackbarHostState = remember { SnackbarHostState() }
 
+    var isDeleteDialogVisible by remember { mutableStateOf(false) }
+
     LaunchedEffect(eventFlow) {
         when (eventFlow) {
-            is UpsertScheduleDialogUiEvent.DoneSaving -> {
+            is ScheduleEntryDialogUiEvent.DoneSaving -> {
                 onNavigateToHomeScreen(eventFlow.subjectInstructorId)
             }
 
-            is UpsertScheduleDialogUiEvent.ShowSnackbar -> {
+            is ScheduleEntryDialogUiEvent.ShowSnackbar -> {
                 snackbarHostState.showSnackbar(message = eventFlow.message)
             }
 
             null -> Unit
+
+            is ScheduleEntryDialogUiEvent.SuccessfulDeletion -> {
+                onSuccessfulScheduleEntryDeletion(
+                    eventFlow.subjectInstructorCrossRef,
+                    eventFlow.affectedSession
+                )
+                isDeleteDialogVisible = false
+                onNavigateBack()
+            }
         }
 
-        onEvent(UpsertScheduleDialogEvent.ClearUiEvent)
+        onEvent(ScheduleEntryDialogEvent.ClearUiEventEntry)
+    }
+
+    if (isDeleteDialogVisible) {
+        AlertDialog(onDismissRequest = {
+            isDeleteDialogVisible = false
+        }, confirmButton = {
+            TextButtonWithIcon(
+                onClick = {
+                    onEvent(ScheduleEntryDialogEvent.DeleteScheduleEntry)
+                },
+                iconId = R.drawable.delete_24px,
+                label = "Delete",
+                colors = ButtonDefaults.textButtonColors(contentColor = MaterialTheme.colorScheme.error)
+            )
+        }, dismissButton = {
+            CancelTextButton {
+                isDeleteDialogVisible = false
+            }
+        }, title = {
+            Text("Delete schedule entry?")
+        }, text = {
+            Text("This will remove this schedule entry from all timetables where it appears.")
+        }, icon = {
+            Icon(
+                R.drawable.delete_24px,
+                contentDescription = null,
+                tint = MaterialTheme.colorScheme.error
+            )
+        })
     }
 
     val subjectBottomSheetController = rememberSearchableBottomSheetController()
@@ -118,7 +170,7 @@ private fun UpsertScheduleDialog(
             searchPlaceholderTitle = "subject",
             itemLabel = "Subjects",
             onItemClick = {
-                onEvent(UpsertScheduleDialogEvent.SetSelectedSubject(it.id))
+                onEvent(ScheduleEntryDialogEvent.SetSelectedSubject(it.id))
             },
             onItemEdit = {
                 onNavigateToUpsertSubjectDialog(it)
@@ -162,7 +214,7 @@ private fun UpsertScheduleDialog(
         },
         initialHue = uiState.selectedHue
     ) {
-        onEvent(UpsertScheduleDialogEvent.SetSelectedHue(it))
+        onEvent(ScheduleEntryDialogEvent.SetSelectedHue(it))
         isColorPickerDialogVisible = false
     }
 
@@ -172,7 +224,7 @@ private fun UpsertScheduleDialog(
             searchPlaceholderTitle = "instructor",
             itemLabel = "Instructors",
             onItemClick = {
-                onEvent(UpsertScheduleDialogEvent.SetSelectedInstructor(it.id))
+                onEvent(ScheduleEntryDialogEvent.SetSelectedInstructor(it.id))
             },
             onItemEdit = {
                 onNavigateToUpsertInstructorDialog(it)
@@ -208,6 +260,37 @@ private fun UpsertScheduleDialog(
                     contentDescription = "Navigate back",
                     onClick = onNavigateBack
                 )
+            }, actions = {
+                Box {
+                    var expanded by remember { mutableStateOf(false) }
+                    IconButton(
+                        R.drawable.more_vert_24px,
+                        contentDescription = "Option to show delete menu"
+                    ) {
+                        expanded = true
+                    }
+                    DropdownMenu(expanded = expanded, onDismissRequest = {
+                        expanded = false
+                    }) {
+                        DropdownMenuItem(
+                            text = {
+                                Text(
+                                    "Delete schedule entry",
+                                    color = MaterialTheme.colorScheme.error
+                                )
+                            }, onClick = {
+                                isDeleteDialogVisible = true
+                                expanded = false
+                            }, leadingIcon = {
+                                Icon(
+                                    R.drawable.delete_24px,
+                                    contentDescription = null,
+                                    tint = MaterialTheme.colorScheme.error
+                                )
+                            }
+                        )
+                    }
+                }
             })
         }, snackbarHost = {
             SnackbarHost(hostState = snackbarHostState)
@@ -220,7 +303,7 @@ private fun UpsertScheduleDialog(
                 verticalArrangement = Arrangement.spacedBy(32.dp)
             ) {
                 val selectedSubject =
-                    if (dataState is UpsertScheduleDialogDataState.Success) dataState.subject else null
+                    if (dataState is ScheduleEntryDialogDataState.Success) dataState.subject else null
                 SelectionField(
                     label = "Subject",
                     placeholder = "Select subject",
@@ -232,7 +315,7 @@ private fun UpsertScheduleDialog(
                 }
 
                 val selectedInstructor =
-                    if (dataState is UpsertScheduleDialogDataState.Success) dataState.instructor else null
+                    if (dataState is ScheduleEntryDialogDataState.Success) dataState.instructor else null
                 SelectionField(
                     label = "Instructor",
                     placeholder = "Select instructor",
@@ -281,7 +364,7 @@ private fun UpsertScheduleDialog(
                 Spacer(modifier = Modifier.height(8.dp))
                 Button(
                     onClick = {
-                        onEvent(UpsertScheduleDialogEvent.Save)
+                        onEvent(ScheduleEntryDialogEvent.Save)
                     },
                     modifier = Modifier.align(Alignment.End),
                     enabled = selectedSubject != null && selectedInstructor != null
@@ -297,13 +380,14 @@ private fun UpsertScheduleDialog(
 @Composable
 private fun UpsertScheduleDialogPreview() {
     Box(Modifier.fillMaxSize()) {
-        UpsertScheduleDialog(
+        ScheduleEntryDialog(
+            onSuccessfulScheduleEntryDeletion = { _, _ -> },
             onNavigateBack = {},
             onNavigateToHomeScreen = {},
             onNavigateToUpsertSubjectDialog = {},
             onNavigateToUpsertInstructorDialog = {},
-            uiState = UpsertScheduleDialogUiState(),
-            dataState = UpsertScheduleDialogDataState.Success(null, null),
+            uiState = ScheduleEntryDialogUiState(),
+            dataState = ScheduleEntryDialogDataState.Success(null, null),
             eventFlow = null,
             subjectBottomSheetState = SearchableBottomSheetStateHolder<Subject>(),
             instructorBottomSheetState = SearchableBottomSheetStateHolder<Instructor>(),

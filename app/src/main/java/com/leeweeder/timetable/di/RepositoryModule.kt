@@ -20,5 +20,5 @@ val repositoryModule = module {
     single<SessionRepository> { SessionRepositoryImpl(get()) }
     single<SubjectRepository> { SubjectRepositoryImpl(get(), get()) }
     single<InstructorRepository> { InstructorRepositoryImpl(get()) }
-    single<SubjectInstructorRepository> { SubjectInstructorRepositoryImpl(get()) }
+    single<SubjectInstructorRepository> { SubjectInstructorRepositoryImpl(get(), get()) }
 }

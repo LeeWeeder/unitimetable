@@ -92,13 +92,13 @@ import com.leeweeder.timetable.domain.model.TimeTable
 import com.leeweeder.timetable.domain.relation.SessionWithDetails
 import com.leeweeder.timetable.domain.relation.SubjectInstructorCrossRefWithDetails
 import com.leeweeder.timetable.ui.components.IconButton
-import com.leeweeder.timetable.ui.components.selection_and_addition_bottom_sheet.CreateButtonConfig
-import com.leeweeder.timetable.ui.components.selection_and_addition_bottom_sheet.CreateButtonProperties
-import com.leeweeder.timetable.ui.components.selection_and_addition_bottom_sheet.ItemTransform
-import com.leeweeder.timetable.ui.components.selection_and_addition_bottom_sheet.SearchableBottomSheet
-import com.leeweeder.timetable.ui.components.selection_and_addition_bottom_sheet.SearchableBottomSheetConfig
-import com.leeweeder.timetable.ui.components.selection_and_addition_bottom_sheet.SearchableBottomSheetStateHolder
-import com.leeweeder.timetable.ui.components.selection_and_addition_bottom_sheet.rememberSearchableBottomSheetController
+import com.leeweeder.timetable.ui.components.searchable_bottom_sheet.CreateButtonConfig
+import com.leeweeder.timetable.ui.components.searchable_bottom_sheet.CreateButtonProperties
+import com.leeweeder.timetable.ui.components.searchable_bottom_sheet.ItemTransform
+import com.leeweeder.timetable.ui.components.searchable_bottom_sheet.SearchableBottomSheet
+import com.leeweeder.timetable.ui.components.searchable_bottom_sheet.SearchableBottomSheetConfig
+import com.leeweeder.timetable.ui.components.searchable_bottom_sheet.SearchableBottomSheetStateHolder
+import com.leeweeder.timetable.ui.components.searchable_bottom_sheet.rememberSearchableBottomSheetController
 import com.leeweeder.timetable.ui.timetable_setup.LabelText
 import com.leeweeder.timetable.ui.timetable_setup.components.TextButton
 import com.leeweeder.timetable.ui.util.Constants
@@ -119,7 +119,7 @@ import kotlin.collections.component2
 fun HomeScreen(
     selectedTimeTableId: Int,
     onNavigateToGetNewTimeTableNameDialog: (isInitialization: Boolean, selectedTimeTableId: Int) -> Unit,
-    onNavigateToUpsertScheduleDialog: (Int?, Int) -> Unit,
+    onNavigateToScheduleEntryDialog: (Int?, Int) -> Unit,
     viewModel: HomeViewModel = koinViewModel()
 ) {
     val dataState by viewModel.homeDataState.collectAsStateWithLifecycle()
@@ -144,7 +144,7 @@ fun HomeScreen(
         onNavigateToGetNewTimeTableNameDialog = {
             onNavigateToGetNewTimeTableNameDialog(it, uiState.selectedTimeTable.id)
         },
-        onNavigateToUpsertScheduleDialog = onNavigateToUpsertScheduleDialog,
+        onNavigateToScheduleEntryDialog = onNavigateToScheduleEntryDialog,
         scheduleEntryBottomSheetState = viewModel.scheduleEntryBottomSheetState
     )
 }
@@ -156,7 +156,7 @@ private fun HomeScreen(
     dataState: HomeDataState,
     uiState: HomeUiState,
     onNavigateToGetNewTimeTableNameDialog: (isInitialization: Boolean) -> Unit,
-    onNavigateToUpsertScheduleDialog: (subjectInstructorId: Int?, selectedTimeTableId: Int) -> Unit,
+    onNavigateToScheduleEntryDialog: (subjectInstructorId: Int?, selectedTimeTableId: Int) -> Unit,
     onEvent: (HomeEvent) -> Unit,
     scheduleEntryBottomSheetState: SearchableBottomSheetStateHolder<SubjectInstructorCrossRefWithDetails>
 ) {
@@ -174,10 +174,10 @@ private fun HomeScreen(
             searchPlaceholderTitle = "schedule entry",
             itemLabel = "Schedule entries",
             onItemClick = { onEvent(HomeEvent.SetToEditMode(it.id)) },
-            onItemEdit = { onNavigateToUpsertScheduleDialog(it.id, uiState.selectedTimeTable.id) },
+            onItemEdit = { onNavigateToScheduleEntryDialog(it.id, uiState.selectedTimeTable.id) },
             actionButtonConfig = CreateButtonConfig(
                 fromScratch = CreateButtonProperties.FromScratch(label = "schedule") {
-                    onNavigateToUpsertScheduleDialog(null, uiState.selectedTimeTable.id)
+                    onNavigateToScheduleEntryDialog(null, uiState.selectedTimeTable.id)
                 }
             ),
             itemTransform = ItemTransform(
@@ -348,7 +348,7 @@ private fun HomeScreen(
                         } else {
                             DefaultModeGrid(dataState.getDayScheduleMap(selectedTimeTableId),
                                 onChangeToEditMode = {
-                                    onNavigateToUpsertScheduleDialog(
+                                    onNavigateToScheduleEntryDialog(
                                         it,
                                         uiState.selectedTimeTable.id
                                     )

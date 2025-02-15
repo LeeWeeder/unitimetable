@@ -20,7 +20,7 @@ sealed interface Destination {
         ) : Dialog
 
         @Serializable
-        data class UpsertScheduleDialog(
+        data class ScheduleEntryDialog(
             val subjectInstructorId: Int?,
             val timeTableId: Int
         ) : Dialog

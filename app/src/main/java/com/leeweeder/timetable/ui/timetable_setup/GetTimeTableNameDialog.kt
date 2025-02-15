@@ -65,7 +65,7 @@ fun GetTimeTableNameDialog(
                 Text("Next")
             }
         }, dismissButton = {
-            CancelTextButton(onDismissRequest, enabled = isCancelButtonEnabled)
+            CancelTextButton(onClick = onDismissRequest, enabled = isCancelButtonEnabled)
         }, title = {
             Text("Enter time table name")
         }, text = {
