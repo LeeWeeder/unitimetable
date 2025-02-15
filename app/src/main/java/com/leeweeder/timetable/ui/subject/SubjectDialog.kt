@@ -26,11 +26,11 @@ import com.leeweeder.timetable.ui.components.TextField
 import org.koin.androidx.compose.koinViewModel
 
 @Composable
-fun UpsertSubjectDialog(
+fun SubjectDialog(
     onDismissRequest: () -> Unit,
-    viewModel: UpsertSubjectDialogViewModel = koinViewModel()
+    viewModel: SubjectDialogViewModel = koinViewModel()
 ) {
-    UpsertSubjectDialog(
+    SubjectDialog(
         uiState = viewModel.uiState.value,
         eventFlow = viewModel.eventFlow.collectAsStateWithLifecycle().value,
         onEvent = viewModel::onEvent,
@@ -39,15 +39,15 @@ fun UpsertSubjectDialog(
 }
 
 @Composable
-private fun UpsertSubjectDialog(
-    uiState: UpsertSubjectDialogUiState,
-    eventFlow: UpsertSubjectDialogUiEvent?,
-    onEvent: (UpsertSubjectDialogEvent) -> Unit,
+private fun SubjectDialog(
+    uiState: SubjectDialogUiState,
+    eventFlow: SubjectDialogUiEvent?,
+    onEvent: (SubjectDialogEvent) -> Unit,
     onDismissRequest: () -> Unit
 ) {
     LaunchedEffect(eventFlow) {
         when (eventFlow) {
-            UpsertSubjectDialogUiEvent.DoneSaving -> {
+            SubjectDialogUiEvent.DoneSaving -> {
                 onDismissRequest()
             }
 
@@ -64,7 +64,7 @@ private fun UpsertSubjectDialog(
     AlertDialog(
         onDismissRequest = onDismissRequest,
         onSave = {
-            onEvent(UpsertSubjectDialogEvent.Save)
+            onEvent(SubjectDialogEvent.Save)
         },
         isSaveButtonEnabled = isFormValid,
         title = (if (uiState.id == null) "Add" else "Edit") + " subject",
@@ -80,7 +80,7 @@ private fun UpsertSubjectDialog(
         fun clearError(code: Boolean, description: Boolean) {
             if (uiState.conflictError != null) {
                 onEvent(
-                    UpsertSubjectDialogEvent.ClearError(
+                    SubjectDialogEvent.ClearError(
                         code = true,
                         description = true,
                         conflict = true
@@ -88,7 +88,7 @@ private fun UpsertSubjectDialog(
                 )
             } else {
                 onEvent(
-                    UpsertSubjectDialogEvent.ClearError(
+                    SubjectDialogEvent.ClearError(
                         code = code,
                         description = description,
                         conflict = false
@@ -103,8 +103,8 @@ private fun UpsertSubjectDialog(
                 clearError(code = true, description = false)
             },
             onValueChange = {
-                onEvent(UpsertSubjectDialogEvent.StartCodeErrorChecking)
-                onEvent(UpsertSubjectDialogEvent.EditCode(it))
+                onEvent(SubjectDialogEvent.StartCodeErrorChecking)
+                onEvent(SubjectDialogEvent.EditCode(it))
             },
             label = "Code",
             isError = uiState.isCodeError,
@@ -117,7 +117,7 @@ private fun UpsertSubjectDialog(
                         codeIsFromFocus = true
 
                     if (!it.isFocused && uiState.code.isBlank() && codeIsFromFocus) {
-                        onEvent(UpsertSubjectDialogEvent.ForceCodeError)
+                        onEvent(SubjectDialogEvent.ForceCodeError)
                         codeIsFromFocus = false
                     }
                 },
@@ -133,7 +133,7 @@ private fun UpsertSubjectDialog(
                 if (!isFormValid)
                     return@KeyboardActions
 
-                onEvent(UpsertSubjectDialogEvent.Save)
+                onEvent(SubjectDialogEvent.Save)
             }),
         )
 
@@ -141,8 +141,8 @@ private fun UpsertSubjectDialog(
             value = uiState.description,
             onClearError = { clearError(code = false, description = true) },
             onValueChange = {
-                onEvent(UpsertSubjectDialogEvent.StartDescriptionErrorChecking)
-                onEvent(UpsertSubjectDialogEvent.EditDescription(it))
+                onEvent(SubjectDialogEvent.StartDescriptionErrorChecking)
+                onEvent(SubjectDialogEvent.EditDescription(it))
             },
             label = "Description",
             isError = uiState.isDescriptionError,
@@ -155,7 +155,7 @@ private fun UpsertSubjectDialog(
                         descriptionIsFromFocus = true
 
                     if (!it.isFocused && uiState.description.isBlank() && descriptionIsFromFocus) {
-                        onEvent(UpsertSubjectDialogEvent.ForceDescriptionError)
+                        onEvent(SubjectDialogEvent.ForceDescriptionError)
                         descriptionIsFromFocus = false
                     }
                 },
@@ -171,7 +171,7 @@ private fun UpsertSubjectDialog(
                 if (!isFormValid)
                     return@KeyboardActions
 
-                onEvent(UpsertSubjectDialogEvent.Save)
+                onEvent(SubjectDialogEvent.Save)
             }),
         )
 
@@ -223,6 +223,6 @@ private fun SubjectDialogTextField(
 
 @Preview
 @Composable
-private fun UpsertSubjectDialogPreview() {
-    UpsertSubjectDialog(uiState = UpsertSubjectDialogUiState(), eventFlow = null, onEvent = {}) { }
+private fun SubjectDialogPreview() {
+    SubjectDialog(uiState = SubjectDialogUiState(), eventFlow = null, onEvent = {}) { }
 }

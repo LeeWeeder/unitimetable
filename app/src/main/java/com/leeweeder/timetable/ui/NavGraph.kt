@@ -12,7 +12,7 @@ import com.leeweeder.timetable.domain.model.Session
 import com.leeweeder.timetable.domain.model.SubjectInstructorCrossRef
 import com.leeweeder.timetable.ui.instructor.UpsertInstructorDialog
 import com.leeweeder.timetable.ui.schedule.ScheduleEntryDialog
-import com.leeweeder.timetable.ui.subject.UpsertSubjectDialog
+import com.leeweeder.timetable.ui.subject.SubjectDialog
 import com.leeweeder.timetable.ui.timetable_setup.GetTimeTableNameDialog
 import com.leeweeder.timetable.ui.timetable_setup.TimeTableSetupDialog
 import com.leeweeder.timetable.util.Destination
@@ -89,9 +89,9 @@ fun NavGraph(
         dialog<Destination.Dialog.ScheduleEntryDialog> { backStackEntry ->
             ScheduleEntryDialog(onNavigateBack = {
                 navigateUp()
-            }, onNavigateToUpsertSubjectDialog = {
+            }, onNavigateToSubjectDialog = {
                 navController.navigate(
-                    Destination.Dialog.UpsertSubjectDialog(
+                    Destination.Dialog.SubjectDialog(
                         id = it?.id ?: 0,
                         description = it?.description ?: "",
                         code = it?.code ?: ""
@@ -113,8 +113,8 @@ fun NavGraph(
             }, onSuccessfulScheduleEntryDeletion = onSuccessfulScheduleEntryDeletion)
         }
 
-        dialog<Destination.Dialog.UpsertSubjectDialog> {
-            UpsertSubjectDialog(onDismissRequest = {
+        dialog<Destination.Dialog.SubjectDialog> {
+            SubjectDialog(onDismissRequest = {
                 navigateUp()
             })
         }

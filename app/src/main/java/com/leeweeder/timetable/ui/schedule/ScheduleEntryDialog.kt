@@ -65,7 +65,7 @@ import org.koin.androidx.compose.koinViewModel
 fun ScheduleEntryDialog(
     onNavigateBack: () -> Unit,
     onNavigateToHomeScreen: (Int) -> Unit,
-    onNavigateToUpsertSubjectDialog: (Subject?) -> Unit,
+    onNavigateToSubjectDialog: (Subject?) -> Unit,
     onNavigateToUpsertInstructorDialog: (Instructor?) -> Unit,
     onSuccessfulScheduleEntryDeletion: (SubjectInstructorCrossRef, affectedSessions: List<Session>) -> Unit,
     viewModel: ScheduleEntryDialogViewModel = koinViewModel()
@@ -80,7 +80,7 @@ fun ScheduleEntryDialog(
         eventFlow = viewModel.eventFlow.collectAsStateWithLifecycle().value,
         subjectBottomSheetState = viewModel.subjectBottomSheetState,
         instructorBottomSheetState = viewModel.instructorBottomSheetState,
-        onNavigateToUpsertSubjectDialog = onNavigateToUpsertSubjectDialog,
+        onNavigateToSubjectDialog = onNavigateToSubjectDialog,
         onNavigateToUpsertInstructorDialog = onNavigateToUpsertInstructorDialog,
         onEvent = viewModel::onEvent,
         onSuccessfulScheduleEntryDeletion = onSuccessfulScheduleEntryDeletion
@@ -98,7 +98,7 @@ private fun ScheduleEntryDialog(
     eventFlow: ScheduleEntryDialogUiEvent?,
     subjectBottomSheetState: SearchableBottomSheetStateHolder<Subject>,
     instructorBottomSheetState: SearchableBottomSheetStateHolder<Instructor>,
-    onNavigateToUpsertSubjectDialog: (Subject?) -> Unit,
+    onNavigateToSubjectDialog: (Subject?) -> Unit,
     onNavigateToUpsertInstructorDialog: (Instructor?) -> Unit,
     onEvent: (ScheduleEntryDialogEvent) -> Unit,
     onSuccessfulScheduleEntryDeletion: (SubjectInstructorCrossRef, affectedSessions: List<Session>) -> Unit
@@ -173,22 +173,22 @@ private fun ScheduleEntryDialog(
                 onEvent(ScheduleEntryDialogEvent.SetSelectedSubject(it.id))
             },
             onItemEdit = {
-                onNavigateToUpsertSubjectDialog(it)
+                onNavigateToSubjectDialog(it)
             },
             actionButtonConfig = CreateButtonConfig(
                 fromScratch = CreateButtonProperties.FromScratch(
                     label = "subject"
                 ) {
-                    onNavigateToUpsertSubjectDialog(null)
+                    onNavigateToSubjectDialog(null)
                 },
                 fromQuery = listOf(
                     CreateButtonProperties.FromQuery(label = "subject with code", transform = {
                         it.uppercase()
                     }) {
-                        onNavigateToUpsertSubjectDialog(Subject(description = "", code = it))
+                        onNavigateToSubjectDialog(Subject(description = "", code = it))
                     },
                     CreateButtonProperties.FromQuery(label = "subject with description") {
-                        onNavigateToUpsertSubjectDialog(Subject(description = it, code = ""))
+                        onNavigateToSubjectDialog(Subject(description = it, code = ""))
                     }
                 )
             ),
@@ -384,7 +384,7 @@ private fun UpsertScheduleDialogPreview() {
             onSuccessfulScheduleEntryDeletion = { _, _ -> },
             onNavigateBack = {},
             onNavigateToHomeScreen = {},
-            onNavigateToUpsertSubjectDialog = {},
+            onNavigateToSubjectDialog = {},
             onNavigateToUpsertInstructorDialog = {},
             uiState = ScheduleEntryDialogUiState(),
             dataState = ScheduleEntryDialogDataState.Success(null, null),

@@ -26,7 +26,7 @@ sealed interface Destination {
         ) : Dialog
 
         @Serializable
-        data class UpsertSubjectDialog(
+        data class SubjectDialog(
             val id: Int,
             val description: String,
             val code: String
