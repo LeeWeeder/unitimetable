@@ -81,7 +81,7 @@ fun ColorPickerDialog(
                     }
                 )
             }, dismissButton = {
-                CancelTextButton(onDismissRequest)
+                CancelTextButton(onClick = onDismissRequest)
             }, title = {
                 Text("Select color")
             }, text = {

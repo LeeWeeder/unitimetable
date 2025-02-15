@@ -9,6 +9,7 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import androidx.navigation.toRoute
 import com.leeweeder.timetable.domain.model.Instructor
+import com.leeweeder.timetable.domain.model.Session
 import com.leeweeder.timetable.domain.model.Subject
 import com.leeweeder.timetable.domain.model.SubjectInstructorCrossRef
 import com.leeweeder.timetable.domain.repository.InstructorRepository
@@ -47,6 +48,7 @@ class ScheduleEntryDialogViewModel(
 
     private val _selectedInstructorId = MutableStateFlow(0)
     private val selectedInstructorId: StateFlow<Int> = _selectedInstructorId.asStateFlow()
+
 
     @OptIn(ExperimentalCoroutinesApi::class)
     val dataState = combine(
@@ -92,7 +94,7 @@ class ScheduleEntryDialogViewModel(
         viewModelScope.launch {
             if (subjectInstructorId != null) {
                 val subjectInstructorWithId =
-                    subjectInstructorRepository.getSubjectInstructorWithId(subjectInstructorId)
+                    subjectInstructorRepository.getSubjectInstructorById(subjectInstructorId)
 
                 _uiState.value = uiState.value.copy(
                     selectedHue = subjectInstructorWithId.hue,
@@ -168,6 +170,31 @@ class ScheduleEntryDialogViewModel(
                     _eventFlow.emit(null)
                 }
             }
+
+            ScheduleEntryDialogEvent.DeleteScheduleEntry -> {
+                viewModelScope.launch {
+                    try {
+                        uiState.value.id?.let {
+                            val subjectInstructorCrossRef =
+                                subjectInstructorRepository.getSubjectInstructorCrossRefById(it)
+
+                            // Delete the SubjectInstructorCrossRef
+                            val affectedSessions =
+                                subjectInstructorRepository.deleteSubjectInstructorCrossRefById(it)
+
+                            _eventFlow.emit(
+                                SuccessfulDeletion(
+                                    subjectInstructorCrossRef,
+                                    affectedSessions
+                                )
+                            )
+                        }
+
+                    } catch (e: Exception) {
+                        _eventFlow.emit(ShowSnackbar("Error deleting schedule entry: ${e.localizedMessage}"))
+                    }
+                }
+            }
         }
     }
 }
@@ -175,6 +202,10 @@ class ScheduleEntryDialogViewModel(
 sealed interface ScheduleEntryDialogUiEvent {
     data class ShowSnackbar(val message: String) : ScheduleEntryDialogUiEvent
     data class DoneSaving(val subjectInstructorId: Int) : ScheduleEntryDialogUiEvent
+    data class SuccessfulDeletion(
+        val subjectInstructorCrossRef: SubjectInstructorCrossRef,
+        val affectedSession: List<Session>
+    ) : ScheduleEntryDialogUiEvent
 }
 
 sealed interface ScheduleEntryDialogEvent {
@@ -183,6 +214,7 @@ sealed interface ScheduleEntryDialogEvent {
     data class SetSelectedHue(val value: Hue) : ScheduleEntryDialogEvent
     data object Save : ScheduleEntryDialogEvent
     data object ClearUiEventEntry : ScheduleEntryDialogEvent
+    data object DeleteScheduleEntry : ScheduleEntryDialogEvent
 }
 
 sealed interface ScheduleEntryDialogDataState {

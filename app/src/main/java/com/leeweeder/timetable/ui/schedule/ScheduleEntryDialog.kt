@@ -12,7 +12,11 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
+import androidx.compose.material3.ButtonDefaults
+import androidx.compose.material3.DropdownMenu
+import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.LargeTopAppBar
 import androidx.compose.material3.MaterialTheme
@@ -36,9 +40,12 @@ import androidx.compose.ui.window.DialogProperties
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.leeweeder.timetable.R
 import com.leeweeder.timetable.domain.model.Instructor
+import com.leeweeder.timetable.domain.model.Session
 import com.leeweeder.timetable.domain.model.Subject
+import com.leeweeder.timetable.domain.model.SubjectInstructorCrossRef
 import com.leeweeder.timetable.feature_color_picker.ColorPickerDialog
 import com.leeweeder.timetable.ui.components.BaseSelectionField
+import com.leeweeder.timetable.ui.components.Icon
 import com.leeweeder.timetable.ui.components.IconButton
 import com.leeweeder.timetable.ui.components.SelectionField
 import com.leeweeder.timetable.ui.components.searchable_bottom_sheet.CreateButtonConfig
@@ -48,6 +55,8 @@ import com.leeweeder.timetable.ui.components.searchable_bottom_sheet.SearchableB
 import com.leeweeder.timetable.ui.components.searchable_bottom_sheet.SearchableBottomSheetConfig
 import com.leeweeder.timetable.ui.components.searchable_bottom_sheet.SearchableBottomSheetStateHolder
 import com.leeweeder.timetable.ui.components.searchable_bottom_sheet.rememberSearchableBottomSheetController
+import com.leeweeder.timetable.ui.timetable_setup.components.CancelTextButton
+import com.leeweeder.timetable.ui.timetable_setup.components.TextButtonWithIcon
 import com.leeweeder.timetable.util.Hue
 import com.leeweeder.timetable.util.toColor
 import org.koin.androidx.compose.koinViewModel
@@ -58,6 +67,7 @@ fun ScheduleEntryDialog(
     onNavigateToHomeScreen: (Int) -> Unit,
     onNavigateToUpsertSubjectDialog: (Subject?) -> Unit,
     onNavigateToUpsertInstructorDialog: (Instructor?) -> Unit,
+    onSuccessfulScheduleEntryDeletion: (SubjectInstructorCrossRef, affectedSessions: List<Session>) -> Unit,
     viewModel: ScheduleEntryDialogViewModel = koinViewModel()
 ) {
     val uiState by viewModel.uiState
@@ -72,7 +82,8 @@ fun ScheduleEntryDialog(
         instructorBottomSheetState = viewModel.instructorBottomSheetState,
         onNavigateToUpsertSubjectDialog = onNavigateToUpsertSubjectDialog,
         onNavigateToUpsertInstructorDialog = onNavigateToUpsertInstructorDialog,
-        onEvent = viewModel::onEvent
+        onEvent = viewModel::onEvent,
+        onSuccessfulScheduleEntryDeletion = onSuccessfulScheduleEntryDeletion
     )
 }
 
@@ -89,9 +100,12 @@ private fun ScheduleEntryDialog(
     instructorBottomSheetState: SearchableBottomSheetStateHolder<Instructor>,
     onNavigateToUpsertSubjectDialog: (Subject?) -> Unit,
     onNavigateToUpsertInstructorDialog: (Instructor?) -> Unit,
-    onEvent: (ScheduleEntryDialogEvent) -> Unit
+    onEvent: (ScheduleEntryDialogEvent) -> Unit,
+    onSuccessfulScheduleEntryDeletion: (SubjectInstructorCrossRef, affectedSessions: List<Session>) -> Unit
 ) {
     val snackbarHostState = remember { SnackbarHostState() }
+
+    var isDeleteDialogVisible by remember { mutableStateOf(false) }
 
     LaunchedEffect(eventFlow) {
         when (eventFlow) {
@@ -104,9 +118,47 @@ private fun ScheduleEntryDialog(
             }
 
             null -> Unit
+
+            is ScheduleEntryDialogUiEvent.SuccessfulDeletion -> {
+                onSuccessfulScheduleEntryDeletion(
+                    eventFlow.subjectInstructorCrossRef,
+                    eventFlow.affectedSession
+                )
+                isDeleteDialogVisible = false
+                onNavigateBack()
+            }
         }
 
         onEvent(ScheduleEntryDialogEvent.ClearUiEventEntry)
+    }
+
+    if (isDeleteDialogVisible) {
+        AlertDialog(onDismissRequest = {
+            isDeleteDialogVisible = false
+        }, confirmButton = {
+            TextButtonWithIcon(
+                onClick = {
+                    onEvent(ScheduleEntryDialogEvent.DeleteScheduleEntry)
+                },
+                iconId = R.drawable.delete_24px,
+                label = "Delete",
+                colors = ButtonDefaults.textButtonColors(contentColor = MaterialTheme.colorScheme.error)
+            )
+        }, dismissButton = {
+            CancelTextButton {
+                isDeleteDialogVisible = false
+            }
+        }, title = {
+            Text("Delete schedule entry?")
+        }, text = {
+            Text("This will remove this schedule entry from all timetables where it appears.")
+        }, icon = {
+            Icon(
+                R.drawable.delete_24px,
+                contentDescription = null,
+                tint = MaterialTheme.colorScheme.error
+            )
+        })
     }
 
     val subjectBottomSheetController = rememberSearchableBottomSheetController()
@@ -208,6 +260,37 @@ private fun ScheduleEntryDialog(
                     contentDescription = "Navigate back",
                     onClick = onNavigateBack
                 )
+            }, actions = {
+                Box {
+                    var expanded by remember { mutableStateOf(false) }
+                    IconButton(
+                        R.drawable.more_vert_24px,
+                        contentDescription = "Option to show delete menu"
+                    ) {
+                        expanded = true
+                    }
+                    DropdownMenu(expanded = expanded, onDismissRequest = {
+                        expanded = false
+                    }) {
+                        DropdownMenuItem(
+                            text = {
+                                Text(
+                                    "Delete schedule entry",
+                                    color = MaterialTheme.colorScheme.error
+                                )
+                            }, onClick = {
+                                isDeleteDialogVisible = true
+                                expanded = false
+                            }, leadingIcon = {
+                                Icon(
+                                    R.drawable.delete_24px,
+                                    contentDescription = null,
+                                    tint = MaterialTheme.colorScheme.error
+                                )
+                            }
+                        )
+                    }
+                }
             })
         }, snackbarHost = {
             SnackbarHost(hostState = snackbarHostState)
@@ -298,6 +381,7 @@ private fun ScheduleEntryDialog(
 private fun UpsertScheduleDialogPreview() {
     Box(Modifier.fillMaxSize()) {
         ScheduleEntryDialog(
+            onSuccessfulScheduleEntryDeletion = { _, _ -> },
             onNavigateBack = {},
             onNavigateToHomeScreen = {},
             onNavigateToUpsertSubjectDialog = {},

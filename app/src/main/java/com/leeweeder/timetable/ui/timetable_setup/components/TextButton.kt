@@ -4,6 +4,7 @@ import androidx.annotation.DrawableRes
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
+import androidx.compose.material3.ButtonColors
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Icon
 import androidx.compose.material3.Text
@@ -26,10 +27,16 @@ fun TextButton(
 }
 
 @Composable
-fun TextButtonWithIcon(onClick: () -> Unit, @DrawableRes iconId: Int, label: String) {
+fun TextButtonWithIcon(
+    onClick: () -> Unit,
+    @DrawableRes iconId: Int,
+    label: String,
+    colors: ButtonColors = ButtonDefaults.textButtonColors()
+) {
     TextButton(
         onClick = onClick,
-        contentPadding = ButtonDefaults.TextButtonWithIconContentPadding
+        contentPadding = ButtonDefaults.TextButtonWithIconContentPadding,
+        colors = colors
     ) {
         Icon(
             painter = painterResource(iconId),
@@ -42,6 +49,6 @@ fun TextButtonWithIcon(onClick: () -> Unit, @DrawableRes iconId: Int, label: Str
 }
 
 @Composable
-fun CancelTextButton(onClick: () -> Unit, enabled: Boolean = true) {
+fun CancelTextButton( enabled: Boolean = true, onClick: () -> Unit) {
     TextButton("Cancel", onClick = onClick, enabled = enabled)
 }

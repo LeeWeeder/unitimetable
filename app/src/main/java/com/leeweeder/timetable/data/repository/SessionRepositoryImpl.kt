@@ -1,6 +1,7 @@
 package com.leeweeder.timetable.data.repository
 
 import com.leeweeder.timetable.data.data_source.dao.SessionDao
+import com.leeweeder.timetable.domain.model.Session
 import com.leeweeder.timetable.domain.repository.SessionRepository
 
 class SessionRepositoryImpl(
@@ -13,5 +14,9 @@ class SessionRepositoryImpl(
 
     override suspend fun updateSession(id: Int, crossRefId: Int) {
         sessionDao.updateSession(id = id, crossRefId = crossRefId)
+    }
+
+    override suspend fun updateSessions(sessions: List<Session>) {
+        sessionDao.updateSessions(sessions)
     }
 }

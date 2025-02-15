@@ -179,7 +179,7 @@ fun TimeTableSetupDialog(
                 dismissNumberOfDaySelectionDialog()
             })
         }, dismissButton = {
-            CancelTextButton(dismissNumberOfDaySelectionDialog)
+            CancelTextButton(onClick = dismissNumberOfDaySelectionDialog)
         }, title = {
             Text("Number of days")
         }, text = {
@@ -530,7 +530,7 @@ fun TimePickerDialog(
                 onDismissRequest()
             })
         }, dismissButton = {
-            CancelTextButton(onDismissRequest)
+            CancelTextButton(onClick = onDismissRequest)
         }, text = {
             TimePicker(timePickerState, modifier = Modifier.padding(horizontal = 16.dp))
         }, title = {
