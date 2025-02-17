@@ -17,9 +17,8 @@ class SubjectInstructorRepositoryImpl(
         return subjectInstructorCrossRefDao.observeSubjectInstructors()
     }
 
-    override suspend fun getSubjectInstructorById(id: Int): SubjectInstructorCrossRefWithDetails {
+    override suspend fun getSubjectInstructorById(id: Int): SubjectInstructorCrossRefWithDetails? {
         return subjectInstructorCrossRefDao.getSubjectInstructorById(id)
-            ?: throw IllegalStateException("There is no SubjectInstructor with id: $id")
     }
 
     override suspend fun getSubjectInstructorCrossRefById(id: Int): SubjectInstructorCrossRef {
@@ -38,7 +37,7 @@ class SubjectInstructorRepositoryImpl(
 
     override suspend fun deleteSubjectInstructorCrossRefById(id: Int): List<Session> {
         val sessionsOfThisSubjectInstructorCrossRef =
-            sessionDao.getSessionWithSubjectInstructorCrossRefId(id)
+            sessionDao.getSessionBySubjectInstructorCrossRefId(id)
 
         sessionDao.updateSessions(sessionsOfThisSubjectInstructorCrossRef.map {
             it.toEmptySession()
@@ -48,5 +47,9 @@ class SubjectInstructorRepositoryImpl(
         subjectInstructorCrossRefDao.deleteSubjectInstructorCrossRefById(id)
 
         return sessionsOfThisSubjectInstructorCrossRef
+    }
+
+    override suspend fun insertSubjectInstructorCrossRefs(subjectInstructorCrossRefs: List<SubjectInstructorCrossRef>) {
+        subjectInstructorCrossRefDao.insertSubjectInstructorCrossRefs(subjectInstructorCrossRefs)
     }
 }

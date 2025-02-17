@@ -3,11 +3,12 @@ package com.leeweeder.timetable
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.leeweeder.timetable.domain.model.Session
+import com.leeweeder.timetable.domain.model.Subject
 import com.leeweeder.timetable.domain.model.SubjectInstructorCrossRef
-import com.leeweeder.timetable.domain.model.toScheduledSession
 import com.leeweeder.timetable.domain.repository.DataStoreRepository
 import com.leeweeder.timetable.domain.repository.SessionRepository
 import com.leeweeder.timetable.domain.repository.SubjectInstructorRepository
+import com.leeweeder.timetable.domain.repository.SubjectRepository
 import com.leeweeder.timetable.util.Destination
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.map
@@ -19,7 +20,8 @@ const val NonExistingMainTimeTableId = -1
 class MainActivityViewModel(
     dataStoreRepository: DataStoreRepository,
     private val subjectInstructorRepository: SubjectInstructorRepository,
-    private val sessionRepository: SessionRepository
+    private val sessionRepository: SessionRepository,
+    private val subjectRepository: SubjectRepository
 ) : ViewModel() {
 
     val uiState = dataStoreRepository.timeTablePrefFlow.map {
@@ -44,9 +46,19 @@ class MainActivityViewModel(
         when (event) {
             is MainActivityEvent.UndoScheduleEntryDeletion -> {
                 viewModelScope.launch {
-                    val subjectInstructorCrossRef = event.subjectInstructorCrossRef
-                    subjectInstructorRepository.insertSubjectInstructor(subjectInstructorCrossRef)
-                    sessionRepository.updateSessions(event.affectedSessions.map { it.toScheduledSession(subjectInstructorCrossRef.id) })
+                    subjectInstructorRepository.insertSubjectInstructor(event.subjectInstructorCrossRef)
+                    sessionRepository.updateSessions(event.affectedSessions)
+                }
+            }
+
+            is MainActivityEvent.UndoSubjectDeletion -> {
+                viewModelScope.launch {
+                    // Insert first the subject
+                    subjectRepository.insertSubject(event.subject)
+                    // Insert the cross ref
+                    subjectInstructorRepository.insertSubjectInstructorCrossRefs(event.affectedSubjectInstructorCrossRefs)
+                    // Update the sessions
+                    sessionRepository.updateSessions(event.affectedSessions)
                 }
             }
         }
@@ -63,5 +75,11 @@ sealed interface MainActivityEvent {
     data class UndoScheduleEntryDeletion(
         val subjectInstructorCrossRef: SubjectInstructorCrossRef,
         val affectedSessions: List<Session>
+    ) : MainActivityEvent
+
+    data class UndoSubjectDeletion(
+        val subject: Subject,
+        val affectedSessions: List<Session>,
+        val affectedSubjectInstructorCrossRefs: List<SubjectInstructorCrossRef>
     ) : MainActivityEvent
 }

@@ -7,7 +7,9 @@ import androidx.lifecycle.SavedStateHandle
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import androidx.navigation.toRoute
+import com.leeweeder.timetable.domain.model.Session
 import com.leeweeder.timetable.domain.model.Subject
+import com.leeweeder.timetable.domain.model.SubjectInstructorCrossRef
 import com.leeweeder.timetable.domain.repository.SubjectRepository
 import com.leeweeder.timetable.util.Destination
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -108,12 +110,36 @@ class SubjectDialogViewModel(
                     forceDescriptionError = true
                 )
             }
+
+            SubjectDialogEvent.DeleteSubject -> {
+                viewModelScope.launch {
+                    val deletedSubject =
+                        Subject(uiState.value.id!!, uiState.value.description, uiState.value.code)
+                    val (affectedSessions, affectedSubjectInstructorCrossRefs) = subjectRepository.deleteSubjectById(
+                        uiState.value.id!!
+                    )
+
+                    _eventFlow.emit(
+                        SubjectDialogUiEvent.DeletionSuccessful(
+                            deletedSubject,
+                            affectedSessions,
+                            affectedSubjectInstructorCrossRefs
+                        )
+                    )
+                }
+            }
         }
     }
 }
 
 sealed interface SubjectDialogUiEvent {
     data object DoneSaving : SubjectDialogUiEvent
+    data class DeletionSuccessful(
+        val subject: Subject,
+        val sessions: List<Session>,
+        val subjectInstructorCrossRefs: List<SubjectInstructorCrossRef>
+    ) :
+        SubjectDialogUiEvent
 }
 
 sealed interface SubjectDialogEvent {
@@ -129,6 +155,8 @@ sealed interface SubjectDialogEvent {
 
     data object ForceCodeError : SubjectDialogEvent
     data object ForceDescriptionError : SubjectDialogEvent
+
+    data object DeleteSubject : SubjectDialogEvent
 }
 
 data class SubjectDialogUiState(

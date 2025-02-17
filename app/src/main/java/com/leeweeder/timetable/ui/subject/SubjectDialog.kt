@@ -21,20 +21,26 @@ import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.leeweeder.timetable.R
-import com.leeweeder.timetable.ui.components.AlertDialog
+import com.leeweeder.timetable.domain.model.Session
+import com.leeweeder.timetable.domain.model.Subject
+import com.leeweeder.timetable.domain.model.SubjectInstructorCrossRef
+import com.leeweeder.timetable.ui.components.DeleteConfirmationDialog
+import com.leeweeder.timetable.ui.components.ItemCRUDAlertDialog
 import com.leeweeder.timetable.ui.components.TextField
 import org.koin.androidx.compose.koinViewModel
 
 @Composable
 fun SubjectDialog(
     onDismissRequest: () -> Unit,
+    onDeleteSuccessful: (Subject, List<Session>, List<SubjectInstructorCrossRef>) -> Unit,
     viewModel: SubjectDialogViewModel = koinViewModel()
 ) {
     SubjectDialog(
         uiState = viewModel.uiState.value,
         eventFlow = viewModel.eventFlow.collectAsStateWithLifecycle().value,
         onEvent = viewModel::onEvent,
-        onDismissRequest = onDismissRequest
+        onDismissRequest = onDismissRequest,
+        onDeleteSuccessful = onDeleteSuccessful
     )
 }
 
@@ -43,8 +49,12 @@ private fun SubjectDialog(
     uiState: SubjectDialogUiState,
     eventFlow: SubjectDialogUiEvent?,
     onEvent: (SubjectDialogEvent) -> Unit,
+    onDeleteSuccessful: (Subject, List<Session>, List<SubjectInstructorCrossRef>) -> Unit,
     onDismissRequest: () -> Unit
 ) {
+
+    var isDeleteConfirmationDialogVisible by remember { mutableStateOf(false) }
+
     LaunchedEffect(eventFlow) {
         when (eventFlow) {
             SubjectDialogUiEvent.DoneSaving -> {
@@ -52,6 +62,15 @@ private fun SubjectDialog(
             }
 
             null -> Unit
+            is SubjectDialogUiEvent.DeletionSuccessful -> {
+                isDeleteConfirmationDialogVisible = false
+                onDismissRequest()
+                onDeleteSuccessful(
+                    eventFlow.subject,
+                    eventFlow.sessions,
+                    eventFlow.subjectInstructorCrossRefs
+                )
+            }
         }
     }
 
@@ -61,15 +80,34 @@ private fun SubjectDialog(
         }
     }
 
-    AlertDialog(
+    DeleteConfirmationDialog(
+        isDeleteConfirmationDialogVisible,
+        onDismissRequest = {
+            isDeleteConfirmationDialogVisible = false
+        },
+        onConfirm = {
+            onEvent(SubjectDialogEvent.DeleteSubject)
+        },
+        title = "Delete subject?",
+        description = "All schedule entries referring this subject will also be deleted.",
+    )
+
+    val isAddMode by remember { derivedStateOf { uiState.id == null } }
+
+    ItemCRUDAlertDialog(
         onDismissRequest = onDismissRequest,
         onSave = {
             onEvent(SubjectDialogEvent.Save)
         },
         isSaveButtonEnabled = isFormValid,
-        title = (if (uiState.id == null) "Add" else "Edit") + " subject",
+        title = (if (isAddMode) "Add" else "Edit") + " subject",
         iconId = R.drawable.book_24px,
-        error = uiState.conflictError
+        error = uiState.conflictError,
+        onDeleteClick = if (isAddMode) null else {
+            {
+                isDeleteConfirmationDialogVisible = true
+            }
+        }
     ) {
         val descriptionFocusRequester = remember { FocusRequester() }
         val codeFocusRequester = remember { FocusRequester() }
@@ -224,5 +262,9 @@ private fun SubjectDialogTextField(
 @Preview
 @Composable
 private fun SubjectDialogPreview() {
-    SubjectDialog(uiState = SubjectDialogUiState(), eventFlow = null, onEvent = {}) { }
+    SubjectDialog(
+        uiState = SubjectDialogUiState(),
+        eventFlow = null,
+        onEvent = {},
+        onDeleteSuccessful = { _, _, _ -> }) { }
 }

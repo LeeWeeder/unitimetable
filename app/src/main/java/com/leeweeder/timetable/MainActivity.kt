@@ -8,6 +8,7 @@ import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material3.Scaffold
+import androidx.compose.material3.SnackbarDuration
 import androidx.compose.material3.SnackbarHost
 import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.SnackbarResult
@@ -64,7 +65,8 @@ class MainActivity : ComponentActivity() {
                                 scope.launch {
                                     val result = snackbarHostState.showSnackbar(
                                         message = "Schedule entry deleted successfully. Affected sessions: ${affectedSessions.size}",
-                                        actionLabel = "Undo"
+                                        actionLabel = "Undo",
+                                        duration = SnackbarDuration.Long
                                     )
 
                                     if (result == SnackbarResult.ActionPerformed) {
@@ -76,7 +78,27 @@ class MainActivity : ComponentActivity() {
                                         )
                                     }
                                 }
-                            }
+                            },
+                            onSuccessfulSubjectDeletion = { subject, affectedSessions, affectSubjectInstructorCrossRefs ->
+                                scope.launch {
+                                    val result = snackbarHostState.showSnackbar(
+                                        message = "Subject deleted successfully. Affected sessions: ${affectedSessions.size}",
+                                        actionLabel = "Undo",
+                                        duration = SnackbarDuration.Long
+                                    )
+
+                                    if (result == SnackbarResult.ActionPerformed) {
+                                        viewModel.onEvent(
+                                            MainActivityEvent.UndoSubjectDeletion(
+                                                subject,
+                                                affectedSessions,
+                                                affectSubjectInstructorCrossRefs
+                                            )
+                                        )
+                                    }
+                                }
+                            },
+                            snackbarHostState = snackbarHostState
                         )
                     }
                 }

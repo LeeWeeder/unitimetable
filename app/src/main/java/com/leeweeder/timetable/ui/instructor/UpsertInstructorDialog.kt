@@ -16,7 +16,7 @@ import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.leeweeder.timetable.R
-import com.leeweeder.timetable.ui.components.AlertDialog
+import com.leeweeder.timetable.ui.components.ItemCRUDAlertDialog
 import com.leeweeder.timetable.ui.components.TextField
 import org.koin.androidx.compose.koinViewModel
 
@@ -50,7 +50,7 @@ private fun UpsertInstructorDialog(
         }
     }
 
-    AlertDialog(
+    ItemCRUDAlertDialog(
         onDismissRequest = onDismissRequest,
         onSave = {
             onEvent(UpsertInstructorDialogEvent.Save)

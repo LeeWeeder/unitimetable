@@ -1,5 +1,6 @@
 package com.leeweeder.timetable.ui
 
+import androidx.compose.material3.SnackbarHostState
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 import androidx.navigation.NavHostController
@@ -9,6 +10,7 @@ import androidx.navigation.compose.dialog
 import androidx.navigation.toRoute
 import com.leeweeder.timetable.NonExistingMainTimeTableId
 import com.leeweeder.timetable.domain.model.Session
+import com.leeweeder.timetable.domain.model.Subject
 import com.leeweeder.timetable.domain.model.SubjectInstructorCrossRef
 import com.leeweeder.timetable.ui.instructor.UpsertInstructorDialog
 import com.leeweeder.timetable.ui.schedule.ScheduleEntryDialog
@@ -23,8 +25,10 @@ fun NavGraph(
     startDestination: Destination,
     mainTimeTableId: Int,
     modifier: Modifier,
+    snackbarHostState: SnackbarHostState,
     // This is for showing a snackbar and enabling undo operation
-    onSuccessfulScheduleEntryDeletion: (subjectInstructorCrossRef: SubjectInstructorCrossRef, affectedSessions: List<Session>) -> Unit
+    onSuccessfulScheduleEntryDeletion: (subjectInstructorCrossRef: SubjectInstructorCrossRef, affectedSessions: List<Session>) -> Unit,
+    onSuccessfulSubjectDeletion: (Subject, List<Session>, List<SubjectInstructorCrossRef>) -> Unit
 ) {
 
     fun navigateUp() {
@@ -110,13 +114,13 @@ fun NavGraph(
                         selectedTimeTableId = backStackEntry.toRoute<Destination.Dialog.ScheduleEntryDialog>().timeTableId
                     )
                 )
-            }, onSuccessfulScheduleEntryDeletion = onSuccessfulScheduleEntryDeletion)
+            }, onSuccessfulScheduleEntryDeletion = onSuccessfulScheduleEntryDeletion, snackbarHostState = snackbarHostState)
         }
 
         dialog<Destination.Dialog.SubjectDialog> {
             SubjectDialog(onDismissRequest = {
                 navigateUp()
-            })
+            }, onDeleteSuccessful = onSuccessfulSubjectDeletion)
         }
 
         dialog<Destination.Dialog.UpsertInstructorDialog> {

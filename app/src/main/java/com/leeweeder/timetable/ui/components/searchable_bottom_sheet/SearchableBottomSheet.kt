@@ -2,13 +2,15 @@ package com.leeweeder.timetable.ui.components.searchable_bottom_sheet
 
 import androidx.compose.animation.AnimatedContent
 import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.core.animate
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.ColumnScope
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxHeight
+import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
@@ -38,6 +40,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.focus.onFocusChanged
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
@@ -75,7 +78,8 @@ data class SearchableBottomSheetConfig<T>(
 fun <T> SearchableBottomSheet(
     controller: SearchableBottomSheetController,
     state: SearchableBottomSheetStateHolder<T>,
-    config: SearchableBottomSheetConfig<T>
+    config: SearchableBottomSheetConfig<T>,
+    snackbar: (@Composable () -> Unit)? = null
 ) {
     LaunchedEffect(controller.isVisible) {
         if (controller.isVisible) {
@@ -89,6 +93,29 @@ fun <T> SearchableBottomSheet(
         isSearchComplete = true
     }
 
+    var snackbarBottomPadding by remember { mutableStateOf(0.dp) }
+
+    val density = LocalDensity.current
+
+    LaunchedEffect(controller.state.currentValue) {
+        try {
+            val state = controller.state
+            with(density) {
+                animate(
+                    initialValue = snackbarBottomPadding.toPx(),
+                    targetValue = state.requireOffset()
+                ) { value, _ ->
+                    snackbarBottomPadding = with(density) {
+                        value.toDp()
+                    }
+                }
+                snackbarBottomPadding = controller.state.requireOffset().toDp()
+            }
+        } catch (_: IllegalStateException) {
+            // Do nothing
+        }
+    }
+
     if (controller.isVisible && isSearchComplete) {
         ModalBottomSheet(
             onDismissRequest = controller::hide,
@@ -97,139 +124,152 @@ fun <T> SearchableBottomSheet(
                 .fillMaxHeight(),
             sheetState = controller.state
         ) {
-            SelectionAndAdditionBottomSheetContent(
-                controller = controller,
-                state = state,
-                config = config
-            )
+            Box(modifier = Modifier.fillMaxSize()) {
+                SearchableBottomSheetContent(
+                    controller = controller,
+                    state = state,
+                    config = config
+                )
+                snackbar?.let {
+                    Box(
+                        Modifier
+                            .align(alignment = Alignment.BottomCenter)
+                            .padding(bottom = snackbarBottomPadding)
+                    ) {
+                        it()
+                    }
+                }
+            }
         }
     }
 }
 
 @OptIn(ExperimentalMaterial3Api::class, ExperimentalMaterial3ExpressiveApi::class)
 @Composable
-private fun <T> ColumnScope.SelectionAndAdditionBottomSheetContent(
+private fun <T> SearchableBottomSheetContent(
     controller: SearchableBottomSheetController,
     state: SearchableBottomSheetStateHolder<T>,
     config: SearchableBottomSheetConfig<T>
 ) {
-    val searchFieldState = state.searchFieldState
-    SearchBarDefaults.InputField(
-        state = searchFieldState,
-        leadingIcon = {
-            Icon(R.drawable.search_24px, "Search")
-        },
-        modifier = Modifier
-            .fillMaxWidth()
-            .padding(horizontal = 16.dp)
-            .onFocusChanged {
-                if (it.isFocused)
-                    controller.expand()
+    Column {
+        val searchFieldState = state.searchFieldState
+        SearchBarDefaults.InputField(
+            state = searchFieldState,
+            leadingIcon = {
+                Icon(R.drawable.search_24px, "Search")
             },
-        placeholder = {
-            Text("Find " + config.searchPlaceholderTitle.lowercase())
-        },
-        trailingIcon = {
-            AnimatedVisibility(searchFieldState.text.isNotEmpty()) {
-                IconButton(R.drawable.cancel_24px, contentDescription = "Clear input") {
-                    searchFieldState.clearText()
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 16.dp)
+                .onFocusChanged {
+                    if (it.isFocused)
+                        controller.expand()
+                },
+            placeholder = {
+                Text("Find " + config.searchPlaceholderTitle.lowercase())
+            },
+            trailingIcon = {
+                AnimatedVisibility(searchFieldState.text.isNotEmpty()) {
+                    IconButton(R.drawable.cancel_24px, contentDescription = "Clear input") {
+                        searchFieldState.clearText()
+                    }
                 }
+            },
+            colors = SearchBarDefaults.inputFieldColors(),
+            expanded = true,
+            onSearch = {},
+            onExpandedChange = {}
+        )
+        Spacer(Modifier.height(4.dp))
+
+        val actionButtonConfig = config.actionButtonConfig
+
+        if (actionButtonConfig != null) {
+            @Composable
+            fun CreateFromScratchButton() {
+                CreateFromSearchOrScratchButton(
+                    "new ${actionButtonConfig.fromScratch.label.lowercase().trim()} from scratch",
+                    onClick = actionButtonConfig.fromScratch.onClick
+                )
             }
-        },
-        colors = SearchBarDefaults.inputFieldColors(),
-        expanded = true,
-        onSearch = {},
-        onExpandedChange = {}
-    )
-    Spacer(Modifier.height(4.dp))
 
-    val actionButtonConfig = config.actionButtonConfig
-
-    if (actionButtonConfig != null) {
-        @Composable
-        fun CreateFromScratchButton() {
-            CreateFromSearchOrScratchButton(
-                "new ${actionButtonConfig.fromScratch.label.lowercase().trim()} from scratch",
-                onClick = actionButtonConfig.fromScratch.onClick
-            )
-        }
-
-        if (actionButtonConfig.fromQuery == null || actionButtonConfig.fromQuery.isEmpty()) {
-            CreateFromScratchButton()
-        } else {
-            AnimatedContent(searchFieldState.text.isBlank()) { isBlank ->
-                if (isBlank) {
-                    CreateFromScratchButton()
-                } else {
-                    Column {
-                        actionButtonConfig.fromQuery.forEach { properties ->
-                            CreateFromSearchOrScratchButton(
-                                "${
-                                    properties.label.lowercase().trim()
-                                } \"${properties.transform(searchFieldState.text.toString())}\""
-                            ) {
-                                properties.onClick(properties.transform(searchFieldState.text.toString()))
+            if (actionButtonConfig.fromQuery == null || actionButtonConfig.fromQuery.isEmpty()) {
+                CreateFromScratchButton()
+            } else {
+                AnimatedContent(searchFieldState.text.isBlank()) { isBlank ->
+                    if (isBlank) {
+                        CreateFromScratchButton()
+                    } else {
+                        Column {
+                            actionButtonConfig.fromQuery.forEach { properties ->
+                                CreateFromSearchOrScratchButton(
+                                    "${
+                                        properties.label.lowercase().trim()
+                                    } \"${properties.transform(searchFieldState.text.toString())}\""
+                                ) {
+                                    properties.onClick(properties.transform(searchFieldState.text.toString()))
+                                }
                             }
                         }
                     }
                 }
             }
+
+            HorizontalDivider(thickness = Dp.Hairline)
         }
 
-        HorizontalDivider(thickness = Dp.Hairline)
-    }
-
-    AnimatedVisibility(
-        state.searchResults.isNotEmpty(), modifier = Modifier
-            .padding(horizontal = 16.dp)
-            .padding(top = 24.dp, bottom = 4.dp)
-    ) {
-        Text(
-            config.itemLabel,
-            style = MaterialTheme.typography.bodyMediumEmphasized,
-            color = MaterialTheme.colorScheme.outline
-        )
-    }
-
-    LazyColumn {
-        items(state.searchResults, key = { it.hashCode() }) { item ->
-            ListItem(
-                overlineContent = {
-                    config.itemTransform.overlineText?.let {
-                        Text(it(item))
-                    }
-                },
-                headlineContent = {
-                    Text(config.itemTransform.headlineText(item))
-                },
-                supportingContent = {
-                    config.itemTransform.supportingText?.let {
-                        Text(it(item))
-                    }
-                },
-                colors = ListItemDefaults.colors(containerColor = Color.Transparent),
-                modifier = Modifier
-                    .animateItem()
-                    .clickable {
-                        config.onItemClick(item)
-                        controller.hide()
-                    },
-                trailingContent = {
-                    Row(
-                        verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.spacedBy(4.dp)
-                    ) {
-                        config.itemTransform.trailingContent?.let {
-                            it(item)
-                        }
-                        config.onItemEdit?.let {
-                            TextButton("Edit", onClick = {
-                                it(item)
-                            })
-                        }
-                    }
-                }
+        AnimatedVisibility(
+            state.searchResults.isNotEmpty(), modifier = Modifier
+                .padding(horizontal = 16.dp)
+                .padding(top = 24.dp, bottom = 4.dp)
+        ) {
+            Text(
+                config.itemLabel,
+                style = MaterialTheme.typography.bodyMediumEmphasized,
+                color = MaterialTheme.colorScheme.outline
             )
+        }
+
+        LazyColumn {
+            items(state.searchResults, key = { it.hashCode() }) { item ->
+                ListItem(
+                    overlineContent = {
+                        config.itemTransform.overlineText?.let {
+                            Text(it(item))
+                        }
+                    },
+                    headlineContent = {
+                        Text(config.itemTransform.headlineText(item))
+                    },
+                    supportingContent = {
+                        config.itemTransform.supportingText?.let {
+                            Text(it(item))
+                        }
+                    },
+                    colors = ListItemDefaults.colors(containerColor = Color.Transparent),
+                    modifier = Modifier
+                        .animateItem()
+                        .clickable {
+                            config.onItemClick(item)
+                            controller.hide()
+                        },
+                    trailingContent = {
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.spacedBy(4.dp)
+                        ) {
+                            config.itemTransform.trailingContent?.let {
+                                it(item)
+                            }
+                            config.onItemEdit?.let {
+                                TextButton("Edit", onClick = {
+                                    it(item)
+                                })
+                            }
+                        }
+                    }
+                )
+            }
         }
     }
 }
@@ -254,9 +294,9 @@ sealed class CreateButtonProperties(open val label: String) {
 @OptIn(ExperimentalMaterial3Api::class)
 @Preview(showBackground = true)
 @Composable
-private fun SelectionAndAdditionBottomSheetPreview() {
+private fun SearchableBottomSheetPreview() {
     Column {
-        SelectionAndAdditionBottomSheetContent(
+        SearchableBottomSheetContent(
             state = SearchableBottomSheetStateHolder<String>(),
             controller = rememberSearchableBottomSheetController(),
             config = SearchableBottomSheetConfig(

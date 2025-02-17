@@ -1,6 +1,8 @@
 package com.leeweeder.timetable.domain.repository
 
+import com.leeweeder.timetable.domain.model.Session
 import com.leeweeder.timetable.domain.model.Subject
+import com.leeweeder.timetable.domain.model.SubjectInstructorCrossRef
 import kotlinx.coroutines.flow.Flow
 
 interface SubjectRepository {
@@ -11,7 +13,8 @@ interface SubjectRepository {
 
     fun observeSubjects(): Flow<List<Subject>>
 
-    suspend fun deleteSubjectById(id: Int)
+    /** @return The affected sessions and cross refs */
+    suspend fun deleteSubjectById(id: Int): Pair<List<Session>, List<SubjectInstructorCrossRef>>
 
     suspend fun getSubjectById(id: Int): Subject?
 

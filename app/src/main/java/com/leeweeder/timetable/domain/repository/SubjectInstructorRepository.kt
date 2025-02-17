@@ -8,7 +8,7 @@ import kotlinx.coroutines.flow.Flow
 interface SubjectInstructorRepository {
     fun observeSubjectInstructors(): Flow<List<SubjectInstructorCrossRefWithDetails>>
 
-    suspend fun getSubjectInstructorById(id: Int): SubjectInstructorCrossRefWithDetails
+    suspend fun getSubjectInstructorById(id: Int): SubjectInstructorCrossRefWithDetails?
 
     suspend fun getSubjectInstructorCrossRefById(id: Int): SubjectInstructorCrossRef
 
@@ -18,4 +18,6 @@ interface SubjectInstructorRepository {
 
     /** @return the sessions that are affected by this deletion (before converting it to empty session) */
     suspend fun deleteSubjectInstructorCrossRefById(id: Int): List<Session>
+
+    suspend fun insertSubjectInstructorCrossRefs(subjectInstructorCrossRefs: List<SubjectInstructorCrossRef>)
 }

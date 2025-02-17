@@ -32,8 +32,15 @@ interface SessionDao {
     suspend fun deleteSessions(sessions: List<Session>)
 
     @Query("SELECT * FROM session WHERE timeTableId = :timeTableId")
-    suspend fun getSessionsWithTimeTableId(timeTableId: Int): List<Session>
+    suspend fun getSessionsByTimeTableId(timeTableId: Int): List<Session>
 
     @Query("SELECT * FROM session WHERE subjectInstructorCrossRefId = :crossRefId")
-    suspend fun getSessionWithSubjectInstructorCrossRefId(crossRefId: Int) : List<Session>
+    suspend fun getSessionBySubjectInstructorCrossRefId(crossRefId: Int) : List<Session>
+
+    @Query("""
+        SELECT s.* FROM session s
+        INNER JOIN subjectinstructorcrossref si ON s.subjectInstructorCrossRefId = si.id
+        WHERE si.subjectId = :subjectId
+    """)
+    suspend fun getSessionsBySubjectId(subjectId: Int): List<Session>
 }
