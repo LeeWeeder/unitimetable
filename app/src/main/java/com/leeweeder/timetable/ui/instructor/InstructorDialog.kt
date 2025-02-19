@@ -21,11 +21,11 @@ import com.leeweeder.timetable.ui.components.TextField
 import org.koin.androidx.compose.koinViewModel
 
 @Composable
-fun UpsertInstructorDialog(
+fun InstructorDialog(
     onDismissRequest: () -> Unit,
-    viewModel: UpsertInstructorDialogViewModel = koinViewModel()
+    viewModel: InstructorDialogViewModel = koinViewModel()
 ) {
-    UpsertInstructorDialog(
+    InstructorDialog(
         onDismissRequest = onDismissRequest,
         uiState = viewModel.uiState.value,
         eventFlow = viewModel.eventFlow.collectAsStateWithLifecycle().value,
@@ -34,15 +34,15 @@ fun UpsertInstructorDialog(
 }
 
 @Composable
-private fun UpsertInstructorDialog(
+private fun InstructorDialog(
     onDismissRequest: () -> Unit,
-    uiState: UpsertInstructorDialogUiState,
-    eventFlow: UpsertInstructorDialogUiEvent?,
-    onEvent: (UpsertInstructorDialogEvent) -> Unit
+    uiState: InstructorDialogUiState,
+    eventFlow: InstructorDialogUiEvent?,
+    onEvent: (InstructorDialogEvent) -> Unit
 ) {
     LaunchedEffect(eventFlow) {
         when (eventFlow) {
-            UpsertInstructorDialogUiEvent.DoneSavingInstructor -> {
+            InstructorDialogUiEvent.DoneSavingInstructor -> {
                 onDismissRequest()
             }
 
@@ -53,7 +53,7 @@ private fun UpsertInstructorDialog(
     ItemCRUDAlertDialog(
         onDismissRequest = onDismissRequest,
         onSave = {
-            onEvent(UpsertInstructorDialogEvent.Save)
+            onEvent(InstructorDialogEvent.Save)
         },
         isSaveButtonEnabled = uiState.name.isNotBlank(),
         title = (if (true) "Add" else "Edit") + " instructor",
@@ -66,8 +66,8 @@ private fun UpsertInstructorDialog(
             value = uiState.name,
             onValueChange = {
 
-                onEvent(UpsertInstructorDialogEvent.StartCheckingForError)
-                onEvent(UpsertInstructorDialogEvent.EditName(it))
+                onEvent(InstructorDialogEvent.StartCheckingForError)
+                onEvent(InstructorDialogEvent.EditName(it))
             },
             label = "Name",
             isError = uiState.isError,
@@ -92,7 +92,7 @@ private fun UpsertInstructorDialog(
                 showKeyboardOnFocus = true
             ),
             keyboardActions = KeyboardActions(onDone = {
-                onEvent(UpsertInstructorDialogEvent.Save)
+                onEvent(InstructorDialogEvent.Save)
             })
         )
 
@@ -104,6 +104,6 @@ private fun UpsertInstructorDialog(
 
 @Preview
 @Composable
-private fun UpsertInstructorDialogPreview() {
-    UpsertInstructorDialog(onDismissRequest = {})
+private fun InstructorDialogPreview() {
+    InstructorDialog(onDismissRequest = {})
 }

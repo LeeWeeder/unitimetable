@@ -15,18 +15,18 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
 
-class UpsertInstructorDialogViewModel(
+class InstructorDialogViewModel(
     private val instructorRepository: InstructorRepository,
     savedStateHandle: SavedStateHandle
 ) : ViewModel() {
-    private val _uiState = mutableStateOf(UpsertInstructorDialogUiState())
-    val uiState: State<UpsertInstructorDialogUiState> = _uiState
+    private val _uiState = mutableStateOf(InstructorDialogUiState())
+    val uiState: State<InstructorDialogUiState> = _uiState
 
-    private val _eventFlow = MutableStateFlow<UpsertInstructorDialogUiEvent?>(null)
-    val eventFlow: StateFlow<UpsertInstructorDialogUiEvent?> = _eventFlow.asStateFlow()
+    private val _eventFlow = MutableStateFlow<InstructorDialogUiEvent?>(null)
+    val eventFlow: StateFlow<InstructorDialogUiEvent?> = _eventFlow.asStateFlow()
 
     init {
-        savedStateHandle.toRoute<Destination.Dialog.UpsertInstructorDialog>().let {
+        savedStateHandle.toRoute<Destination.Dialog.InstructorDialog>().let {
             _uiState.value = uiState.value.copy(
                 id = if (it.id == 0) null else it.id,
                 name = it.name
@@ -34,27 +34,27 @@ class UpsertInstructorDialogViewModel(
         }
     }
 
-    fun onEvent(event: UpsertInstructorDialogEvent) {
+    fun onEvent(event: InstructorDialogEvent) {
         when (event) {
-            is UpsertInstructorDialogEvent.EditName -> {
+            is InstructorDialogEvent.EditName -> {
                 _uiState.value = uiState.value.copy(
                     name = event.value
                 )
             }
 
-            UpsertInstructorDialogEvent.StartCheckingForError -> {
+            InstructorDialogEvent.StartCheckingForError -> {
                 _uiState.value = uiState.value.copy(
                     shouldStartCheckingForError = true
                 )
             }
 
-            UpsertInstructorDialogEvent.ClearError -> {
+            InstructorDialogEvent.ClearError -> {
                 _uiState.value = uiState.value.copy(
                     shouldStartCheckingForError = false
                 )
             }
 
-            UpsertInstructorDialogEvent.Save -> {
+            InstructorDialogEvent.Save -> {
                 viewModelScope.launch {
                     try {
                         if (uiState.value.id == null) {
@@ -71,7 +71,7 @@ class UpsertInstructorDialogViewModel(
                                 )
                             )
                         }
-                        _eventFlow.emit(UpsertInstructorDialogUiEvent.DoneSavingInstructor)
+                        _eventFlow.emit(InstructorDialogUiEvent.DoneSavingInstructor)
                     } catch (_: SQLiteConstraintException) {
                         _uiState.value = uiState.value.copy(
                             conflictError = "Name already exists"
@@ -83,11 +83,11 @@ class UpsertInstructorDialogViewModel(
     }
 }
 
-sealed interface UpsertInstructorDialogUiEvent {
-    data object DoneSavingInstructor : UpsertInstructorDialogUiEvent
+sealed interface InstructorDialogUiEvent {
+    data object DoneSavingInstructor : InstructorDialogUiEvent
 }
 
-data class UpsertInstructorDialogUiState(
+data class InstructorDialogUiState(
     val id: Int? = null,
     val name: String = "",
     val conflictError: String? = null,
@@ -97,9 +97,9 @@ data class UpsertInstructorDialogUiState(
         get() = name.isBlank() && shouldStartCheckingForError || conflictError != null
 }
 
-sealed interface UpsertInstructorDialogEvent {
-    data class EditName(val value: String) : UpsertInstructorDialogEvent
-    data object StartCheckingForError : UpsertInstructorDialogEvent
-    data object ClearError : UpsertInstructorDialogEvent
-    data object Save : UpsertInstructorDialogEvent
+sealed interface InstructorDialogEvent {
+    data class EditName(val value: String) : InstructorDialogEvent
+    data object StartCheckingForError : InstructorDialogEvent
+    data object ClearError : InstructorDialogEvent
+    data object Save : InstructorDialogEvent
 }

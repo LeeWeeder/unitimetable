@@ -12,7 +12,7 @@ import com.leeweeder.timetable.NonExistingMainTimeTableId
 import com.leeweeder.timetable.domain.model.Session
 import com.leeweeder.timetable.domain.model.Subject
 import com.leeweeder.timetable.domain.model.SubjectInstructorCrossRef
-import com.leeweeder.timetable.ui.instructor.UpsertInstructorDialog
+import com.leeweeder.timetable.ui.instructor.InstructorDialog
 import com.leeweeder.timetable.ui.schedule.ScheduleEntryDialog
 import com.leeweeder.timetable.ui.subject.SubjectDialog
 import com.leeweeder.timetable.ui.timetable_setup.GetTimeTableNameDialog
@@ -101,9 +101,9 @@ fun NavGraph(
                         code = it?.code ?: ""
                     )
                 )
-            }, onNavigateToUpsertInstructorDialog = {
+            }, onNavigateToInstructorDialog = {
                 navController.navigate(
-                    Destination.Dialog.UpsertInstructorDialog(
+                    Destination.Dialog.InstructorDialog(
                         id = it?.id ?: 0, name = it?.name ?: ""
                     )
                 )
@@ -123,8 +123,8 @@ fun NavGraph(
             }, onDeleteSuccessful = onSuccessfulSubjectDeletion)
         }
 
-        dialog<Destination.Dialog.UpsertInstructorDialog> {
-            UpsertInstructorDialog(onDismissRequest = {
+        dialog<Destination.Dialog.InstructorDialog> {
+            InstructorDialog(onDismissRequest = {
                 navigateUp()
             })
         }

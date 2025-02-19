@@ -119,7 +119,7 @@ class ScheduleEntryDialogViewModel(
             is ScheduleEntryDialogEvent.SetSelectedSubject -> {
                 viewModelScope.launch {
                     _selectedSubjectId.emit(event.subjectId)
-                    Log.d("UpsertScheduleDialogViewModel", "emitted, event: ${event.subjectId}")
+                    Log.d("ScheduleDialogViewModel", "emitted, event: ${event.subjectId}")
                 }
             }
 

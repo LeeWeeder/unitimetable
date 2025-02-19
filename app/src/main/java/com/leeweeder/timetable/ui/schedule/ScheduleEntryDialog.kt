@@ -63,7 +63,7 @@ fun ScheduleEntryDialog(
     onNavigateBack: () -> Unit,
     onNavigateToHomeScreen: (Int) -> Unit,
     onNavigateToSubjectDialog: (Subject?) -> Unit,
-    onNavigateToUpsertInstructorDialog: (Instructor?) -> Unit,
+    onNavigateToInstructorDialog: (Instructor?) -> Unit,
     onSuccessfulScheduleEntryDeletion: (SubjectInstructorCrossRef, affectedSessions: List<Session>) -> Unit,
     snackbarHostState: SnackbarHostState,
     viewModel: ScheduleEntryDialogViewModel = koinViewModel()
@@ -79,7 +79,7 @@ fun ScheduleEntryDialog(
         subjectBottomSheetState = viewModel.subjectBottomSheetState,
         instructorBottomSheetState = viewModel.instructorBottomSheetState,
         onNavigateToSubjectDialog = onNavigateToSubjectDialog,
-        onNavigateToUpsertInstructorDialog = onNavigateToUpsertInstructorDialog,
+        onNavigateToInstructorDialog = onNavigateToInstructorDialog,
         onEvent = viewModel::onEvent,
         onSuccessfulScheduleEntryDeletion = onSuccessfulScheduleEntryDeletion,
         snackbarHostState = snackbarHostState
@@ -98,7 +98,7 @@ private fun ScheduleEntryDialog(
     subjectBottomSheetState: SearchableBottomSheetStateHolder<Subject>,
     instructorBottomSheetState: SearchableBottomSheetStateHolder<Instructor>,
     onNavigateToSubjectDialog: (Subject?) -> Unit,
-    onNavigateToUpsertInstructorDialog: (Instructor?) -> Unit,
+    onNavigateToInstructorDialog: (Instructor?) -> Unit,
     onEvent: (ScheduleEntryDialogEvent) -> Unit,
     onSuccessfulScheduleEntryDeletion: (SubjectInstructorCrossRef, affectedSessions: List<Session>) -> Unit,
     snackbarHostState: SnackbarHostState
@@ -211,15 +211,15 @@ private fun ScheduleEntryDialog(
                 onEvent(ScheduleEntryDialogEvent.SetSelectedInstructor(it.id))
             },
             onItemEdit = {
-                onNavigateToUpsertInstructorDialog(it)
+                onNavigateToInstructorDialog(it)
             },
             actionButtonConfig = CreateButtonConfig(
                 fromScratch = CreateButtonProperties.FromScratch("instructor") {
-                    onNavigateToUpsertInstructorDialog(null)
+                    onNavigateToInstructorDialog(null)
                 },
                 fromQuery = listOf(
                     CreateButtonProperties.FromQuery("instructor") {
-                        onNavigateToUpsertInstructorDialog(Instructor(id = 0, name = it))
+                        onNavigateToInstructorDialog(Instructor(id = 0, name = it))
                     }
                 )
             ),
@@ -362,14 +362,14 @@ private fun ScheduleEntryDialog(
 
 @Preview(showSystemUi = true)
 @Composable
-private fun UpsertScheduleDialogPreview() {
+private fun ScheduleDialogPreview() {
     Box(Modifier.fillMaxSize()) {
         ScheduleEntryDialog(
             onSuccessfulScheduleEntryDeletion = { _, _ -> },
             onNavigateBack = {},
             onNavigateToHomeScreen = {},
             onNavigateToSubjectDialog = {},
-            onNavigateToUpsertInstructorDialog = {},
+            onNavigateToInstructorDialog = {},
             uiState = ScheduleEntryDialogUiState(),
             dataState = ScheduleEntryDialogDataState.Success(null, null),
             eventFlow = null,

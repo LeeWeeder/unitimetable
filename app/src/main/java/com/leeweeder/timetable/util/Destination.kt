@@ -33,7 +33,7 @@ sealed interface Destination {
         ) : Dialog
 
         @Serializable
-        data class UpsertInstructorDialog(
+        data class InstructorDialog(
             val id: Int,
             val name: String
         ) : Dialog
