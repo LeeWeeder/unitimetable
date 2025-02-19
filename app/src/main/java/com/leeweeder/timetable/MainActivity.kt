@@ -7,19 +7,27 @@ import androidx.activity.SystemBarStyle
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
 import androidx.compose.foundation.layout.padding
+import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.Button
 import androidx.compose.material3.Scaffold
+import androidx.compose.material3.SnackbarDuration
 import androidx.compose.material3.SnackbarHost
 import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.SnackbarResult
+import androidx.compose.material3.Text
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.core.splashscreen.SplashScreen.Companion.installSplashScreen
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.navigation.compose.rememberNavController
 import com.leeweeder.timetable.ui.NavGraph
 import com.leeweeder.timetable.ui.theme.AppTheme
+import com.leeweeder.timetable.ui.timetable_setup.components.CancelTextButton
 import kotlinx.coroutines.launch
 import org.koin.androidx.viewmodel.ext.android.viewModel
 
@@ -52,6 +60,44 @@ class MainActivity : ComponentActivity() {
 
                     val scope = rememberCoroutineScope()
 
+                    var undoWarningDialog by remember { mutableStateOf<UndoEvent?>(null) }
+
+                    LaunchedEffect(viewModel.eventFlow.value) {
+                        when (viewModel.eventFlow.value) {
+                            is MainActivityUiEvent.ShowSnackbar -> {
+                                snackbarHostState.showSnackbar(message = (viewModel.eventFlow.value as MainActivityUiEvent.ShowSnackbar).message)
+                            }
+
+                            null -> Unit
+                        }
+                        viewModel.onEvent(MainActivityEvent.ClearEventFlow)
+                    }
+
+                    if (undoWarningDialog != null) {
+                        AlertDialog(
+                            onDismissRequest = {
+                                undoWarningDialog = null
+                            }, confirmButton = {
+                                Button(onClick = {
+                                    if (undoWarningDialog != null) {
+                                        viewModel.onEvent(MainActivityEvent.Undo(undoWarningDialog!!))
+                                        undoWarningDialog = null
+                                    }
+                                }) {
+                                    Text("Undo")
+                                }
+                            }, dismissButton = {
+                                CancelTextButton {
+                                    undoWarningDialog = null
+                                }
+                            }, title = {
+                                Text("Undo deletion?")
+                            }, text = {
+                                Text("New schedules will be overridden. Continue?")
+                            }
+                        )
+                    }
+
                     Scaffold(snackbarHost = {
                         SnackbarHost(snackbarHostState)
                     }) { paddingValues ->
@@ -64,19 +110,38 @@ class MainActivity : ComponentActivity() {
                                 scope.launch {
                                     val result = snackbarHostState.showSnackbar(
                                         message = "Schedule entry deleted successfully. Affected sessions: ${affectedSessions.size}",
-                                        actionLabel = "Undo"
+                                        actionLabel = "Undo",
+                                        duration = SnackbarDuration.Long
                                     )
 
                                     if (result == SnackbarResult.ActionPerformed) {
-                                        viewModel.onEvent(
-                                            MainActivityEvent.UndoScheduleEntryDeletion(
+                                        undoWarningDialog =
+                                            UndoEvent.UndoScheduleEntryDeletion(
                                                 subjectInstructorCrossRef,
                                                 affectedSessions
                                             )
-                                        )
                                     }
                                 }
-                            }
+                            },
+                            onSuccessfulSubjectDeletion = { subject, affectedSessions, affectSubjectInstructorCrossRefs ->
+                                scope.launch {
+                                    val result = snackbarHostState.showSnackbar(
+                                        message = "Subject deleted successfully. Affected sessions: ${affectedSessions.size}",
+                                        actionLabel = "Undo",
+                                        duration = SnackbarDuration.Long
+                                    )
+
+                                    if (result == SnackbarResult.ActionPerformed) {
+                                        undoWarningDialog =
+                                            UndoEvent.UndoSubjectDeletion(
+                                                subject,
+                                                affectedSessions,
+                                                affectSubjectInstructorCrossRefs
+                                            )
+                                    }
+                                }
+                            },
+                            snackbarHostState = snackbarHostState
                         )
                     }
                 }

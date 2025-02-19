@@ -30,4 +30,10 @@ interface SubjectInstructorCrossRefDao {
 
     @Query("DELETE FROM subjectinstructorcrossref WHERE id = :id")
     suspend fun deleteSubjectInstructorCrossRefById(id: Int)
+
+    @Query("SELECT * FROM subjectinstructorcrossref WHERE subjectId = :subjectId ")
+    suspend fun getSubjectInstructorCrossRefsBySubjectId(subjectId: Int): List<SubjectInstructorCrossRef>
+
+    @Insert
+    suspend fun insertSubjectInstructorCrossRefs(subjectInstructorCrossRefs: List<SubjectInstructorCrossRef>)
 }

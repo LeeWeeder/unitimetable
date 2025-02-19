@@ -61,7 +61,7 @@ class TimeTableRepositoryImpl(
         val days = getDays(startingDay, numberOfDays)
         val times = getTimes(startTime, endTime)
 
-        sessionDao.deleteSessions(sessionDao.getSessionsWithTimeTableId(timeTableId)
+        sessionDao.deleteSessions(sessionDao.getSessionsByTimeTableId(timeTableId)
             .filterNot { it.dayOfWeek in days || it.startTime in times }
         )
 
@@ -69,7 +69,7 @@ class TimeTableRepositoryImpl(
             buildList {
                 days.forEach { dayOfWeek ->
                     times.forEach { startTime ->
-                        sessionDao.getSessionsWithTimeTableId(timeTableId)
+                        sessionDao.getSessionsByTimeTableId(timeTableId)
                             .find { dayOfWeek == it.dayOfWeek && startTime == it.startTime }
                             ?: add(
                                 Session.emptySession(

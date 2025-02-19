@@ -93,18 +93,18 @@ class ScheduleEntryDialogViewModel(
 
         viewModelScope.launch {
             if (subjectInstructorId != null) {
-                val subjectInstructorWithId =
-                    subjectInstructorRepository.getSubjectInstructorById(subjectInstructorId)
+                subjectInstructorRepository.getSubjectInstructorById(subjectInstructorId)
+                    ?.let { subjectInstructorWithId ->
+                        _uiState.value = uiState.value.copy(
+                            selectedHue = subjectInstructorWithId.hue,
+                            id = subjectInstructorWithId.id
+                        )
 
-                _uiState.value = uiState.value.copy(
-                    selectedHue = subjectInstructorWithId.hue,
-                    id = subjectInstructorWithId.id
-                )
-
-                viewModelScope.launch {
-                    _selectedSubjectId.emit(subjectInstructorWithId.subject.id)
-                    _selectedInstructorId.emit(subjectInstructorWithId.instructor.id)
-                }
+                        viewModelScope.launch {
+                            _selectedSubjectId.emit(subjectInstructorWithId.subject.id)
+                            _selectedInstructorId.emit(subjectInstructorWithId.instructor.id)
+                        }
+                    }
             } else {
                 _uiState.value = uiState.value.copy(
                     selectedHue = randomHue(),
@@ -138,25 +138,31 @@ class ScheduleEntryDialogViewModel(
             ScheduleEntryDialogEvent.Save -> {
                 viewModelScope.launch {
                     try {
-                        val subjectInstructorId = if (uiState.value.id == null) {
-                            subjectInstructorRepository.insertSubjectInstructor(
-                                SubjectInstructorCrossRef(
-                                    hue = uiState.value.selectedHue,
-                                    subjectId = selectedSubjectId.value,
-                                    instructorId = selectedInstructorId.value
+                        // For preventing error if the user deleted a subject or instructor within this schedule entry,
+                        // try fetching first if the that schedule entry is already in the database.
+                        val subjectInstructorId =
+                            if (uiState.value.id == null || subjectInstructorRepository.getSubjectInstructorById(
+                                    uiState.value.id!!
+                                ) == null
+                            ) {
+                                subjectInstructorRepository.insertSubjectInstructor(
+                                    SubjectInstructorCrossRef(
+                                        hue = uiState.value.selectedHue,
+                                        subjectId = selectedSubjectId.value,
+                                        instructorId = selectedInstructorId.value
+                                    )
                                 )
-                            )
-                        } else {
-                            subjectInstructorRepository.updateSubjectInstructor(
-                                SubjectInstructorCrossRef(
-                                    id = uiState.value.id!!,
-                                    hue = uiState.value.selectedHue,
-                                    subjectId = selectedSubjectId.value,
-                                    instructorId = selectedInstructorId.value
+                            } else {
+                                subjectInstructorRepository.updateSubjectInstructor(
+                                    SubjectInstructorCrossRef(
+                                        id = uiState.value.id!!,
+                                        hue = uiState.value.selectedHue,
+                                        subjectId = selectedSubjectId.value,
+                                        instructorId = selectedInstructorId.value
+                                    )
                                 )
-                            )
-                            uiState.value.id!!
-                        }
+                                uiState.value.id!!
+                            }
 
                         _eventFlow.emit(DoneSaving(subjectInstructorId))
                     } catch (_: SQLiteConstraintException) {
