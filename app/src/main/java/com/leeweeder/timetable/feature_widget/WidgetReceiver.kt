@@ -1,7 +1,6 @@
 package com.leeweeder.timetable.feature_widget
 
 import android.annotation.SuppressLint
-import android.appwidget.AppWidgetManager
 import android.content.Context
 import android.graphics.Bitmap
 import android.graphics.Canvas
@@ -11,11 +10,6 @@ import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.ExperimentalMaterial3ExpressiveApi
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.LaunchedEffect
-import androidx.compose.runtime.State
-import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.remember
-import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.toArgb
 import androidx.compose.ui.text.font.FontFamily
@@ -28,8 +22,8 @@ import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.core.util.TypedValueCompat.spToPx
-import androidx.datastore.core.DataStore
 import androidx.datastore.preferences.core.Preferences
+import androidx.datastore.preferences.core.stringPreferencesKey
 import androidx.glance.GlanceId
 import androidx.glance.GlanceModifier
 import androidx.glance.GlanceTheme
@@ -37,8 +31,8 @@ import androidx.glance.Image
 import androidx.glance.ImageProvider
 import androidx.glance.LocalContext
 import androidx.glance.LocalSize
+import androidx.glance.appwidget.CircularProgressIndicator
 import androidx.glance.appwidget.GlanceAppWidget
-import androidx.glance.appwidget.GlanceAppWidgetManager
 import androidx.glance.appwidget.GlanceAppWidgetReceiver
 import androidx.glance.appwidget.SizeMode
 import androidx.glance.appwidget.provideContent
@@ -54,28 +48,19 @@ import androidx.glance.layout.fillMaxWidth
 import androidx.glance.layout.height
 import androidx.glance.layout.padding
 import androidx.glance.layout.width
-import androidx.glance.preview.ExperimentalGlancePreviewApi
-import androidx.glance.preview.Preview
-import androidx.glance.state.GlanceStateDefinition
 import androidx.glance.text.Text
 import androidx.glance.unit.ColorProvider
 import com.leeweeder.timetable.domain.relation.TimeTableWithSession
-import com.leeweeder.timetable.domain.repository.TimeTableRepository
-import com.leeweeder.timetable.feature_widget.data.repository.WidgetPreferencesDataStoreRepositoryImpl
-import com.leeweeder.timetable.feature_widget.domain.WidgetPreferenceDataStoreRepository
 import com.leeweeder.timetable.feature_widget.ui.theme.WidgetTheme
 import com.leeweeder.timetable.ui.CellBorderDirection
 import com.leeweeder.timetable.ui.Schedule
-import com.leeweeder.timetable.ui.toMappedSchedules
+import com.leeweeder.timetable.ui.toGroupedSchedules
 import com.leeweeder.timetable.ui.util.Constants
 import com.leeweeder.timetable.ui.util.getDays
 import com.leeweeder.timetable.ui.util.getTimes
 import com.leeweeder.timetable.ui.util.plusOneHour
 import com.leeweeder.timetable.util.isSystemInDarkTheme
 import com.leeweeder.timetable.util.toColor
-import kotlinx.coroutines.launch
-import org.koin.java.KoinJavaComponent.inject
-import java.io.File
 import java.time.DayOfWeek
 import java.time.LocalDate
 import java.time.LocalTime
@@ -84,25 +69,12 @@ import java.util.Locale
 import kotlin.collections.forEach
 
 class UnitimetableWidgetReceiver : GlanceAppWidgetReceiver() {
-    override val glanceAppWidget: GlanceAppWidget by inject(Widget::class.java)
-
-    // Add this to specify the configuration activity
-    override fun onUpdate(
-        context: Context,
-        appWidgetManager: AppWidgetManager,
-        appWidgetIds: IntArray
-    ) {
-        super.onUpdate(context, appWidgetManager, appWidgetIds)
-        // Configuration activity will be launched before the widget is added
-    }
+    override val glanceAppWidget = UnitimetableWidget()
 }
 
-@Suppress("LocalVariableName")
-class Widget(
-    private val timeTableRepository: TimeTableRepository,
-    private val widgetPreferenceDataStoreRepository: WidgetPreferenceDataStoreRepository
-) : GlanceAppWidget() {
+val WidgetKey = stringPreferencesKey("unitimetable_widget")
 
+class UnitimetableWidget() : GlanceAppWidget() {
     override val sizeMode = SizeMode.Exact
 
     override suspend fun provideGlance(
@@ -111,74 +83,30 @@ class Widget(
     ) {
 
         provideContent {
-            val timeTableId =
-                currentState<Preferences>()[WidgetPreferencesDataStoreRepositoryImpl.createWidgetKey(
-                    GlanceAppWidgetManager(context).getAppWidgetId(id)
-                )]
-
-            val _timeTableWithSession = remember { mutableStateOf<TimeTableWithSession?>(null) }
-            val timeTableWithSession: State<TimeTableWithSession?> =
-                _timeTableWithSession
-
-            val scope = rememberCoroutineScope()
-
-            LaunchedEffect(timeTableId) {
-                scope.launch {
-                    _timeTableWithSession.value = timeTableRepository.getTimeTableWithDetails(
-                        widgetPreferenceDataStoreRepository.readWidgetPreferences(
-                            GlanceAppWidgetManager(
-                                context
-                            ).getAppWidgetId(id)
-                        ) ?: 0
-                    )
-                }
+            val prefs = currentState<Preferences>()
+            val timeTableData = prefs[WidgetKey]?.let {
+                TimeTableWithSession.fromJson(it)
             }
 
             WidgetTheme {
-                val timeTableWithDetails = timeTableWithSession.value
-
-                if (timeTableWithDetails != null) {
-                    val timeTable = timeTableWithDetails.timeTable
-                    val days = getDays(
-                        timeTable.startingDay,
-                        timeTable.numberOfDays
-                    )
-                    val dayOfWeekNow = LocalDate.now().dayOfWeek
-                    val startTimes = getTimes(timeTable.startTime, timeTable.endTime)
+                timeTableData?.let { data ->
+                    // Your existing widget composition
+                    val days = getDays(data.timeTable.startingDay, data.timeTable.numberOfDays)
                     Widget(
                         days = days,
-                        dayOfWeekNow = dayOfWeekNow,
-                        startTimes = startTimes,
-                        dayScheduleMap = timeTableWithDetails.sessions.toMappedSchedules()
+                        dayOfWeekNow = LocalDate.now().dayOfWeek,
+                        startTimes = getTimes(data.timeTable.startTime, data.timeTable.endTime),
+                        groupedSchedules = data.sessions.toGroupedSchedules(days = days)
                     )
+                } ?: Box(
+                    modifier = GlanceModifier.fillMaxSize(),
+                    contentAlignment = Alignment.Center
+                ) {
+                    CircularProgressIndicator(color = GlanceTheme.colors.onSurface)
                 }
             }
         }
     }
-
-    override suspend fun onDelete(context: Context, glanceId: GlanceId) {
-        super.onDelete(context, glanceId)
-        val widgetId = glanceId.toString().toIntOrNull() ?: return
-        widgetPreferenceDataStoreRepository.deleteWidgetPreferences(widgetId)
-    }
-
-    override val stateDefinition: GlanceStateDefinition<Preferences>
-        get() = object : GlanceStateDefinition<Preferences> {
-            override suspend fun getDataStore(
-                context: Context,
-                fileKey: String
-            ): DataStore<Preferences> {
-                return WidgetPreferencesDataStoreRepositoryImpl(context)
-            }
-
-            override fun getLocation(
-                context: Context,
-                fileKey: String
-            ): File {
-                return File(context.applicationInfo.dataDir, "datastore/file")
-            }
-
-        }
 }
 
 @Composable
@@ -186,14 +114,24 @@ fun Widget(
     days: List<DayOfWeek>,
     dayOfWeekNow: DayOfWeek,
     startTimes: List<LocalTime>,
-    dayScheduleMap: Map<DayOfWeek, List<Schedule>>
+    groupedSchedules: List<List<Schedule>>
 ) {
     val context = LocalContext.current
+    val size = LocalSize.current
+
+    val density = Density(context)
+
+    val labelSmall = MaterialTheme.typography.labelSmall
+
+    val labelHeight = with(density) {
+        labelSmall.lineHeight.toDp()
+    }
+
+
     Row(
-        modifier = GlanceModifier.fillMaxSize()
+        modifier = GlanceModifier.fillMaxWidth().height(size.height + (labelHeight / 2))
             .background(color = GlanceTheme.colors.surface.getColor(context))
     ) {
-        val size = LocalSize.current
         val leaderColumnWidth = size.width * 0.125f
 
         val widgetHeight = size.height
@@ -202,15 +140,8 @@ fun Widget(
 
         val rowHeight = (widgetHeight - headerRowHeight) / startTimes.size
 
-        val labelSmall = MaterialTheme.typography.labelSmall
+        val fontSize = labelSmall.fontSize * 0.7f
 
-        val fontSize = labelSmall.fontSize * SCALE
-
-        val density = Density(context)
-
-        val labelHeight = with(density) {
-            labelSmall.lineHeight.toDp()
-        }
 
         // Leader
         Column(
@@ -229,13 +160,14 @@ fun Widget(
                 val style = labelSmall.copy(fontSize = fontSize)
                 Box(
                     modifier = GlanceModifier.height(rowHeight)
-                        .width(leaderColumnWidth)
+                        .width(leaderColumnWidth),
+                    contentAlignment = Alignment.TopEnd
                 ) {
                     GlanceText(
                         text = period.format(Constants.TimeFormatter),
                         style = style,
-                        modifier = GlanceModifier.fillMaxWidth()
-                            .height(labelHeight),
+                        modifier = GlanceModifier
+                            .height(labelHeight).padding(end = 4.dp),
                         alignment = Alignment.Center
                     )
                 }
@@ -283,7 +215,7 @@ fun Widget(
                 }
             }
 
-            Grid(dayScheduleMap, rowHeight = rowHeight, context = context)
+            Grid(groupedSchedules, rowHeight = rowHeight, context = context)
         }
     }
 }
@@ -294,25 +226,40 @@ private const val SCALE = 0.9f
 @OptIn(ExperimentalMaterial3ExpressiveApi::class, ExperimentalMaterial3Api::class)
 @Composable
 private fun Grid(
-    dayScheduleMap: Map<DayOfWeek, List<Schedule>>,
+    groupedSchedules: List<List<Schedule>>,
     context: Context,
     rowHeight: Dp
 ) {
     Row(modifier = GlanceModifier.fillMaxSize()) {
-        dayScheduleMap.forEach { (_, schedules) ->
+        groupedSchedules.forEachIndexed { index, schedules ->
             Column(
                 modifier = GlanceModifier.defaultWeight().fillMaxHeight()
             ) {
                 schedules.forEach { schedule ->
 
+                    val periodSpan = schedule.periodSpan
+
                     val subjectDescriptionMaxLine =
-                        if (schedule.periodSpan == 1) 1 else Int.MAX_VALUE
-                    val instructorNameMaxLine = if (schedule.periodSpan == 1) 1 else Int.MAX_VALUE
+                        if (periodSpan == 1) 1 else Int.MAX_VALUE
+                    val instructorNameMaxLine =
+                        if (periodSpan == 1) 1 else Int.MAX_VALUE
+
+                    // Add additional BorderWidth to align the day schedules for days with merged schedules
+                    val additionalBorderWidth =
+                        if (schedule.subjectInstructor != null && periodSpan > 1) {
+                            // This is a subject, and might have merged schedules and has merged schedules
+                            BorderWidth
+                        } else {
+                            0.dp
+                        }
 
                     BorderContainer(
-                        modifier = GlanceModifier.height(rowHeight * schedule.periodSpan)
+                        modifier = GlanceModifier.height((rowHeight * schedule.periodSpan) + additionalBorderWidth)
                             .fillMaxWidth(),
-                        width = BorderSize.of(bottom = 1.dp, start = 1.dp)
+                        width = BorderSize.of(
+                            bottom = BorderWidth,
+                            start = if (index == 0) BorderWidth else 0.dp
+                        )
                     ) {
                         Column(
                             horizontalAlignment = Alignment.CenterHorizontally,
@@ -365,7 +312,9 @@ private fun Grid(
                                     Text(
                                         schedule.subjectInstructor.instructor?.name
                                             ?: "No instructor",
-                                        style = MaterialTheme.typography.labelSmall.copy(fontSize = MaterialTheme.typography.labelSmall.fontSize * SCALE)
+                                        style = MaterialTheme.typography.labelSmall.copy(
+                                            fontSize = MaterialTheme.typography.labelSmall.fontSize * SCALE
+                                        )
                                             .toGlanceTextStyle(
                                                 color = textColor,
                                                 textAlign = TextAlign.Center
@@ -379,7 +328,9 @@ private fun Grid(
                                         .fillMaxSize(),
                                     contentAlignment = Alignment.Center
                                 ) {
-                                    Text(if (schedule.label != null) schedule.label else "Break")
+                                    schedule.label?.let {
+                                        Text(schedule.label)
+                                    }
                                 }
                             }
                         }
@@ -462,39 +413,9 @@ fun GlanceText(
     }
 }
 
-@OptIn(ExperimentalGlancePreviewApi::class)
-@Preview
-@Composable
-private fun GlanceTextPreview() {
-    val lineHeight = 10.sp
-    val style =
-        MaterialTheme.typography.labelSmall.copy(fontSize = lineHeight, lineHeight = lineHeight)
-    val context = LocalContext.current
-    GlanceText(
-        text = "Test",
-        style = style,
-        color = Color.Red,
-        modifier = GlanceModifier.height(lineHeight.value.dp)
-    )
-}
-
-@OptIn(ExperimentalGlancePreviewApi::class)
-@Preview
-@Composable
-private fun GlanceWithoutHeightTextPreview() {
-    val lineHeight = 20.sp
-    val style =
-        MaterialTheme.typography.labelSmall.copy(fontSize = lineHeight, lineHeight = lineHeight)
-    GlanceText(
-        text = "Test",
-        style = style,
-        color = Color.Red
-    )
-}
-
 @Composable
 private fun BorderContainer(
-    width: BorderSize = BorderSize.of(1.dp),
+    width: BorderSize = BorderSize.of(BorderWidth),
     contentAlignment: Alignment = Alignment.TopStart,
     modifier: GlanceModifier = GlanceModifier,
     content: (@Composable () -> Unit)? = null
@@ -530,21 +451,7 @@ private fun BorderContainer(
     }
 }
 
-
-@OptIn(ExperimentalGlancePreviewApi::class)
-@Preview(widthDp = 300, heightDp = 300)
-@Composable
-private fun BorderContainerPreview() {
-    Box(modifier = GlanceModifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-        BorderContainer(
-            modifier = GlanceModifier.height(50.dp),
-            contentAlignment = Alignment.Center,
-            width = BorderSize.of(top = 1.dp)
-        ) {
-            Text("Hello")
-        }
-    }
-}
+private val BorderWidth = 0.5.dp
 
 @Composable
 private fun GlanceModifier.labelBackground() =

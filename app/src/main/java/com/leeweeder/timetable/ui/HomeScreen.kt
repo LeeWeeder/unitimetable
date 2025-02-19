@@ -346,7 +346,10 @@ private fun HomeScreen(
                                 onEvent(HomeEvent.SetSessionWithActiveSubjectInstructor(it))
                             })
                         } else {
-                            DefaultModeGrid(dataState.getDayScheduleMap(selectedTimeTableId),
+                            DefaultModeGrid(dataState.getGroupedSchedules(
+                                selectedTimeTableId,
+                                uiState.days
+                            ),
                                 onChangeToEditMode = {
                                     onNavigateToScheduleEntryDialog(
                                         it,
@@ -630,10 +633,10 @@ private fun CellBorder(borderDirection: CellBorderDirection) {
 @OptIn(ExperimentalMaterial3ExpressiveApi::class, ExperimentalMaterial3Api::class)
 @Composable
 private fun RowScope.DefaultModeGrid(
-    dayScheduleMap: Map<DayOfWeek, List<Schedule>>,
+    groupedSchedules: List<List<Schedule>>,
     onChangeToEditMode: (subjectInstructorId: Int) -> Unit
 ) {
-    dayScheduleMap.forEach { (_, schedules) ->
+    groupedSchedules.forEach { schedules ->
         Column(modifier = Modifier.weight(1f)) {
             schedules.forEach { schedule ->
 
@@ -884,7 +887,9 @@ private fun EditModeGridPreview() {
 @Composable
 private fun DefaultModeGridPreview() {
     Row {
-        DefaultModeGrid(dayScheduleMap = PreviewSessionWithSubjectWrapperAndInstructor.toMappedSchedules(),
+        DefaultModeGrid(groupedSchedules = PreviewSessionWithSubjectWrapperAndInstructor.toGroupedSchedules(
+            emptyList()
+        ),
             onChangeToEditMode = { })
     }
 }
