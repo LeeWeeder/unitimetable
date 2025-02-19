@@ -3,6 +3,7 @@
     android:description="@string/app_name"
     android:minHeight="220dp"
     android:minWidth="276dp"
+    android:resizeMode="horizontal|vertical"
     android:previewImage="@mipmap/ic_launcher"
     android:initialLayout="@layout/glance_default_loading_layout"
     android:updatePeriodMillis="0"
