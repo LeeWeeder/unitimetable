@@ -7,6 +7,6 @@ import org.koin.core.module.dsl.viewModel
 import org.koin.dsl.module
 
 val widgetConfigurationModule = module {
-    viewModel { WidgetConfigurationScreenViewModel(get(), get(), get()) }
+    viewModel { WidgetConfigurationScreenViewModel(get(), get()) }
     single<WidgetPreferenceDataStoreRepository> { WidgetPreferencesDataStoreRepositoryImpl(get()) }
 }

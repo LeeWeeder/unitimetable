@@ -41,7 +41,7 @@ private const val TAG = "HomeViewModel"
 class HomeViewModel(
     timeTableRepository: TimeTableRepository,
     private val sessionRepository: SessionRepository,
-    private val subjectInstructorRepository: SubjectInstructorRepository,
+    subjectInstructorRepository: SubjectInstructorRepository,
     dataStoreRepository: DataStoreRepository,
     savedStateHandle: SavedStateHandle
 ) : ViewModel() {
@@ -191,8 +191,8 @@ sealed interface HomeDataState {
         val timeTableWithDetails: List<TimeTableWithSession> = emptyList()
     ) : HomeDataState {
 
-        fun getDayScheduleMap(timeTableId: Int): Map<DayOfWeek, List<Schedule>> {
-            return getSessionsWithSubjectInstructor(timeTableId).toMappedSchedules()
+        fun getGroupedSchedules(timeTableId: Int, days: List<DayOfWeek>): List<List<Schedule>> {
+            return getSessionsWithSubjectInstructor(timeTableId).toGroupedSchedules(days)
         }
 
         fun getSessionsWithSubjectInstructor(timeTableId: Int): List<SessionWithDetails> {
@@ -259,12 +259,22 @@ fun isSameSchedule(pair: Pair<Schedule, Schedule>): Boolean {
 *
 *   To set the schedule as one, indicate the periodNumbers it is belonged to
 * */
-fun List<SessionWithDetails>.toMappedSchedules(): Map<DayOfWeek, List<Schedule>> {
+/**
+ * Get the schedules for each day by checking the equality of the given days' index and the returned
+ * list.
+ *
+ * @return The schedules for each day of the week, sorted by [days]
+ * */
+fun List<SessionWithDetails>.toGroupedSchedules(
+    /** Make sure to sort the days based on the timetable settings */
+    days: List<DayOfWeek>
+): List<List<Schedule>> {
     val groupedSessions = this.groupBy { it.session.dayOfWeek }
 
     // For each items in the list, check if the current item and the next item is the same, else, merge them.
+    return days.map { day ->
+        val sessions = groupedSessions[day] ?: emptyList()
 
-    return groupedSessions.mapValues { (_, sessions) ->
         // for each sessions, convert all of them to schedules
         val schedules = sessions.map {
             val periodSpan = 1

@@ -16,14 +16,12 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
-import androidx.glance.appwidget.GlanceAppWidgetManager
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.leeweeder.timetable.R
 import com.leeweeder.timetable.domain.model.TimeTable
-import com.leeweeder.timetable.feature_widget.UnitimetableWidgetReceiver
+import com.leeweeder.timetable.domain.relation.TimeTableWithSession
 import com.leeweeder.timetable.ui.components.SelectionField
 import com.leeweeder.timetable.ui.components.searchable_bottom_sheet.ItemTransform
 import com.leeweeder.timetable.ui.components.searchable_bottom_sheet.SearchableBottomSheet
@@ -34,16 +32,14 @@ import org.koin.androidx.compose.koinViewModel
 
 @Composable
 fun WidgetConfigurationScreen(
-    widgetId: Int,
     onCancelClick: () -> Unit,
-    onDone: () -> Unit,
+    onDone: (String) -> Unit,
     viewModel: WidgetConfigurationScreenViewModel = koinViewModel()
 ) {
     WidgetConfigurationScreen(
-        widgetId = widgetId,
         bottomSheetState = viewModel.bottomSheetState,
         selectedTimeTable = viewModel.selectedTimeTable.value,
-        isSuccess = viewModel.isSuccess.collectAsStateWithLifecycle().value,
+        success = viewModel.success.collectAsStateWithLifecycle().value,
         onEvent = viewModel::onEvent,
         onCancelClick = onCancelClick,
         onDone = onDone
@@ -53,24 +49,20 @@ fun WidgetConfigurationScreen(
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 private fun WidgetConfigurationScreen(
-    widgetId: Int,
     bottomSheetState: SearchableBottomSheetStateHolder<TimeTable>,
     selectedTimeTable: TimeTable?,
     onEvent: (WidgetConfigurationScreenEvent) -> Unit,
-    isSuccess: Boolean,
-    onDone: () -> Unit,
+    success: TimeTableWithSession?,
+    onDone: (String) -> Unit,
     onCancelClick: () -> Unit
 ) {
+    LaunchedEffect(success) {
+        when (success) {
+            is TimeTableWithSession -> {
+                onDone(success.toString())
+            }
 
-    val context = LocalContext.current
-
-    LaunchedEffect(isSuccess) {
-        if (isSuccess) {
-            UnitimetableWidgetReceiver().glanceAppWidget.update(
-                context,
-                GlanceAppWidgetManager(context).getGlanceIdBy(widgetId)
-            )
-            onDone()
+            null -> Unit
         }
     }
 
@@ -117,7 +109,7 @@ private fun WidgetConfigurationScreen(
                 }
                 Button(
                     onClick = {
-                        onEvent(WidgetConfigurationScreenEvent.Save(widgetId))
+                        onEvent(WidgetConfigurationScreenEvent.Save)
                     },
                     modifier = Modifier.weight(1f)
                 ) {
@@ -147,9 +139,8 @@ private fun WidgetConfigurationScreen(
 @Composable
 private fun UnitimetableWidgetPreview() {
     WidgetConfigurationScreen(
-        widgetId = 0,
         bottomSheetState = SearchableBottomSheetStateHolder(),
         selectedTimeTable = null,
-        onEvent = {}, onDone = {}, onCancelClick = {}, isSuccess = false
+        onEvent = {}, onDone = {}, onCancelClick = {}, success = null
     )
 }

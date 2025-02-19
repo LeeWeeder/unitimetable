@@ -5,7 +5,6 @@ import com.leeweeder.timetable.di.databaseModule
 import com.leeweeder.timetable.di.repositoryModule
 import com.leeweeder.timetable.di.viewModelModule
 import com.leeweeder.timetable.feature_widget.di.widgetConfigurationModule
-import com.leeweeder.timetable.feature_widget.di.widgetModule
 import org.koin.android.ext.koin.androidContext
 import org.koin.core.context.startKoin
 
@@ -19,7 +18,6 @@ class UnitimetableApplication : Application() {
                     databaseModule,
                     repositoryModule,
                     viewModelModule,
-                    widgetModule,
                     widgetConfigurationModule
                 )
             )
