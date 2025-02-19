@@ -1,10 +1,8 @@
 <?xml version="1.0" encoding="utf-8"?>
 <appwidget-provider xmlns:android="http://schemas.android.com/apk/res/android"
     android:description="@string/app_name"
-    android:minHeight="293dp"
+    android:minHeight="338dp"
     android:minWidth="276dp"
-    android:maxResizeHeight="293dp"
-    android:maxResizeWidth="276dp"
     android:previewImage="@mipmap/ic_launcher"
     android:initialLayout="@layout/glance_default_loading_layout"
     android:updatePeriodMillis="0"
@@ -12,5 +10,6 @@
     android:targetCellHeight="4"
     android:targetCellWidth="4"
     android:widgetFeatures="reconfigurable"
+    android:resizeMode="vertical|horizontal"
     android:configure="com.leeweeder.timetable.feature_widget.WidgetConfigurationActivity">
 </appwidget-provider>
