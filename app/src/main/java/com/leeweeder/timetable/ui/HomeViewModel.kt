@@ -101,7 +101,8 @@ class HomeViewModel(
                 subjectInstructorRepository.observeSubjectInstructors()
             ) { subjectInstructor, searchQuery ->
                 val searchQuery = searchQuery.lowercase()
-                subjectInstructor.instructor.name.lowercase().contains(searchQuery) ||
+                (subjectInstructor.instructor != null && subjectInstructor.instructor.name.lowercase()
+                    .contains(searchQuery)) ||
                         subjectInstructor.subject.code.lowercase().contains(searchQuery) ||
                         subjectInstructor.subject.description.lowercase().contains(searchQuery)
             }
@@ -276,17 +277,19 @@ fun List<SessionWithDetails>.toGroupedSchedules(
         val sessions = groupedSessions[day] ?: emptyList()
 
         // for each sessions, convert all of them to schedules
-        val schedules = sessions.map {
+        val schedules = sessions.map { sessionWithDetails ->
             val periodSpan = 1
 
-            if (it.session.isSubject) {
-                val subjectInstructor =
+            if (sessionWithDetails.session.isSubject) {
+                val subjectInstructor = sessionWithDetails.subjectWithInstructor?.let {
                     SubjectInstructor(
-                        id = it.session.subjectInstructorCrossRefId!!,
-                        subject = it.subjectWithInstructor!!.subject,
-                        instructor = it.subjectWithInstructor.instructor,
-                        hue = it.subjectWithInstructor.hue
+                        id = sessionWithDetails.session.subjectInstructorCrossRefId!!,
+                        subject = sessionWithDetails.subjectWithInstructor.subject,
+                        instructor = sessionWithDetails.subjectWithInstructor.instructor,
+                        hue = sessionWithDetails.subjectWithInstructor.hue
                     )
+                }
+                    ?: throw IllegalArgumentException("Subject instructor is null for a subject session: $sessionWithDetails")
 
                 Schedule.subject(
                     subjectInstructor = subjectInstructor,
@@ -294,7 +297,7 @@ fun List<SessionWithDetails>.toGroupedSchedules(
                 )
             } else {
                 Schedule.empty(
-                    label = it.session.label,
+                    label = sessionWithDetails.session.label,
                     periodSpan = periodSpan
                 )
             }
@@ -375,7 +378,7 @@ data class Schedule private constructor(
 data class SubjectInstructor(
     val id: Int,
     val hue: Hue,
-    val subject: Subject?,
+    val subject: Subject,
     val instructor: Instructor?
 ) {
     override fun equals(other: Any?): Boolean {
@@ -393,10 +396,8 @@ data class SubjectInstructor(
     override fun hashCode(): Int {
         var result = super.hashCode()
         result = 31 * result + id
-        result = 31 * result + (subject?.hashCode() ?: 0)
+        result = 31 * result + (subject.hashCode())
         result = 31 * result + (instructor?.hashCode() ?: 0)
         return result
     }
-
-
 }

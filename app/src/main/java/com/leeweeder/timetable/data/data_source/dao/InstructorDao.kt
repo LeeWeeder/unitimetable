@@ -23,4 +23,7 @@ interface InstructorDao {
 
     @Query("SELECT * FROM instructor WHERE id = :id")
     fun observeInstructor(id: Int): Flow<Instructor?>
+
+    @Query("SELECT * FROM instructor WHERE id = :id")
+    suspend fun getInstructorById(id: Int): Instructor?
 }

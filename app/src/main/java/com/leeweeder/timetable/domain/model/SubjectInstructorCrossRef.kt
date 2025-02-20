@@ -24,7 +24,7 @@ import com.leeweeder.timetable.util.Hue
             entity = Instructor::class,
             parentColumns = ["id"],
             childColumns = ["instructorId"],
-            onDelete = ForeignKey.CASCADE,
+            onDelete = ForeignKey.SET_NULL,
             onUpdate = ForeignKey.CASCADE,
         )
     ]
@@ -34,5 +34,5 @@ data class SubjectInstructorCrossRef(
     val id: Int = 0,
     val hue: Hue,
     val subjectId: Int,
-    val instructorId: Int
+    val instructorId: Int?
 )

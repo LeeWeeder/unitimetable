@@ -54,12 +54,12 @@ data class Session(
          * */
         fun subjectSession(
             timeTableId: Int,
-            subjectId: Int,
+            crossRefId: Int,
             dayOfWeek: DayOfWeek,
             startTime: LocalTime
         ) = Session(
             timeTableId = timeTableId,
-            subjectInstructorCrossRefId = subjectId,
+            subjectInstructorCrossRefId = crossRefId,
             dayOfWeek = dayOfWeek,
             startTime = startTime,
             label = null

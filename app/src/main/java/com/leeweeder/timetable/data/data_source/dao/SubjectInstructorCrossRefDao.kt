@@ -34,6 +34,19 @@ interface SubjectInstructorCrossRefDao {
     @Query("SELECT * FROM subjectinstructorcrossref WHERE subjectId = :subjectId ")
     suspend fun getSubjectInstructorCrossRefsBySubjectId(subjectId: Int): List<SubjectInstructorCrossRef>
 
+    @Query("SELECT * FROM subjectinstructorcrossref WHERE instructorId = :instructorId")
+    suspend fun getSubjectInstructorCrossRefsByInstructorId(instructorId: Int): List<SubjectInstructorCrossRef>
+
     @Insert
     suspend fun insertSubjectInstructorCrossRefs(subjectInstructorCrossRefs: List<SubjectInstructorCrossRef>)
+
+    @Query("""
+        SELECT * FROM subjectinstructorcrossref
+        WHERE id IN (:ids)
+        AND instructorId IS NULL
+    """)
+    suspend fun getNullInstructorCrossRefIds(ids: List<Int>): List<SubjectInstructorCrossRef>
+
+    @Update
+    suspend fun updateSubjectInstructorCrossRefs(refs: List<SubjectInstructorCrossRef>)
 }

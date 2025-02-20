@@ -52,10 +52,12 @@ data class TimeTableWithSession(
                                 code = it.subject.code,
                                 dateAdded = it.subject.dateAdded
                             ),
-                            instructor = SerializableInstructor(
-                                id = it.instructor.id,
-                                name = it.instructor.name
-                            )
+                            instructor = it.instructor?.let {
+                                SerializableInstructor(
+                                    id = it.id,
+                                    name = it.name
+                                )
+                            }
                         )
                     }
                 )
@@ -117,10 +119,12 @@ data class SerializableTimeTableWithSession(
                                 code = it.subject.description,
                                 dateAdded = it.subject.dateAdded
                             ),
-                            instructor = Instructor(
-                                id = it.instructor.id,
-                                name = it.instructor.name
-                            )
+                            instructor = it.instructor?.let {
+                                Instructor(
+                                    id = it.id,
+                                    name = it.name
+                                )
+                            }
                         )
                     }
                 )
@@ -165,7 +169,7 @@ data class SerializableSubjectInstructorCrossRefWithDetails(
     val id: Int,
     val hueValue: Int,
     val subject: SerializableSubject,
-    val instructor: SerializableInstructor
+    val instructor: SerializableInstructor?
 )
 
 @Serializable

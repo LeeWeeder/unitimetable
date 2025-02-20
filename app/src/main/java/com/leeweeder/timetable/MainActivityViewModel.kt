@@ -3,10 +3,12 @@ package com.leeweeder.timetable
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.leeweeder.timetable.MainActivityUiEvent.*
+import com.leeweeder.timetable.domain.model.Instructor
 import com.leeweeder.timetable.domain.model.Session
 import com.leeweeder.timetable.domain.model.Subject
 import com.leeweeder.timetable.domain.model.SubjectInstructorCrossRef
 import com.leeweeder.timetable.domain.repository.DataStoreRepository
+import com.leeweeder.timetable.domain.repository.InstructorRepository
 import com.leeweeder.timetable.domain.repository.SessionRepository
 import com.leeweeder.timetable.domain.repository.SubjectInstructorRepository
 import com.leeweeder.timetable.domain.repository.SubjectRepository
@@ -25,7 +27,8 @@ class MainActivityViewModel(
     dataStoreRepository: DataStoreRepository,
     private val subjectInstructorRepository: SubjectInstructorRepository,
     private val sessionRepository: SessionRepository,
-    private val subjectRepository: SubjectRepository
+    private val subjectRepository: SubjectRepository,
+    private val instructorRepository: InstructorRepository
 ) : ViewModel() {
 
     val uiState = dataStoreRepository.timeTablePrefFlow.map {
@@ -59,9 +62,9 @@ class MainActivityViewModel(
                             try {
                                 subjectInstructorRepository.insertSubjectInstructor(event.subjectInstructorCrossRef)
                                 sessionRepository.updateSessions(event.affectedSessions)
-                                _eventFlow.emit(ShowSnackbar("Undo successful"))
+                                _eventFlow.emit(ShowSnackbar.Success)
                             } catch (_: Exception) {
-                                _eventFlow.emit(ShowSnackbar("Undo operation failed"))
+                                _eventFlow.emit(ShowSnackbar.Fail)
                             }
                         }
                     }
@@ -75,9 +78,26 @@ class MainActivityViewModel(
                                 subjectInstructorRepository.insertSubjectInstructorCrossRefs(event.affectedSubjectInstructorCrossRefs)
                                 // Update the sessions
                                 sessionRepository.updateSessions(event.affectedSessions)
-                                _eventFlow.emit(ShowSnackbar("Undo successful"))
+                                _eventFlow.emit(ShowSnackbar.Success)
                             } catch (_: Exception) {
-                                _eventFlow.emit(ShowSnackbar("Undo operation failed"))
+                                _eventFlow.emit(ShowSnackbar.Fail)
+                            }
+                        }
+                    }
+
+                    is UndoEvent.UndoInstructorDeletion -> {
+                        viewModelScope.launch {
+                            try {
+                                instructorRepository.insertInstructor(event.instructor)
+
+                                subjectInstructorRepository.updateSubjectInstructorCrossRefs(
+                                    subjectInstructorRepository.getNullInstructorCrossRefIds(event.affectedSubjectInstructorCrossRefIds)
+                                        .map { it.copy(instructorId = event.instructor.id) }
+                                )
+
+                                _eventFlow.emit(ShowSnackbar.Success)
+                            } catch (_: Exception) {
+                                _eventFlow.emit(ShowSnackbar.Fail)
                             }
                         }
                     }
@@ -115,8 +135,16 @@ sealed interface UndoEvent {
         val affectedSessions: List<Session>,
         val affectedSubjectInstructorCrossRefs: List<SubjectInstructorCrossRef>
     ) : UndoEvent
+
+    data class UndoInstructorDeletion(
+        val instructor: Instructor,
+        val affectedSubjectInstructorCrossRefIds: List<Int>,
+    ) : UndoEvent
 }
 
 sealed interface MainActivityUiEvent {
-    data class ShowSnackbar(val message: String) : MainActivityUiEvent
+    sealed class ShowSnackbar(val message: String) : MainActivityUiEvent {
+        data object Success : ShowSnackbar("Undo successful")
+        data object Fail : ShowSnackbar("Undo operation failed")
+    }
 }
