@@ -14,6 +14,7 @@ import com.leeweeder.timetable.domain.model.Instructor
 import com.leeweeder.timetable.domain.model.Session
 import com.leeweeder.timetable.domain.model.Subject
 import com.leeweeder.timetable.domain.model.SubjectInstructorCrossRef
+import com.leeweeder.timetable.domain.relation.TimeTableWithSession
 import com.leeweeder.timetable.ui.instructor.InstructorDialog
 import com.leeweeder.timetable.ui.schedule.ScheduleEntryDialog
 import com.leeweeder.timetable.ui.subject.SubjectDialog
@@ -32,7 +33,8 @@ fun NavGraph(
     // This is for showing a snackbar and enabling undo operation
     onSuccessfulScheduleEntryDeletion: (subjectInstructorCrossRef: SubjectInstructorCrossRef, affectedSessions: List<Session>) -> Unit,
     onSuccessfulSubjectDeletion: (Subject, List<Session>, List<SubjectInstructorCrossRef>) -> Unit,
-    onSuccessfulInstructorDeletion: (Instructor, List<Int>) -> Unit
+    onSuccessfulInstructorDeletion: (Instructor, List<Int>) -> Unit,
+    onSuccessfulTimeTableDeletion: (TimeTableWithSession) -> Unit
 ) {
 
     fun navigateUp() {
@@ -67,7 +69,9 @@ fun NavGraph(
                             selectedTimeTableId
                         )
                     )
-                })
+                },
+                onDeleteTimetableSuccessful = onSuccessfulTimeTableDeletion
+            )
         }
 
 

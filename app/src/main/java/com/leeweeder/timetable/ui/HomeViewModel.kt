@@ -17,6 +17,7 @@ import com.leeweeder.timetable.domain.repository.SessionRepository
 import com.leeweeder.timetable.domain.repository.SubjectInstructorRepository
 import com.leeweeder.timetable.domain.repository.TimeTableRepository
 import com.leeweeder.timetable.ui.HomeEvent.*
+import com.leeweeder.timetable.ui.HomeUiEvent.*
 import com.leeweeder.timetable.ui.components.searchable_bottom_sheet.SearchableBottomSheetStateFactory
 import com.leeweeder.timetable.ui.timetable_setup.DefaultTimeTable
 import com.leeweeder.timetable.ui.util.getDays
@@ -39,7 +40,7 @@ import java.time.LocalTime
 private const val TAG = "HomeViewModel"
 
 class HomeViewModel(
-    timeTableRepository: TimeTableRepository,
+    private val timeTableRepository: TimeTableRepository,
     private val sessionRepository: SessionRepository,
     subjectInstructorRepository: SubjectInstructorRepository,
     dataStoreRepository: DataStoreRepository,
@@ -47,6 +48,9 @@ class HomeViewModel(
 ) : ViewModel() {
     private val _uiState = MutableStateFlow(HomeUiState())
     val uiState = _uiState.asStateFlow()
+
+    private val _eventFlow = MutableStateFlow<HomeUiEvent?>(null)
+    val eventFlow = _eventFlow.asStateFlow()
 
     @OptIn(ExperimentalCoroutinesApi::class)
     val homeDataState = dataStoreRepository.timeTablePrefFlow
@@ -172,6 +176,23 @@ class HomeViewModel(
                     )
                 }
             }
+
+            is DeleteTimeTable -> {
+                if (homeDataState.value is HomeDataState.Success) {
+                    val timeTableWithDetails =
+                        (homeDataState.value as HomeDataState.Success).timeTableWithDetails.find { it.timeTable.id == event.timeTableId }!!
+                    viewModelScope.launch {
+                        timeTableRepository.deleteTimeTableById(event.timeTableId)
+                        _eventFlow.emit(SuccessTimetableDeletion(timeTableWithDetails))
+                    }
+                }
+            }
+
+            ClearUiEvent -> {
+                viewModelScope.launch {
+                    _eventFlow.emit(null)
+                }
+            }
         }
     }
 }
@@ -184,6 +205,13 @@ sealed interface HomeEvent {
 
     data object SetToDefaultMode : HomeEvent
     data class SetToEditMode(val id: Int) : HomeEvent
+    data class DeleteTimeTable(val timeTableId: Int) : HomeEvent
+    data object ClearUiEvent : HomeEvent
+}
+
+sealed interface HomeUiEvent {
+    data class SuccessTimetableDeletion(val deletedTimetableWithDetails: TimeTableWithSession) :
+        HomeUiEvent
 }
 
 sealed interface HomeDataState {

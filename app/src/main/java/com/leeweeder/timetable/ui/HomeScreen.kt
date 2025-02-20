@@ -61,6 +61,7 @@ import androidx.compose.material3.surfaceColorAtElevation
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
@@ -91,6 +92,8 @@ import com.leeweeder.timetable.domain.model.Subject
 import com.leeweeder.timetable.domain.model.TimeTable
 import com.leeweeder.timetable.domain.relation.SessionWithDetails
 import com.leeweeder.timetable.domain.relation.SubjectInstructorCrossRefWithDetails
+import com.leeweeder.timetable.domain.relation.TimeTableWithSession
+import com.leeweeder.timetable.ui.components.DeleteConfirmationDialog
 import com.leeweeder.timetable.ui.components.IconButton
 import com.leeweeder.timetable.ui.components.searchable_bottom_sheet.CreateButtonConfig
 import com.leeweeder.timetable.ui.components.searchable_bottom_sheet.CreateButtonProperties
@@ -121,6 +124,7 @@ fun HomeScreen(
     selectedTimeTableId: Int,
     onNavigateToTimeTableNameDialog: (isInitialization: Boolean, selectedTimeTableId: Int, timetable: Timetable?) -> Unit,
     onNavigateToScheduleEntryDialog: (Int?, Int) -> Unit,
+    onDeleteTimetableSuccessful: (TimeTableWithSession) -> Unit,
     viewModel: HomeViewModel = koinViewModel()
 ) {
     val dataState by viewModel.homeDataState.collectAsStateWithLifecycle()
@@ -136,6 +140,22 @@ fun HomeScreen(
         if (selectedTimeTableId == NonExistingMainTimeTableId) {
             // TODO: Implement navigating away to initialize main time table id
         }
+    }
+
+    val eventFlow by viewModel.eventFlow.collectAsStateWithLifecycle()
+
+    val onEvent = viewModel::onEvent
+
+    LaunchedEffect(eventFlow) {
+        when (eventFlow) {
+            is HomeUiEvent.SuccessTimetableDeletion -> {
+                onDeleteTimetableSuccessful((eventFlow as HomeUiEvent.SuccessTimetableDeletion).deletedTimetableWithDetails)
+            }
+
+            null -> Unit
+        }
+
+        onEvent(HomeEvent.ClearUiEvent)
     }
 
     HomeScreen(
@@ -176,6 +196,19 @@ private fun HomeScreen(
     val snackBarHostState = remember { SnackbarHostState() }
 
     val newScheduleEntryController = rememberSearchableBottomSheetController()
+
+    var isTimetableDeleteConfirmationDialogVisible by remember { mutableStateOf(false) }
+    var toBeDeletedTimetableId by remember { mutableIntStateOf(0) }
+
+    DeleteConfirmationDialog(
+        visible = isTimetableDeleteConfirmationDialogVisible,
+        onDismissRequest = { isTimetableDeleteConfirmationDialogVisible = false },
+        onConfirm = {
+            onEvent(HomeEvent.DeleteTimeTable(toBeDeletedTimetableId))
+        },
+        title = "Delete timetable?",
+        description = "Schedule entries, subjects, and instructors added won't be affected. Continue?"
+    )
 
     SearchableBottomSheet(
         controller = newScheduleEntryController,
@@ -230,7 +263,11 @@ private fun HomeScreen(
                     closeDrawer()
                 },
                 dataState = dataState,
-                onRenameTimeTable = onNavigateToTimetableNameDialog
+                onRenameTimeTable = onNavigateToTimetableNameDialog,
+                onDeleteMenuClick = {
+                    isTimetableDeleteConfirmationDialogVisible = true
+                    toBeDeletedTimetableId = it
+                }
             )
         }, drawerState = drawerState
     ) {
@@ -383,7 +420,8 @@ private fun TimeTableNavigationDrawer(
     selectedTimeTable: TimeTable,
     onTimeTableClick: (Int) -> Unit,
     dataState: HomeDataState,
-    onRenameTimeTable: (TimeTable) -> Unit
+    onRenameTimeTable: (TimeTable) -> Unit,
+    onDeleteMenuClick: (Int) -> Unit
 ) {
 
     @Composable
@@ -520,16 +558,23 @@ private fun TimeTableNavigationDrawer(
                                                     contentDescription = null
                                                 )
                                             })
-                                            DropdownMenuItem(text = {
-                                                Text("Delete")
-                                            }, onClick = {
-                                                // TODO: Implement onEvent in deleting current timetable
-                                            }, leadingIcon = {
-                                                Icon(
-                                                    painter = painterResource(R.drawable.delete_24px),
-                                                    contentDescription = null
+                                            // Hide delete option if there is only one timetable
+                                            if (dataState.timeTables.size > 1) {
+                                                DropdownMenuItem(
+                                                    text = {
+                                                        Text("Delete")
+                                                    },
+                                                    onClick = {
+                                                        onDeleteMenuClick(timeTable.id)
+                                                    },
+                                                    leadingIcon = {
+                                                        Icon(
+                                                            painter = painterResource(R.drawable.delete_24px),
+                                                            contentDescription = null
+                                                        )
+                                                    }
                                                 )
-                                            })
+                                            }
                                         }
                                     }
                                 }
