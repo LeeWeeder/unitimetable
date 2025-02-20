@@ -520,16 +520,23 @@ private fun TimeTableNavigationDrawer(
                                                     contentDescription = null
                                                 )
                                             })
-                                            DropdownMenuItem(text = {
-                                                Text("Delete")
-                                            }, onClick = {
-                                                // TODO: Implement onEvent in deleting current timetable
-                                            }, leadingIcon = {
-                                                Icon(
-                                                    painter = painterResource(R.drawable.delete_24px),
-                                                    contentDescription = null
+                                            // Hide delete option if there is only one timetable
+                                            if (dataState.timeTables.size > 1) {
+                                                DropdownMenuItem(
+                                                    text = {
+                                                        Text("Delete")
+                                                    },
+                                                    onClick = {
+                                                        // TODO: Implement onEvent in deleting current timetable
+                                                    },
+                                                    leadingIcon = {
+                                                        Icon(
+                                                            painter = painterResource(R.drawable.delete_24px),
+                                                            contentDescription = null
+                                                        )
+                                                    }
                                                 )
-                                            })
+                                            }
                                         }
                                     }
                                 }
