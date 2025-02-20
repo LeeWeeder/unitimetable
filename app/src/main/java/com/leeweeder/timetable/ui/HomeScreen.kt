@@ -103,6 +103,7 @@ import com.leeweeder.timetable.ui.timetable_setup.LabelText
 import com.leeweeder.timetable.ui.timetable_setup.components.TextButton
 import com.leeweeder.timetable.ui.util.Constants
 import com.leeweeder.timetable.ui.util.plusOneHour
+import com.leeweeder.timetable.util.Timetable
 import com.leeweeder.timetable.util.randomHue
 import com.leeweeder.timetable.util.toColor
 import kotlinx.coroutines.launch
@@ -118,7 +119,7 @@ import kotlin.collections.component2
 @Composable
 fun HomeScreen(
     selectedTimeTableId: Int,
-    onNavigateToGetNewTimeTableNameDialog: (isInitialization: Boolean, selectedTimeTableId: Int) -> Unit,
+    onNavigateToTimeTableNameDialog: (isInitialization: Boolean, selectedTimeTableId: Int, timetable: Timetable?) -> Unit,
     onNavigateToScheduleEntryDialog: (Int?, Int) -> Unit,
     viewModel: HomeViewModel = koinViewModel()
 ) {
@@ -141,8 +142,16 @@ fun HomeScreen(
         dataState = dataState,
         uiState = uiState,
         onEvent = viewModel::onEvent,
-        onNavigateToGetNewTimeTableNameDialog = {
-            onNavigateToGetNewTimeTableNameDialog(it, uiState.selectedTimeTable.id)
+        onNavigateToNewTimeTableNameDialog = {
+            onNavigateToTimeTableNameDialog(false, uiState.selectedTimeTable.id, null)
+        },
+        onNavigateToTimetableNameDialog = {
+            onNavigateToTimeTableNameDialog(
+                false, uiState.selectedTimeTable.id, Timetable(
+                    id = it.id,
+                    name = it.name
+                )
+            )
         },
         onNavigateToScheduleEntryDialog = onNavigateToScheduleEntryDialog,
         scheduleEntryBottomSheetState = viewModel.scheduleEntryBottomSheetState
@@ -155,7 +164,8 @@ fun HomeScreen(
 private fun HomeScreen(
     dataState: HomeDataState,
     uiState: HomeUiState,
-    onNavigateToGetNewTimeTableNameDialog: (isInitialization: Boolean) -> Unit,
+    onNavigateToNewTimeTableNameDialog: () -> Unit,
+    onNavigateToTimetableNameDialog: (TimeTable) -> Unit,
     onNavigateToScheduleEntryDialog: (subjectInstructorId: Int?, selectedTimeTableId: Int) -> Unit,
     onEvent: (HomeEvent) -> Unit,
     scheduleEntryBottomSheetState: SearchableBottomSheetStateHolder<SubjectInstructorCrossRefWithDetails>
@@ -219,7 +229,8 @@ private fun HomeScreen(
                     onEvent(HomeEvent.SelectTimeTable(timeTableId))
                     closeDrawer()
                 },
-                dataState = dataState
+                dataState = dataState,
+                onRenameTimeTable = onNavigateToTimetableNameDialog
             )
         }, drawerState = drawerState
     ) {
@@ -232,11 +243,12 @@ private fun HomeScreen(
                         onEvent(HomeEvent.SetToDefaultMode)
                     })
                 } else {
-                    TopAppBarMode.Default(onAddNewScheduleClick = {
-                        newScheduleEntryController.show()
-                    }, onNewTimeTableClick = {
-                        onNavigateToGetNewTimeTableNameDialog(false)
-                    })
+                    TopAppBarMode.Default(
+                        onAddNewScheduleClick = {
+                            newScheduleEntryController.show()
+                        },
+                        onNewTimeTableClick = onNavigateToNewTimeTableNameDialog
+                    )
                 },
                 onNavigationMenuClick = {
                     scope.launch {
@@ -370,7 +382,8 @@ private fun TimeTableNavigationDrawer(
     drawerState: DrawerState,
     selectedTimeTable: TimeTable,
     onTimeTableClick: (Int) -> Unit,
-    dataState: HomeDataState
+    dataState: HomeDataState,
+    onRenameTimeTable: (TimeTable) -> Unit
 ) {
 
     @Composable
@@ -490,7 +503,7 @@ private fun TimeTableNavigationDrawer(
                                             DropdownMenuItem(text = {
                                                 Text("Rename")
                                             }, onClick = {
-                                                // TODO: Implement onEvent in renaming current timetable
+                                                onRenameTimeTable(timeTable)
                                             }, leadingIcon = {
                                                 Icon(
                                                     painter = painterResource(R.drawable.text_format_24px),

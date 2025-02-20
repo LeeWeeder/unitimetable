@@ -8,42 +8,56 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.res.painterResource
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.leeweeder.timetable.R
 import com.leeweeder.timetable.ui.timetable_setup.components.CancelTextButton
 import org.koin.androidx.compose.koinViewModel
 
 @Composable
-fun GetTimeTableNameDialog(
+fun TimeTableNameDialog(
     onDismissRequest: () -> Unit,
     onNavigateToTimeTableSetupDialog: (timeTableName: String, isInitialization: Boolean) -> Unit,
     isCancelButtonEnabled: Boolean,
-    viewModel: GetTimeTableNameViewModel = koinViewModel()
+    viewModel: TimeTableNameViewModel = koinViewModel()
 ) {
     val defaultTimeTableName by viewModel.timeTableName
 
-    GetTimeTableNameDialog(
+    TimeTableNameDialog(
         defaultTimeTableName = defaultTimeTableName,
         onDismissRequest = onDismissRequest,
         isCancelButtonEnabled = isCancelButtonEnabled,
         onNavigateToTimeTableSetupDialog = {
             onNavigateToTimeTableSetupDialog(it, viewModel.isInitialization)
-        }
+        },
+        isRename = viewModel.isRename,
+        onSaveNewName = viewModel::saveTimeTableName,
+        isSuccess = viewModel.isSuccess.collectAsStateWithLifecycle().value
     )
 }
 
 @Composable
-fun GetTimeTableNameDialog(
+fun TimeTableNameDialog(
     defaultTimeTableName: String,
     isCancelButtonEnabled: Boolean,
+    isRename: Boolean,
+    onSaveNewName: (String) -> Unit,
+    isSuccess: Boolean,
     onDismissRequest: () -> Unit,
     onNavigateToTimeTableSetupDialog: (timeTableName: String) -> Unit
 ) {
+    LaunchedEffect(isSuccess) {
+        if (isSuccess) {
+            onDismissRequest()
+        }
+    }
+
     var timeTableName by remember(defaultTimeTableName) { mutableStateOf(defaultTimeTableName) }
 
     Log.d("GetTimeTableNameDialog", "Time table name: $timeTableName")
@@ -57,12 +71,15 @@ fun GetTimeTableNameDialog(
         onDismissRequest = onDismissRequest, confirmButton = {
             Button(
                 onClick = {
-                    onDismissRequest()
-                    onNavigateToTimeTableSetupDialog(timeTableName.trim())
+                    if (isRename) {
+                        onSaveNewName(timeTableName.trim())
+                    } else {
+                        onNavigateToTimeTableSetupDialog(timeTableName.trim())
+                    }
                 },
                 enabled = !isError
             ) {
-                Text("Next")
+                Text(if (isRename) "Save" else "Next")
             }
         }, dismissButton = {
             CancelTextButton(onClick = onDismissRequest, enabled = isCancelButtonEnabled)

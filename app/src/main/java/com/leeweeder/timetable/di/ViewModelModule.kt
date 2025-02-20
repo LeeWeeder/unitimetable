@@ -5,7 +5,7 @@ import com.leeweeder.timetable.ui.HomeViewModel
 import com.leeweeder.timetable.ui.instructor.InstructorDialogViewModel
 import com.leeweeder.timetable.ui.schedule.ScheduleEntryDialogViewModel
 import com.leeweeder.timetable.ui.subject.SubjectDialogViewModel
-import com.leeweeder.timetable.ui.timetable_setup.GetTimeTableNameViewModel
+import com.leeweeder.timetable.ui.timetable_setup.TimeTableNameViewModel
 import com.leeweeder.timetable.ui.timetable_setup.TimeTableSetupViewModel
 import org.koin.core.module.dsl.viewModel
 import org.koin.dsl.module
@@ -24,7 +24,7 @@ val viewModelModule = module {
     }
 
     viewModel {
-        GetTimeTableNameViewModel(get(), get())
+        TimeTableNameViewModel(get(), get())
     }
 
     viewModel {
