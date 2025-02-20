@@ -35,7 +35,7 @@ class MainActivityViewModel(
         if (it.mainTimeTableId == NonExistingMainTimeTableId) {
             MainActivityUiState(
                 isLoading = false,
-                startDestination = Destination.Dialog.GetTimeTableNameDialog(
+                startDestination = Destination.Dialog.TimetableNameDialog(
                     isInitialization = true,
                     selectedTimeTableId = -1
                 )

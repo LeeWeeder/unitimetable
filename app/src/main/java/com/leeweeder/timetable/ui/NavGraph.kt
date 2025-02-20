@@ -17,7 +17,7 @@ import com.leeweeder.timetable.domain.model.SubjectInstructorCrossRef
 import com.leeweeder.timetable.ui.instructor.InstructorDialog
 import com.leeweeder.timetable.ui.schedule.ScheduleEntryDialog
 import com.leeweeder.timetable.ui.subject.SubjectDialog
-import com.leeweeder.timetable.ui.timetable_setup.GetTimeTableNameDialog
+import com.leeweeder.timetable.ui.timetable_setup.TimeTableNameDialog
 import com.leeweeder.timetable.ui.timetable_setup.TimeTableSetupDialog
 import com.leeweeder.timetable.util.Destination
 import kotlinx.coroutines.launch
@@ -53,10 +53,10 @@ fun NavGraph(
 
         composable<Destination.Screen.HomeScreen> {
             HomeScreen(selectedTimeTableId = it.toRoute<Destination.Screen.HomeScreen>().selectedTimeTableId,
-                onNavigateToGetNewTimeTableNameDialog = { isInitialization, selectedTimeTableId ->
+                onNavigateToTimeTableNameDialog = { isInitialization, selectedTimeTableId, timetable ->
                     navController.navigate(
-                        Destination.Dialog.GetTimeTableNameDialog(
-                            isInitialization, selectedTimeTableId
+                        Destination.Dialog.TimetableNameDialog(
+                            isInitialization, selectedTimeTableId, timetable
                         )
                     )
                 },
@@ -79,15 +79,17 @@ fun NavGraph(
             })
         }
 
-        dialog<Destination.Dialog.GetTimeTableNameDialog> {
-            GetTimeTableNameDialog(onDismissRequest = {
+        dialog<Destination.Dialog.TimetableNameDialog>(
+            typeMap = Destination.Dialog.TimetableNameDialog.typeMap
+        ) {
+            TimeTableNameDialog(onDismissRequest = {
                 navigateUp()
             }, onNavigateToTimeTableSetupDialog = { timeTableName, isInitialization ->
                 navController.navigate(
                     Destination.Dialog.TimeTableSetupDialog(
                         timeTableName = timeTableName,
                         isInitialization = isInitialization,
-                        selectedTimeTableId = it.toRoute<Destination.Dialog.GetTimeTableNameDialog>().selectedTimeTableId
+                        selectedTimeTableId = it.toRoute<Destination.Dialog.TimetableNameDialog>().selectedTimeTableId
                     )
                 )
             }, isCancelButtonEnabled = mainTimeTableId != NonExistingMainTimeTableId

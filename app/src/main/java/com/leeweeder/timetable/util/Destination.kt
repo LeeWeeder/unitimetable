@@ -1,6 +1,9 @@
 package com.leeweeder.timetable.util
 
+import androidx.lifecycle.SavedStateHandle
+import androidx.navigation.toRoute
 import kotlinx.serialization.Serializable
+import kotlin.reflect.typeOf
 
 sealed interface Destination {
 
@@ -14,10 +17,19 @@ sealed interface Destination {
         ) : Dialog
 
         @Serializable
-        data class GetTimeTableNameDialog(
+        data class TimetableNameDialog(
             val isInitialization: Boolean = false,
-            val selectedTimeTableId: Int
-        ) : Dialog
+            val selectedTimeTableId: Int,
+            val timetable: Timetable? = null
+        ) : Dialog {
+            companion object {
+                val typeMap = mapOf(typeOf<Timetable?>() to serializableType<Timetable?>(true))
+
+                fun from(savedStateHandle: SavedStateHandle): TimetableNameDialog {
+                    return savedStateHandle.toRoute<TimetableNameDialog>(typeMap)
+                }
+            }
+        }
 
         @Serializable
         data class ScheduleEntryDialog(
@@ -46,4 +58,11 @@ sealed interface Destination {
             Screen
     }
 }
+
+@Serializable
+data class Timetable(
+    val id: Int,
+    val name: String
+)
+
 
