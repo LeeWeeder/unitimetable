@@ -116,7 +116,7 @@ data class SerializableTimeTableWithSession(
                             subject = Subject(
                                 id = it.subject.id,
                                 description = it.subject.description,
-                                code = it.subject.description,
+                                code = it.subject.code,
                                 dateAdded = it.subject.dateAdded
                             ),
                             instructor = it.instructor?.let {

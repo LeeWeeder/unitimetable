@@ -292,9 +292,15 @@ private fun Grid(
                                 verticalAlignment = Alignment.CenterVertically,
                                 horizontalAlignment = Alignment.CenterHorizontally
                             ) {
+
+                                Log.d(
+                                    "Grid",
+                                    "Subject Code: ${schedule.subjectInstructor.subject.code}, Description: ${schedule.subjectInstructor.subject.description}, Instructor: ${schedule.subjectInstructor.instructor?.name}"
+                                )
+
                                 // TODO: Utilize parent size to distribute position and sizing of the texts
                                 Text(
-                                    schedule.subjectInstructor.subject!!.code.uppercase(),
+                                    schedule.subjectInstructor.subject.code.uppercase(),
                                     style = MaterialTheme.typography.labelSmallEmphasized.copy(
                                         fontSize = MaterialTheme.typography.labelSmallEmphasized.fontSize * SCALE
                                     ).toGlanceTextStyle(
