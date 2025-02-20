@@ -62,8 +62,10 @@ class MainActivity : ComponentActivity() {
 
                     var undoWarningDialog by remember { mutableStateOf<UndoEvent?>(null) }
 
-                    LaunchedEffect(viewModel.eventFlow.value) {
-                        when (viewModel.eventFlow.value) {
+                    val eventFlow by viewModel.eventFlow.collectAsStateWithLifecycle()
+
+                    LaunchedEffect(eventFlow) {
+                        when (eventFlow) {
                             is MainActivityUiEvent.ShowSnackbar -> {
                                 snackbarHostState.showSnackbar(message = (viewModel.eventFlow.value as MainActivityUiEvent.ShowSnackbar).message)
                             }
@@ -93,7 +95,13 @@ class MainActivity : ComponentActivity() {
                             }, title = {
                                 Text("Undo deletion?")
                             }, text = {
-                                Text("New schedules will be overridden. Continue?")
+                                val text = if (undoWarningDialog is UndoEvent.UndoInstructorDeletion) {
+                                    "Only schedule entries (with this instructor originally) with no instructor will be affected. Continue?"
+                                } else {
+                                    // TODO: Implement option to override new schedule and to maintain the new schedules
+                                    "New schedules will be overridden. Continue?"
+                                }
+                                Text(text)
                             }
                         )
                     }
@@ -141,7 +149,24 @@ class MainActivity : ComponentActivity() {
                                     }
                                 }
                             },
-                            snackbarHostState = snackbarHostState
+                            snackbarHostState = snackbarHostState,
+                            onSuccessfulInstructorDeletion = { instructor, affectedCrossRefIds ->
+                                scope.launch {
+                                    val result = snackbarHostState.showSnackbar(
+                                        message = "Instructor deleted successfully",
+                                        actionLabel = "Undo",
+                                        duration = SnackbarDuration.Long
+                                    )
+
+                                    if (result == SnackbarResult.ActionPerformed) {
+                                        undoWarningDialog =
+                                            UndoEvent.UndoInstructorDeletion(
+                                                instructor,
+                                                affectedCrossRefIds
+                                            )
+                                    }
+                                }
+                            }
                         )
                     }
                 }

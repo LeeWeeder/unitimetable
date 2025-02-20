@@ -20,7 +20,7 @@ import com.leeweeder.timetable.util.Hue
             i.name AS instructor_name
         FROM subjectinstructorcrossref si
         JOIN subject s ON si.subjectId = s.id
-        JOIN instructor i ON si.instructorId = i.id
+        LEFT JOIN instructor i ON si.instructorId = i.id
 """
 )
 data class SubjectInstructorCrossRefWithDetails(
@@ -31,5 +31,5 @@ data class SubjectInstructorCrossRefWithDetails(
     val subject: Subject,
 
     @Embedded(prefix = "instructor_")
-    val instructor: Instructor
+    val instructor: Instructor?
 )

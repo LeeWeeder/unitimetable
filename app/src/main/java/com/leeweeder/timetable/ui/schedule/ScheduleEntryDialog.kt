@@ -228,7 +228,10 @@ private fun ScheduleEntryDialog(
                     it.name
                 }
             )
-        )
+        ),
+        snackbar = {
+            SnackbarHost(snackbarHostState)
+        }
     )
 
     Dialog(

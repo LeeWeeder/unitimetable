@@ -188,7 +188,7 @@ private fun HomeScreen(
                     it.subject.code
                 },
                 supportingText = {
-                    it.instructor.name
+                    it.instructor?.name ?: ""
                 },
                 trailingContent = {
                     Box(
@@ -860,7 +860,7 @@ private val PreviewSessionWithSubjectWrapperAndInstructor = DayOfWeek.entries.fl
                     timeTableId = 1,
                     dayOfWeek = dayOfWeek,
                     startTime = LocalTime.of(it, 0),
-                    subjectId = 0
+                    crossRefId = 0
                 )
             } else {
                 Session.emptySession(1, dayOfWeek, LocalTime.of(it, 0))

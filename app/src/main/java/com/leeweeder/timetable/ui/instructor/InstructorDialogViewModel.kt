@@ -79,12 +79,41 @@ class InstructorDialogViewModel(
                     }
                 }
             }
+
+            InstructorDialogEvent.DeleteInstructor -> {
+                viewModelScope.launch {
+                    uiState.value.id?.let {
+                        try {
+                            // TODO: Do the same for schedule entry and subject, fetch first the to be deleted item
+                            val deletedSubject = instructorRepository.getInstructorById(it)
+                            deletedSubject?.let {
+                                _eventFlow.emit(
+                                    InstructorDialogUiEvent.InstructorDeleted(
+                                        deletedSubject,
+                                        instructorRepository.deleteInstructorById(it.id)
+                                    )
+                                )
+                            }
+                        } catch (e: Exception) {
+                            _eventFlow.emit(
+                                InstructorDialogUiEvent.Error(
+                                    e.message ?: "Unknown error"
+                                )
+                            )
+                        }
+                    }
+                }
+            }
         }
     }
 }
 
 sealed interface InstructorDialogUiEvent {
     data object DoneSavingInstructor : InstructorDialogUiEvent
+    data class InstructorDeleted(val instructor: Instructor, val crossRefIds: List<Int>) :
+        InstructorDialogUiEvent
+
+    data class Error(val message: String) : InstructorDialogUiEvent
 }
 
 data class InstructorDialogUiState(
@@ -102,4 +131,5 @@ sealed interface InstructorDialogEvent {
     data object StartCheckingForError : InstructorDialogEvent
     data object ClearError : InstructorDialogEvent
     data object Save : InstructorDialogEvent
+    data object DeleteInstructor : InstructorDialogEvent
 }

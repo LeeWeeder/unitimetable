@@ -2,6 +2,7 @@ package com.leeweeder.timetable.ui
 
 import androidx.compose.material3.SnackbarHostState
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.ui.Modifier
 import androidx.navigation.NavHostController
 import androidx.navigation.compose.NavHost
@@ -9,6 +10,7 @@ import androidx.navigation.compose.composable
 import androidx.navigation.compose.dialog
 import androidx.navigation.toRoute
 import com.leeweeder.timetable.NonExistingMainTimeTableId
+import com.leeweeder.timetable.domain.model.Instructor
 import com.leeweeder.timetable.domain.model.Session
 import com.leeweeder.timetable.domain.model.Subject
 import com.leeweeder.timetable.domain.model.SubjectInstructorCrossRef
@@ -18,6 +20,7 @@ import com.leeweeder.timetable.ui.subject.SubjectDialog
 import com.leeweeder.timetable.ui.timetable_setup.GetTimeTableNameDialog
 import com.leeweeder.timetable.ui.timetable_setup.TimeTableSetupDialog
 import com.leeweeder.timetable.util.Destination
+import kotlinx.coroutines.launch
 
 @Composable
 fun NavGraph(
@@ -28,7 +31,8 @@ fun NavGraph(
     snackbarHostState: SnackbarHostState,
     // This is for showing a snackbar and enabling undo operation
     onSuccessfulScheduleEntryDeletion: (subjectInstructorCrossRef: SubjectInstructorCrossRef, affectedSessions: List<Session>) -> Unit,
-    onSuccessfulSubjectDeletion: (Subject, List<Session>, List<SubjectInstructorCrossRef>) -> Unit
+    onSuccessfulSubjectDeletion: (Subject, List<Session>, List<SubjectInstructorCrossRef>) -> Unit,
+    onSuccessfulInstructorDeletion: (Instructor, List<Int>) -> Unit
 ) {
 
     fun navigateUp() {
@@ -91,30 +95,37 @@ fun NavGraph(
         }
 
         dialog<Destination.Dialog.ScheduleEntryDialog> { backStackEntry ->
-            ScheduleEntryDialog(onNavigateBack = {
-                navigateUp()
-            }, onNavigateToSubjectDialog = {
-                navController.navigate(
-                    Destination.Dialog.SubjectDialog(
-                        id = it?.id ?: 0,
-                        description = it?.description ?: "",
-                        code = it?.code ?: ""
+            ScheduleEntryDialog(
+                onNavigateBack = {
+                    navigateUp()
+                },
+                onNavigateToSubjectDialog = {
+                    navController.navigate(
+                        Destination.Dialog.SubjectDialog(
+                            id = it?.id ?: 0,
+                            description = it?.description ?: "",
+                            code = it?.code ?: ""
+                        )
                     )
-                )
-            }, onNavigateToInstructorDialog = {
-                navController.navigate(
-                    Destination.Dialog.InstructorDialog(
-                        id = it?.id ?: 0, name = it?.name ?: ""
+                },
+                onNavigateToInstructorDialog = {
+                    navController.navigate(
+                        Destination.Dialog.InstructorDialog(
+                            id = it?.id ?: 0, name = it?.name ?: ""
+                        )
                     )
-                )
-            }, onNavigateToHomeScreen = {
-                navigateAndPreventGoingBack(
-                    Destination.Screen.HomeScreen(
-                        subjectInstructorIdToBeScheduled = it,
-                        selectedTimeTableId = backStackEntry.toRoute<Destination.Dialog.ScheduleEntryDialog>().timeTableId
+                },
+                onNavigateToHomeScreen = {
+                    navigateAndPreventGoingBack(
+                        Destination.Screen.HomeScreen(
+                            subjectInstructorIdToBeScheduled = it,
+                            selectedTimeTableId = backStackEntry.toRoute<Destination.Dialog.ScheduleEntryDialog>().timeTableId
+                        )
                     )
-                )
-            }, onSuccessfulScheduleEntryDeletion = onSuccessfulScheduleEntryDeletion, snackbarHostState = snackbarHostState)
+                },
+                onSuccessfulScheduleEntryDeletion = onSuccessfulScheduleEntryDeletion,
+                snackbarHostState = snackbarHostState
+            )
         }
 
         dialog<Destination.Dialog.SubjectDialog> {
@@ -124,8 +135,13 @@ fun NavGraph(
         }
 
         dialog<Destination.Dialog.InstructorDialog> {
+            val scope = rememberCoroutineScope()
             InstructorDialog(onDismissRequest = {
                 navigateUp()
+            }, onDeleteSuccessful = onSuccessfulInstructorDeletion, onDeletionError = {
+                scope.launch {
+                    snackbarHostState.showSnackbar(it)
+                }
             })
         }
     }

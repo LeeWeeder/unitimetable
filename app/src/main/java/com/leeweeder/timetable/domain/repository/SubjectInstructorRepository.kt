@@ -20,4 +20,9 @@ interface SubjectInstructorRepository {
     suspend fun deleteSubjectInstructorCrossRefById(id: Int): List<Session>
 
     suspend fun insertSubjectInstructorCrossRefs(subjectInstructorCrossRefs: List<SubjectInstructorCrossRef>)
+
+    /** Checks if the given instructor has no instructor*/
+    suspend fun getNullInstructorCrossRefIds(ids: List<Int>): List<SubjectInstructorCrossRef>
+
+    suspend fun updateSubjectInstructorCrossRefs(refs: List<SubjectInstructorCrossRef>)
 }

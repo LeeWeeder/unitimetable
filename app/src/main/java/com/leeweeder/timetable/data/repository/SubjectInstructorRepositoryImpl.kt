@@ -52,4 +52,12 @@ class SubjectInstructorRepositoryImpl(
     override suspend fun insertSubjectInstructorCrossRefs(subjectInstructorCrossRefs: List<SubjectInstructorCrossRef>) {
         subjectInstructorCrossRefDao.insertSubjectInstructorCrossRefs(subjectInstructorCrossRefs)
     }
+
+    override suspend fun getNullInstructorCrossRefIds(ids: List<Int>): List<SubjectInstructorCrossRef> {
+        return subjectInstructorCrossRefDao.getNullInstructorCrossRefIds(ids)
+    }
+
+    override suspend fun updateSubjectInstructorCrossRefs(refs: List<SubjectInstructorCrossRef>) {
+        subjectInstructorCrossRefDao.updateSubjectInstructorCrossRefs(refs)
+    }
 }
