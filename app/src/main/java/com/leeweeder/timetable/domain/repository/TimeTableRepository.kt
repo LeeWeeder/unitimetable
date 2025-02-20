@@ -1,5 +1,6 @@
 package com.leeweeder.timetable.domain.repository
 
+import com.leeweeder.timetable.domain.model.Session
 import com.leeweeder.timetable.domain.model.TimeTable
 import com.leeweeder.timetable.domain.relation.TimeTableWithSession
 import kotlinx.coroutines.flow.Flow
@@ -10,7 +11,7 @@ interface TimeTableRepository {
 
     fun observeTimeTables(): Flow<List<TimeTable>>
 
-    suspend fun insertTimeTable(timeTable: TimeTable): Int
+    suspend fun insertTimeTable(timeTable: TimeTable, sessions: List<Session>? = null): Int
 
     suspend fun deleteTimeTableById(id: Int)
 

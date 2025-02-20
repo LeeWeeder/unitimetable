@@ -95,12 +95,13 @@ class MainActivity : ComponentActivity() {
                             }, title = {
                                 Text("Undo deletion?")
                             }, text = {
-                                val text = if (undoWarningDialog is UndoEvent.UndoInstructorDeletion) {
-                                    "Only schedule entries (with this instructor originally) with no instructor will be affected. Continue?"
-                                } else {
-                                    // TODO: Implement option to override new schedule and to maintain the new schedules
-                                    "New schedules will be overridden. Continue?"
-                                }
+                                val text =
+                                    if (undoWarningDialog is UndoEvent.UndoInstructorDeletion) {
+                                        "Only schedule entries (with this instructor originally) with no instructor will be affected. Continue?"
+                                    } else {
+                                        // TODO: Implement option to override new schedule and to maintain the new schedules
+                                        "New schedules will be overridden. Continue?"
+                                    }
                                 Text(text)
                             }
                         )
@@ -164,6 +165,25 @@ class MainActivity : ComponentActivity() {
                                                 instructor,
                                                 affectedCrossRefIds
                                             )
+                                    }
+                                }
+                            },
+                            onSuccessfulTimeTableDeletion = {
+                                scope.launch {
+                                    val result = snackbarHostState.showSnackbar(
+                                        message = "Timetable deleted successfully",
+                                        actionLabel = "Undo",
+                                        duration = SnackbarDuration.Long
+                                    )
+
+                                    if (result == SnackbarResult.ActionPerformed) {
+                                        viewModel.onEvent(
+                                            MainActivityEvent.Undo(
+                                                UndoEvent.UndoTimeTableDeletion(
+                                                    it
+                                                )
+                                            )
+                                        )
                                     }
                                 }
                             }

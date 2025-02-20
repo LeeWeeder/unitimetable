@@ -28,17 +28,22 @@ class TimeTableRepositoryImpl(
      * @return The id of the newly inserted timetable
      * */
     override suspend fun insertTimeTable(
-        timeTable: TimeTable
+        timeTable: TimeTable,
+        sessions: List<Session>?
     ): Int {
         val newTimeTableId = timeTableDao.insertTimeTable(timeTable).toInt()
 
-        sessionDao.insertSessions(
-            getTimes(timeTable.startTime, timeTable.endTime).flatMap { startTime ->
-                getDays(timeTable.startingDay, timeTable.numberOfDays).map { dayOfWeek ->
-                    Session.emptySession(newTimeTableId, dayOfWeek, startTime)
+        if (sessions == null) {
+            sessionDao.insertSessions(
+                getTimes(timeTable.startTime, timeTable.endTime).flatMap { startTime ->
+                    getDays(timeTable.startingDay, timeTable.numberOfDays).map { dayOfWeek ->
+                        Session.emptySession(newTimeTableId, dayOfWeek, startTime)
+                    }
                 }
-            }
-        )
+            )
+        } else {
+            sessionDao.insertSessions(sessions)
+        }
 
         return newTimeTableId
     }
