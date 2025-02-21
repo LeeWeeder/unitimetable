@@ -253,8 +253,6 @@ private fun Grid(
 
                     val periodSpan = schedule.periodSpan
 
-                    val subjectDescriptionMaxLine =
-                        if (periodSpan == 1) 1 else Int.MAX_VALUE
                     val instructorNameMaxLine =
                         if (periodSpan == 1) 1 else Int.MAX_VALUE
 
@@ -286,7 +284,8 @@ private fun Grid(
                             Column(
                                 modifier = GlanceModifier
                                     .fillMaxSize()
-                                    .background(color = scheme.primary.toColor()),
+                                    .background(color = scheme.primary.toColor())
+                                    .padding(horizontal = 2.dp),
                                 verticalAlignment = Alignment.CenterVertically,
                                 horizontalAlignment = Alignment.CenterHorizontally
                             ) {
@@ -299,8 +298,8 @@ private fun Grid(
                                 // TODO: Utilize parent size to distribute position and sizing of the texts
                                 Text(
                                     schedule.subjectInstructor.subject.code.uppercase(),
-                                    style = MaterialTheme.typography.labelSmallEmphasized.copy(
-                                        fontSize = MaterialTheme.typography.labelSmallEmphasized.fontSize * SCALE
+                                    style = MaterialTheme.typography.labelSmall.copy(
+                                        fontSize = MaterialTheme.typography.labelSmall.fontSize * SCALE
                                     ).toGlanceTextStyle(
                                         color = scheme.onPrimary.toColor(),
                                         textAlign = TextAlign.Center
@@ -315,7 +314,7 @@ private fun Grid(
                                 val textColor = scheme.onPrimary.toColor()
 
                                 Text(
-                                    schedule.subjectInstructor.subject.description,
+                                    schedule.subjectInstructor.instructor?.name ?: "",
                                     style = bodySmall.copy(
                                         fontSize = (bodySmallFontSizeValue - 2).sp,
                                         lineHeight = (bodySmallFontSizeValue - 1).sp
@@ -323,19 +322,6 @@ private fun Grid(
                                         color = textColor,
                                         textAlign = TextAlign.Center
                                     ),
-                                    maxLines = subjectDescriptionMaxLine
-                                )
-
-                                Text(
-                                    schedule.subjectInstructor.instructor?.name
-                                        ?: "No instructor",
-                                    style = MaterialTheme.typography.labelSmall.copy(
-                                        fontSize = MaterialTheme.typography.labelSmall.fontSize * SCALE
-                                    )
-                                        .toGlanceTextStyle(
-                                            color = textColor,
-                                            textAlign = TextAlign.Center
-                                        ),
                                     maxLines = instructorNameMaxLine
                                 )
                             }
@@ -346,7 +332,10 @@ private fun Grid(
                                 contentAlignment = Alignment.Center
                             ) {
                                 schedule.label?.let {
-                                    Text(schedule.label)
+                                    Text(
+                                        schedule.label,
+                                        style = androidx.glance.text.TextStyle(color = GlanceTheme.colors.onSurface)
+                                    )
                                 }
                             }
                         }
