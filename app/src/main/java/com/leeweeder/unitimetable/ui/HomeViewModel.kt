@@ -72,16 +72,19 @@ class HomeViewModel(
 
                 val mainTimeTable = mainTimeTableWithDetails.timeTable
 
-                _uiState.update { state ->
-                    val passedSelectedTimeTableId =
-                        savedStateHandle.toRoute<Destination.Screen.HomeScreen>().selectedTimeTableId
+                // Only update the selectedTimeTable if it hasn't been set yet
+                if (_uiState.value.selectedTimeTable == DefaultTimeTable) {
+                    _uiState.update { state ->
+                        val passedSelectedTimeTableId =
+                            savedStateHandle.toRoute<Destination.Screen.HomeScreen>().selectedTimeTableId
 
-                    Log.d(TAG, "Passed selected time table id: $passedSelectedTimeTableId")
+                        Log.d(TAG, "Passed selected time table id: $passedSelectedTimeTableId")
 
-                    state.copy(
-                        selectedTimeTable = findTimeTableWithDetailsById(passedSelectedTimeTableId)?.timeTable
-                            ?: mainTimeTable
-                    )
+                        state.copy(
+                            selectedTimeTable = findTimeTableWithDetailsById(passedSelectedTimeTableId)?.timeTable
+                                ?: mainTimeTable
+                        )
+                    }
                 }
 
                 Log.d(TAG, "Selected time table id: ${uiState.value.selectedTimeTable.id}")
