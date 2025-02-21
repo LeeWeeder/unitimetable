@@ -91,7 +91,7 @@ fun TimeTableSetupDialog(
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun TimeTableSetupDialog(
+private fun TimeTableSetupDialog(
     onDismissRequest: () -> Unit,
     onNavigateToHomeScreen: (selectedTimeTableId: Int) -> Unit,
     uiEvent: TimeTableSetUpUiEvent?,
@@ -338,9 +338,6 @@ fun TimeTableSetupDialog(
                                 timeTable.endTime.format(Constants.TimeFormatter)
                             )
                         }
-                    }
-                    Column(modifier = Modifier.padding(horizontal = 16.dp)) {
-
                     }
                 }
 
