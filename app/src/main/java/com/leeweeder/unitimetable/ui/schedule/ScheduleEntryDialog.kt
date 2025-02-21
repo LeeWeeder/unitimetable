@@ -248,34 +248,36 @@ private fun ScheduleEntryDialog(
                     onClick = onNavigateBack
                 )
             }, actions = {
-                Box {
-                    var expanded by remember { mutableStateOf(false) }
-                    IconButton(
-                        R.drawable.more_vert_24px,
-                        contentDescription = "Option to show delete menu"
-                    ) {
-                        expanded = true
-                    }
-                    DropdownMenu(expanded = expanded, onDismissRequest = {
-                        expanded = false
-                    }) {
-                        DropdownMenuItem(
-                            text = {
-                                Text(
-                                    "Delete schedule entry",
-                                    color = MaterialTheme.colorScheme.error
-                                )
-                            }, onClick = {
-                                isDeleteDialogVisible = true
-                                expanded = false
-                            }, leadingIcon = {
-                                Icon(
-                                    R.drawable.delete_24px,
-                                    contentDescription = null,
-                                    tint = MaterialTheme.colorScheme.error
-                                )
-                            }
-                        )
+                if (uiState.id != null) {
+                    Box {
+                        var expanded by remember { mutableStateOf(false) }
+                        IconButton(
+                            R.drawable.more_vert_24px,
+                            contentDescription = "Option to show delete menu"
+                        ) {
+                            expanded = true
+                        }
+                        DropdownMenu(expanded = expanded, onDismissRequest = {
+                            expanded = false
+                        }) {
+                            DropdownMenuItem(
+                                text = {
+                                    Text(
+                                        "Delete schedule entry",
+                                        color = MaterialTheme.colorScheme.error
+                                    )
+                                }, onClick = {
+                                    isDeleteDialogVisible = true
+                                    expanded = false
+                                }, leadingIcon = {
+                                    Icon(
+                                        R.drawable.delete_24px,
+                                        contentDescription = null,
+                                        tint = MaterialTheme.colorScheme.error
+                                    )
+                                }
+                            )
+                        }
                     }
                 }
             })
