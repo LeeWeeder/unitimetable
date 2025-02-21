@@ -73,7 +73,7 @@ fun NavGraph(
         }
 
 
-        dialog<Destination.Dialog.TimeTableSetupDialog> {
+        composable<Destination.Dialog.TimeTableSetupDialog> {
             TimeTableSetupDialog(onDismissRequest = {
                 navigateUp()
             }, onNavigateToHomeScreen = {

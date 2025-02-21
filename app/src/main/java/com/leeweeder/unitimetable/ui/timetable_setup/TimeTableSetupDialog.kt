@@ -6,13 +6,16 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.ColumnScope
-import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.WindowInsets
+import androidx.compose.foundation.layout.asPaddingValues
+import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.statusBars
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.selection.selectable
@@ -46,12 +49,11 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.input.nestedscroll.nestedScroll
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.window.Dialog
-import androidx.compose.ui.window.DialogProperties
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.leeweeder.unitimetable.R
 import com.leeweeder.unitimetable.ui.components.AlertDialogActionButtons
@@ -230,156 +232,155 @@ private fun TimeTableSetupDialog(
         title = "Set end time"
     )
 
-    Dialog(
-        onDismissRequest = onDismissRequest,
-        properties = DialogProperties(usePlatformDefaultWidth = false)
-    ) {
-        val topAppBarState = rememberTopAppBarState()
-        val scrollBehavior = TopAppBarDefaults.pinnedScrollBehavior(topAppBarState)
+    val topAppBarState = rememberTopAppBarState()
+    val scrollBehavior = TopAppBarDefaults.pinnedScrollBehavior(topAppBarState)
 
-        Scaffold(
-            topBar = {
-                TopAppBar(navigationIcon = {
-                    IconButton(
-                        R.drawable.close_24px,
-                        contentDescription = "Close timetable setup dialog",
-                        onClick = onDismissRequest
-                    )
-                }, title = {
-                    Text(uiState.timeTable.name)
-                }, actions = {
-                    TextButton("Save", onClick = {
-                        onEvent(TimeTableSetupEvent.Save)
-                        // TODO: Implement loading icon while saving as leading icon and disable the save button
-                    })
-                }, scrollBehavior = scrollBehavior)
+    Scaffold(
+        topBar = {
+            TopAppBar(navigationIcon = {
+                IconButton(
+                    R.drawable.close_24px,
+                    contentDescription = "Close timetable setup dialog",
+                    onClick = onDismissRequest
+                )
+            }, title = {
+                Text(uiState.timeTable.name)
+            }, actions = {
+                TextButton("Save", onClick = {
+                    onEvent(TimeTableSetupEvent.Save)
+                    // TODO: Implement loading icon while saving as leading icon and disable the save button
+                })
+            }, scrollBehavior = scrollBehavior)
+        },
+        modifier = Modifier.fillMaxSize()
+    ) { paddingValues ->
+        var selectedPeriodIndex by remember {
+            mutableIntStateOf(-1)
+        }
+
+        LazyColumn(
+            modifier = Modifier
+                .padding(paddingValues)
+                .padding(
+                    bottom = WindowInsets.statusBars.asPaddingValues(LocalDensity.current)
+                        .calculateBottomPadding()
+                )
+                .nestedScroll(scrollBehavior.nestedScrollConnection)
+        ) {
+            item {
+                HeaderText("Layout")
             }
-        ) { paddingValues ->
-            var selectedPeriodIndex by remember {
-                mutableIntStateOf(-1)
-            }
-
-            LazyColumn(
-                modifier = Modifier
-                    .padding(paddingValues)
-                    .nestedScroll(scrollBehavior.nestedScrollConnection),
-                contentPadding = PaddingValues(top = 8.dp)
-            ) {
-                item {
-                    HeaderText("Layout")
-                }
-                item {
-                    OptionGroup(R.drawable.clear_day_24px) {
-                        ListItemCard(
-                            label = "Number of days",
-                            listItemCardPosition = ListItemCardPosition.Top,
-                            onClick = {
-                                isNumberOfDaysSelectionDialogVisible = true
-                            }
-                        ) {
-                            TrailingContent(uiState.timeTable.numberOfDays.toString())
-                        }
-                        ListItemCard(
-                            label = "Start of day",
-                            listItemCardPosition = ListItemCardPosition.Bottom,
-                            onClick = {
-                                isDaySelectionDialogVisible = true
-                            }
-                        ) {
-                            TrailingContent(
-                                uiState.timeTable.startingDay.getDisplayName(
-                                    TextStyle.FULL_STANDALONE,
-                                    Locale.getDefault()
-                                )
-                            )
-                        }
-                        Spacer(Modifier.height(8.dp))
-                        ListItem(headlineContent = {
-                            LabelText("Days")
-                        }, trailingContent = {
-                            Row {
-                                uiState.days.forEachIndexed { index, dayOfWeek ->
-                                    Text(
-                                        dayOfWeek.getDisplayName(
-                                            TextStyle.SHORT_STANDALONE,
-                                            Locale.getDefault()
-                                        ) + if (index != uiState.timeTable.numberOfDays - 1) ", " else "",
-                                        style = MaterialTheme.typography.bodyLarge,
-                                        color = MaterialTheme.colorScheme.onSurfaceVariant
-                                    )
-                                }
-                            }
-                        }, colors = ListItemDefaults.colors(containerColor = Color.Transparent))
-                    }
-                }
-
-                item {
-                    OptionGroup(R.drawable.schedule_24px, modifier = Modifier.padding(top = 8.dp)) {
-                        ListItemCard(
-                            label = "Start time",
-                            listItemCardPosition = ListItemCardPosition.Top,
-                            onClick = {
-                                isStartTimeSelectionDialogVisible = true
-                            }
-                        ) {
-                            TrailingContent(
-                                timeTable.startTime.format(Constants.TimeFormatter)
-                            )
-                        }
-                        HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
-                        ListItemCard(
-                            label = "End time",
-                            listItemCardPosition = ListItemCardPosition.Bottom,
-                            onClick = {
-                                isEndTimeSelectionDialogVisible = true
-                            }
-                        ) {
-                            TrailingContent(
-                                timeTable.endTime.format(Constants.TimeFormatter)
-                            )
-                        }
-                    }
-                }
-
-                item {
-                    Spacer(modifier = Modifier.height(16.dp))
-                    HorizontalDivider(
-                        thickness = Dp.Hairline,
-                        modifier = Modifier.padding(bottom = 16.dp)
-                    )
-                    HeaderText("Schedule")
-                }
-
-                itemsIndexed(uiState.periodStartTimes) { index, startTime ->
-                    OutlinedCard(
-                        modifier = Modifier.padding(horizontal = 16.dp),
+            item {
+                OptionGroup(R.drawable.clear_day_24px) {
+                    ListItemCard(
+                        label = "Number of days",
+                        listItemCardPosition = ListItemCardPosition.Top,
                         onClick = {
-                            selectedPeriodIndex = index
-                        },
-                        shape = MaterialTheme.shapes.extraLarge
-                    ) {
-                        Column(modifier = Modifier.padding(vertical = 8.dp)) {
-                            ListItem(
-                                colors = ListItemDefaults.colors(containerColor = Color.Transparent),
-                                headlineContent = {
-                                    LabelText(
-                                        "${startTime.format(Constants.TimeFormatter)}–${
-                                            startTime.plusOneHour().format(Constants.TimeFormatter)
-                                        }",
-                                    )
-                                },
-                                leadingContent = {
-                                    Icon(
-                                        painter = painterResource(R.drawable.schedule_24px_filled),
-                                        contentDescription = null,
-                                        tint = MaterialTheme.colorScheme.primary
-                                    )
-                                }
-                            )
+                            isNumberOfDaysSelectionDialogVisible = true
                         }
+                    ) {
+                        TrailingContent(uiState.timeTable.numberOfDays.toString())
+                    }
+                    ListItemCard(
+                        label = "Start of day",
+                        listItemCardPosition = ListItemCardPosition.Bottom,
+                        onClick = {
+                            isDaySelectionDialogVisible = true
+                        }
+                    ) {
+                        TrailingContent(
+                            uiState.timeTable.startingDay.getDisplayName(
+                                TextStyle.FULL_STANDALONE,
+                                Locale.getDefault()
+                            )
+                        )
                     }
                     Spacer(Modifier.height(8.dp))
+                    ListItem(headlineContent = {
+                        LabelText("Days")
+                    }, trailingContent = {
+                        Row {
+                            uiState.days.forEachIndexed { index, dayOfWeek ->
+                                Text(
+                                    dayOfWeek.getDisplayName(
+                                        TextStyle.SHORT_STANDALONE,
+                                        Locale.getDefault()
+                                    ) + if (index != uiState.timeTable.numberOfDays - 1) ", " else "",
+                                    style = MaterialTheme.typography.bodyLarge,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                                )
+                            }
+                        }
+                    }, colors = ListItemDefaults.colors(containerColor = Color.Transparent))
                 }
+            }
+
+            item {
+                OptionGroup(R.drawable.schedule_24px, modifier = Modifier.padding(top = 8.dp)) {
+                    ListItemCard(
+                        label = "Start time",
+                        listItemCardPosition = ListItemCardPosition.Top,
+                        onClick = {
+                            isStartTimeSelectionDialogVisible = true
+                        }
+                    ) {
+                        TrailingContent(
+                            timeTable.startTime.format(Constants.TimeFormatter)
+                        )
+                    }
+                    HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
+                    ListItemCard(
+                        label = "End time",
+                        listItemCardPosition = ListItemCardPosition.Bottom,
+                        onClick = {
+                            isEndTimeSelectionDialogVisible = true
+                        }
+                    ) {
+                        TrailingContent(
+                            timeTable.endTime.format(Constants.TimeFormatter)
+                        )
+                    }
+                }
+            }
+
+            item {
+                Spacer(modifier = Modifier.height(16.dp))
+                HorizontalDivider(
+                    thickness = Dp.Hairline,
+                    modifier = Modifier.padding(bottom = 16.dp)
+                )
+                HeaderText("Schedule")
+            }
+
+            itemsIndexed(uiState.periodStartTimes) { index, startTime ->
+                OutlinedCard(
+                    modifier = Modifier.padding(horizontal = 16.dp),
+                    onClick = {
+                        selectedPeriodIndex = index
+                    },
+                    shape = MaterialTheme.shapes.extraLarge
+                ) {
+                    Column(modifier = Modifier.padding(vertical = 8.dp)) {
+                        ListItem(
+                            colors = ListItemDefaults.colors(containerColor = Color.Transparent),
+                            headlineContent = {
+                                LabelText(
+                                    "${startTime.format(Constants.TimeFormatter)}–${
+                                        startTime.plusOneHour().format(Constants.TimeFormatter)
+                                    }",
+                                )
+                            },
+                            leadingContent = {
+                                Icon(
+                                    painter = painterResource(R.drawable.schedule_24px_filled),
+                                    contentDescription = null,
+                                    tint = MaterialTheme.colorScheme.primary
+                                )
+                            }
+                        )
+                    }
+                }
+                Spacer(Modifier.height(8.dp))
             }
         }
     }
