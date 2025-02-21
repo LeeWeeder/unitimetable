@@ -1,12 +1,12 @@
 package com.leeweeder.timetable
 
+import android.annotation.SuppressLint
 import android.graphics.Color
 import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.SystemBarStyle
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
-import androidx.compose.foundation.layout.padding
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.Scaffold
@@ -21,7 +21,6 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
-import androidx.compose.ui.Modifier
 import androidx.core.splashscreen.SplashScreen.Companion.installSplashScreen
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.navigation.compose.rememberNavController
@@ -34,6 +33,7 @@ import org.koin.androidx.viewmodel.ext.android.viewModel
 
 class MainActivity : ComponentActivity() {
 
+    @SuppressLint("UnusedMaterial3ScaffoldPaddingParameter")
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
 
@@ -109,12 +109,11 @@ class MainActivity : ComponentActivity() {
 
                     Scaffold(snackbarHost = {
                         SnackbarHost(snackbarHostState)
-                    }) { paddingValues ->
+                    }) {
                         NavGraph(
                             navController = navController,
                             startDestination = uiState.startDestination,
                             mainTimeTableId = uiState.mainTimeTableId,
-                            modifier = Modifier.padding(paddingValues),
                             onSuccessfulScheduleEntryDeletion = { subjectInstructorCrossRef, affectedSessions ->
                                 scope.launch {
                                     val result = snackbarHostState.showSnackbar(
