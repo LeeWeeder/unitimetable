@@ -10,6 +10,7 @@ import android.util.Log
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.ExperimentalMaterial3ExpressiveApi
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.SegmentedButtonDefaults.BorderWidth
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.toArgb
@@ -21,7 +22,6 @@ import androidx.compose.ui.text.style.TextDecoration
 import androidx.compose.ui.unit.Density
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.unit.sp
 import androidx.core.util.TypedValueCompat.spToPx
 import androidx.datastore.preferences.core.Preferences
 import androidx.glance.GlanceId
@@ -68,7 +68,6 @@ import java.time.LocalTime
 import java.time.format.TextStyle
 import java.util.Locale
 import kotlin.collections.forEach
-import kotlin.math.roundToInt
 
 class UnitimetableWidgetReceiver : GlanceAppWidgetReceiver() {
     override val glanceAppWidget = UnitimetableWidget()
@@ -124,20 +123,19 @@ fun Widget(
     val labelSmall = MaterialTheme.typography.labelSmall
 
     val labelHeight = with(density) {
-        labelSmall.lineHeight.roundToPx().toDp()
+        labelSmall.lineHeight.toDp()
     }
-
 
     Row(
         modifier = GlanceModifier.fillMaxWidth()
-            .height((size.height.value.roundToInt().dp + labelHeight).value.roundToInt().dp)
+            .height(size.height + labelHeight)
             .background(color = GlanceTheme.colors.surface.getColor(context))
     ) {
         val leaderColumnWidth = size.width * 0.125f
 
-        val widgetHeight = size.height.value.roundToInt().dp
+        val widgetHeight = size.height
 
-        val headerRowHeight = (widgetHeight * 0.05f).value.roundToInt().dp
+        val headerRowHeight = widgetHeight * 0.05f
 
         val availableHeight = widgetHeight - headerRowHeight
 
@@ -148,7 +146,7 @@ fun Widget(
             "Widget height: $widgetHeight, available height: $availableHeight, row height: $rowHeight"
         )
 
-        val fontSize = labelSmall.fontSize * 0.7f
+        val fontSize = labelSmall.fontSize * 0.8f
 
         // Leader
         Column(
@@ -232,7 +230,7 @@ fun Widget(
     }
 }
 
-private const val SCALE = 0.9f
+private const val SCALE = 1f // TODO: Implement use preferences for the scaling
 
 @SuppressLint("RestrictedApi")
 @OptIn(ExperimentalMaterial3ExpressiveApi::class, ExperimentalMaterial3Api::class)
@@ -256,17 +254,8 @@ private fun Grid(
                     val instructorNameMaxLine =
                         if (periodSpan == 1) 1 else Int.MAX_VALUE
 
-                    // Add additional BorderWidth to align the day schedules for days with merged schedules
-                    val additionalBorderWidth =
-                        if (schedule.subjectInstructor != null && periodSpan > 1) {
-                            // This is a subject, and might have merged schedules and has merged schedules
-                            BorderWidth * (periodSpan - 3)
-                        } else {
-                            0.dp
-                        }
-
                     BorderContainer(
-                        modifier = GlanceModifier.height(rowHeight * periodSpan + additionalBorderWidth)
+                        modifier = GlanceModifier.height(rowHeight * periodSpan)
                             .fillMaxWidth(),
                         width = BorderSize.of(
                             bottom = BorderWidth,
@@ -298,27 +287,24 @@ private fun Grid(
                                 // TODO: Utilize parent size to distribute position and sizing of the texts
                                 Text(
                                     schedule.subjectInstructor.subject.code.uppercase(),
-                                    style = MaterialTheme.typography.labelSmall.copy(
-                                        fontSize = MaterialTheme.typography.labelSmall.fontSize * SCALE
-                                    ).toGlanceTextStyle(
+                                    style = MaterialTheme.typography.labelMedium.let {
+                                        it.copy(
+                                            fontSize = it.fontSize * SCALE
+                                        )
+                                    }.toGlanceTextStyle(
                                         color = scheme.onPrimary.toColor(),
                                         textAlign = TextAlign.Center
                                     ),
                                     // TODO: Implement auto-size for subject code
                                 )
 
-                                val bodySmall =
-                                    MaterialTheme.typography.bodySmall.copy(fontSize = MaterialTheme.typography.bodySmall.fontSize * SCALE)
-                                val bodySmallFontSizeValue = bodySmall.fontSize.value
-
                                 val textColor = scheme.onPrimary.toColor()
 
                                 Text(
                                     schedule.subjectInstructor.instructor?.name ?: "",
-                                    style = bodySmall.copy(
-                                        fontSize = (bodySmallFontSizeValue - 2).sp,
-                                        lineHeight = (bodySmallFontSizeValue - 1).sp
-                                    ).toGlanceTextStyle(
+                                    style = MaterialTheme.typography.bodySmall.let {
+                                        it.copy(fontSize = it.fontSize * SCALE)
+                                    }.toGlanceTextStyle(
                                         color = textColor,
                                         textAlign = TextAlign.Center
                                     ),
@@ -367,7 +353,12 @@ data class BorderSize private constructor(
             )
         }
 
-        fun of(top: Dp = 0.dp, bottom: Dp = 0.dp, start: Dp = 0.dp, end: Dp = 0.dp): BorderSize {
+        fun of(
+            top: Dp = 0.dp,
+            bottom: Dp = 0.dp,
+            start: Dp = 0.dp,
+            end: Dp = 0.dp
+        ): BorderSize {
             return BorderSize(
                 start = start,
                 end = end,
@@ -460,7 +451,9 @@ private val BorderWidth = 1.dp
 
 @Composable
 private fun GlanceModifier.labelBackground() =
-    this.background(GlanceTheme.colors.surface.getColor(LocalContext.current).copy(alpha = 0.5f))
+    this.background(
+        GlanceTheme.colors.surface.getColor(LocalContext.current).copy(alpha = 0.5f)
+    )
 
 @Composable
 private fun CellBorder(
@@ -470,11 +463,15 @@ private fun CellBorder(
 ) {
     when (borderDirection) {
         CellBorderDirection.Horizontal -> {
-            Box(modifier = GlanceModifier.fillMaxWidth().height(thickness).background(color)) { }
+            Box(
+                modifier = GlanceModifier.fillMaxWidth().height(thickness).background(color)
+            ) { }
         }
 
         CellBorderDirection.Vertical -> {
-            Box(modifier = GlanceModifier.fillMaxHeight().width(thickness).background(color)) { }
+            Box(
+                modifier = GlanceModifier.fillMaxHeight().width(thickness).background(color)
+            ) { }
         }
     }
 }
