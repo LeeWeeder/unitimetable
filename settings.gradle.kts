@@ -13,6 +13,6 @@ dependencyResolutionManagement {
     }
 }
 
-rootProject.name = "TimeTable"
+rootProject.name = "Unitimetable"
 include(":app")
  

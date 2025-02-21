@@ -11,15 +11,15 @@ plugins {
 }
 
 android {
-    namespace = "com.leeweeder.timetable"
+    namespace = "com.leeweeder.unitimetable"
     compileSdk = 35
 
     defaultConfig {
-        applicationId = "com.leeweeder.timetable"
+        applicationId = "com.leeweeder.unitimetable"
         minSdk = 30
         targetSdk = 35
         versionCode = 1
-        versionName = "1.0"
+        versionName = "0.0.1alpha01"
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
         vectorDrawables {
@@ -29,11 +29,17 @@ android {
 
     buildTypes {
         release {
-            isMinifyEnabled = false
+            isMinifyEnabled = true
+            isShrinkResources = true
             proguardFiles(
                 getDefaultProguardFile("proguard-android-optimize.txt"),
                 "proguard-rules.pro"
             )
+            signingConfig = signingConfigs.getByName("debug")
+        }
+
+        debug {
+            applicationIdSuffix = ".debug"
         }
     }
     compileOptions {
@@ -42,9 +48,6 @@ android {
     }
     kotlinOptions {
         jvmTarget = "17"
-        freeCompilerArgs += listOf(
-            "-Xcontext-receivers"
-        )
     }
     buildFeatures {
         compose = true
