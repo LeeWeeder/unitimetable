@@ -12,6 +12,7 @@ import androidx.glance.appwidget.GlanceAppWidgetManager
 import androidx.glance.appwidget.state.updateAppWidgetState
 import androidx.lifecycle.lifecycleScope
 import com.leeweeder.timetable.feature_widget.ui.WidgetConfigurationScreen
+import com.leeweeder.timetable.feature_widget.util.createPreferencesKey
 import com.leeweeder.timetable.ui.theme.AppTheme
 import kotlinx.coroutines.launch
 
@@ -65,15 +66,17 @@ class WidgetConfigurationActivity : ComponentActivity() {
 
     private fun saveWidgetConfiguration(value: String) {
         lifecycleScope.launch {
-            val glanceId = GlanceAppWidgetManager(this@WidgetConfigurationActivity)
+            val context = this@WidgetConfigurationActivity
+
+            val glanceId = GlanceAppWidgetManager(context)
                 .getGlanceIdBy(appWidgetId)
 
-            updateAppWidgetState(this@WidgetConfigurationActivity, glanceId) { prefs ->
-                prefs[WidgetKey] = value
+            updateAppWidgetState(context, glanceId) { prefs ->
+                prefs[createPreferencesKey(glanceId, context)] = value
             }
 
             // Update the widget
-            UnitimetableWidget().update(this@WidgetConfigurationActivity, glanceId)
+            UnitimetableWidget().update(context, glanceId)
         }
     }
 }

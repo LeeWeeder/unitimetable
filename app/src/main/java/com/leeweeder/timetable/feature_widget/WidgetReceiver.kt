@@ -24,7 +24,6 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.core.util.TypedValueCompat.spToPx
 import androidx.datastore.preferences.core.Preferences
-import androidx.datastore.preferences.core.stringPreferencesKey
 import androidx.glance.GlanceId
 import androidx.glance.GlanceModifier
 import androidx.glance.GlanceTheme
@@ -53,6 +52,7 @@ import androidx.glance.text.Text
 import androidx.glance.unit.ColorProvider
 import com.leeweeder.timetable.domain.relation.TimeTableWithSession
 import com.leeweeder.timetable.feature_widget.ui.theme.WidgetTheme
+import com.leeweeder.timetable.feature_widget.util.createPreferencesKey
 import com.leeweeder.timetable.ui.CellBorderDirection
 import com.leeweeder.timetable.ui.Schedule
 import com.leeweeder.timetable.ui.toGroupedSchedules
@@ -74,8 +74,6 @@ class UnitimetableWidgetReceiver : GlanceAppWidgetReceiver() {
     override val glanceAppWidget = UnitimetableWidget()
 }
 
-val WidgetKey = stringPreferencesKey("unitimetable_widget")
-
 class UnitimetableWidget() : GlanceAppWidget() {
     override val sizeMode = SizeMode.Exact
 
@@ -86,7 +84,7 @@ class UnitimetableWidget() : GlanceAppWidget() {
 
         provideContent {
             val prefs = currentState<Preferences>()
-            val timeTableData = prefs[WidgetKey]?.let {
+            val timeTableData = prefs[createPreferencesKey(id, context)]?.let {
                 TimeTableWithSession.fromJson(it)
             }
 
