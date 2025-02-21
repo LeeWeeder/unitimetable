@@ -3,7 +3,6 @@ package com.leeweeder.timetable.ui
 import androidx.compose.material3.SnackbarHostState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.rememberCoroutineScope
-import androidx.compose.ui.Modifier
 import androidx.navigation.NavHostController
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
@@ -28,7 +27,6 @@ fun NavGraph(
     navController: NavHostController,
     startDestination: Destination,
     mainTimeTableId: Int,
-    modifier: Modifier,
     snackbarHostState: SnackbarHostState,
     // This is for showing a snackbar and enabling undo operation
     onSuccessfulScheduleEntryDeletion: (subjectInstructorCrossRef: SubjectInstructorCrossRef, affectedSessions: List<Session>) -> Unit,
@@ -50,7 +48,7 @@ fun NavGraph(
     }
 
     NavHost(
-        navController = navController, startDestination = startDestination, modifier = modifier
+        navController = navController, startDestination = startDestination
     ) {
 
         composable<Destination.Screen.HomeScreen> {
