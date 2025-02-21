@@ -11,11 +11,11 @@ plugins {
 }
 
 android {
-    namespace = "com.leeweeder.timetable"
+    namespace = "com.leeweeder.unitimetable"
     compileSdk = 35
 
     defaultConfig {
-        applicationId = "com.leeweeder.timetable"
+        applicationId = "com.leeweeder.unitimetable"
         minSdk = 30
         targetSdk = 35
         versionCode = 1
