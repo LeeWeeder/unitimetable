@@ -134,7 +134,7 @@ fun <T> SearchableBottomSheet(
                     Box(
                         Modifier
                             .align(alignment = Alignment.BottomCenter)
-                            .padding(bottom = snackbarBottomPadding)
+                            .padding(bottom = snackbarBottomPadding.coerceAtLeast(0.dp))
                     ) {
                         it()
                     }
