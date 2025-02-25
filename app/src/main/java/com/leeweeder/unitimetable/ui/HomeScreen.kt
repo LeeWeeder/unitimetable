@@ -143,22 +143,6 @@ fun HomeScreen(
         }
     }
 
-    val eventFlow by viewModel.eventFlow.collectAsStateWithLifecycle()
-
-    val onEvent = viewModel::onEvent
-
-    LaunchedEffect(eventFlow) {
-        when (eventFlow) {
-            is HomeUiEvent.SuccessTimetableDeletion -> {
-                onDeleteTimetableSuccessful((eventFlow as HomeUiEvent.SuccessTimetableDeletion).deletedTimetableWithDetails)
-            }
-
-            null -> Unit
-        }
-
-        onEvent(HomeEvent.ClearUiEvent)
-    }
-
     HomeScreen(
         dataState = dataState,
         uiState = uiState,
@@ -176,7 +160,9 @@ fun HomeScreen(
         },
         onNavigateToScheduleEntryDialog = onNavigateToScheduleEntryDialog,
         scheduleEntryBottomSheetState = viewModel.scheduleEntryBottomSheetState,
-        onNavigateToEditTimetableLayoutScreen = onNavigateToEditTimetableLayoutScreen
+        onNavigateToEditTimetableLayoutScreen = onNavigateToEditTimetableLayoutScreen,
+        eventFlow = viewModel.eventFlow.collectAsStateWithLifecycle().value,
+        onDeleteTimetableSuccessful = onDeleteTimetableSuccessful
     )
 }
 
@@ -191,7 +177,9 @@ private fun HomeScreen(
     onNavigateToScheduleEntryDialog: (subjectInstructorId: Int?, selectedTimeTableId: Int) -> Unit,
     onNavigateToEditTimetableLayoutScreen: (Timetable) -> Unit,
     onEvent: (HomeEvent) -> Unit,
-    scheduleEntryBottomSheetState: SearchableBottomSheetStateHolder<SubjectInstructorCrossRefWithDetails>
+    eventFlow: HomeUiEvent?,
+    scheduleEntryBottomSheetState: SearchableBottomSheetStateHolder<SubjectInstructorCrossRefWithDetails>,
+    onDeleteTimetableSuccessful: (TimetableWithSession) -> Unit
 ) {
     val drawerState = rememberDrawerState(initialValue = DrawerValue.Closed)
     val scope = rememberCoroutineScope()
@@ -202,6 +190,19 @@ private fun HomeScreen(
 
     var isTimetableDeleteConfirmationDialogVisible by remember { mutableStateOf(false) }
     var toBeDeletedTimetableId by remember { mutableIntStateOf(0) }
+
+    LaunchedEffect(eventFlow) {
+        when (eventFlow) {
+            is HomeUiEvent.SuccessTimetableDeletion -> {
+                isTimetableDeleteConfirmationDialogVisible = false
+                onDeleteTimetableSuccessful(eventFlow.deletedTimetableWithDetails)
+            }
+
+            null -> Unit
+        }
+
+        onEvent(HomeEvent.ClearUiEvent)
+    }
 
     DeleteConfirmationDialog(
         visible = isTimetableDeleteConfirmationDialogVisible,
@@ -752,7 +753,7 @@ private fun RowScope.DefaultModeGrid(
                                     Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
                                         Chip(
                                             iconId = R.drawable.book_24px,
-                                            text = schedule.subjectInstructor.subject!!.code
+                                            text = schedule.subjectInstructor.subject.code
                                         )
                                         Text(
                                             schedule.subjectInstructor.subject.description,
@@ -791,7 +792,7 @@ private fun RowScope.DefaultModeGrid(
                             ) {
                                 // TODO: Utilize parent size to distribute position and sizing of the texts
                                 Text(
-                                    schedule.subjectInstructor.subject!!.code.uppercase(),
+                                    schedule.subjectInstructor.subject.code.uppercase(),
                                     style = MaterialTheme.typography.labelMediumEmphasized,
                                     color = scheme.onPrimary.toColor(),
                                     textAlign = TextAlign.Center
