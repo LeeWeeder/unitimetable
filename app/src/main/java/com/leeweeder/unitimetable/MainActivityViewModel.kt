@@ -8,13 +8,13 @@ import com.leeweeder.unitimetable.domain.model.Instructor
 import com.leeweeder.unitimetable.domain.model.Session
 import com.leeweeder.unitimetable.domain.model.Subject
 import com.leeweeder.unitimetable.domain.model.SubjectInstructorCrossRef
-import com.leeweeder.unitimetable.domain.relation.TimeTableWithSession
+import com.leeweeder.unitimetable.domain.relation.TimetableWithSession
 import com.leeweeder.unitimetable.domain.repository.DataStoreRepository
 import com.leeweeder.unitimetable.domain.repository.InstructorRepository
 import com.leeweeder.unitimetable.domain.repository.SessionRepository
 import com.leeweeder.unitimetable.domain.repository.SubjectInstructorRepository
 import com.leeweeder.unitimetable.domain.repository.SubjectRepository
-import com.leeweeder.unitimetable.domain.repository.TimeTableRepository
+import com.leeweeder.unitimetable.domain.repository.TimetableRepository
 import com.leeweeder.unitimetable.util.Destination
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
@@ -32,7 +32,7 @@ class MainActivityViewModel(
     private val sessionRepository: SessionRepository,
     private val subjectRepository: SubjectRepository,
     private val instructorRepository: InstructorRepository,
-    private val timetableRepository: TimeTableRepository
+    private val timetableRepository: TimetableRepository
 ) : ViewModel() {
 
     val uiState = dataStoreRepository.timeTablePrefFlow.map {
@@ -109,8 +109,8 @@ class MainActivityViewModel(
                     is UndoEvent.UndoTimeTableDeletion -> {
                         viewModelScope.launch {
                             try {
-                                timetableRepository.insertTimeTable(
-                                    event.timetableWithDetails.timeTable,
+                                timetableRepository.insertTimetable(
+                                    event.timetableWithDetails.timetable,
                                     event.timetableWithDetails.sessions.map { it.session }
                                 )
                                 _eventFlow.emit(ShowSnackbar.Success)
@@ -161,7 +161,7 @@ sealed interface UndoEvent {
     ) : UndoEvent
 
     data class UndoTimeTableDeletion(
-        val timetableWithDetails: TimeTableWithSession
+        val timetableWithDetails: TimetableWithSession
     ) : UndoEvent
 }
 

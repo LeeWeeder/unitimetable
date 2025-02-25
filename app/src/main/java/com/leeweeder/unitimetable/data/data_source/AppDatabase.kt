@@ -1,24 +1,27 @@
 package com.leeweeder.unitimetable.data.data_source
 
+import androidx.room.AutoMigration
 import androidx.room.Database
+import androidx.room.RenameColumn
 import androidx.room.RoomDatabase
 import androidx.room.TypeConverters
+import androidx.room.migration.AutoMigrationSpec
 import androidx.sqlite.db.SupportSQLiteDatabase
 import com.leeweeder.unitimetable.data.data_source.dao.InstructorDao
 import com.leeweeder.unitimetable.data.data_source.dao.SessionDao
 import com.leeweeder.unitimetable.data.data_source.dao.SubjectDao
 import com.leeweeder.unitimetable.data.data_source.dao.SubjectInstructorCrossRefDao
-import com.leeweeder.unitimetable.data.data_source.dao.TimeTableDao
+import com.leeweeder.unitimetable.data.data_source.dao.TimetableDao
 import com.leeweeder.unitimetable.domain.model.Instructor
 import com.leeweeder.unitimetable.domain.model.Session
 import com.leeweeder.unitimetable.domain.model.Subject
 import com.leeweeder.unitimetable.domain.model.SubjectInstructorCrossRef
-import com.leeweeder.unitimetable.domain.model.TimeTable
+import com.leeweeder.unitimetable.domain.model.Timetable
 import com.leeweeder.unitimetable.domain.relation.SubjectInstructorCrossRefWithDetails
 
 @Database(
     entities = [
-        TimeTable::class,
+        Timetable::class,
         Session::class,
         Subject::class,
         Instructor::class,
@@ -27,13 +30,16 @@ import com.leeweeder.unitimetable.domain.relation.SubjectInstructorCrossRefWithD
     views = [
         SubjectInstructorCrossRefWithDetails::class
     ],
-    version = 1
+    version = 2,
+    autoMigrations = [
+        AutoMigration(from = 1, to = 2, spec = AutoMigrationSpec1To2::class)
+    ]
 )
 @TypeConverters(
     Converters::class
 )
 abstract class AppDatabase : RoomDatabase() {
-    abstract val timeTableDao: TimeTableDao
+    abstract val timeTableDao: TimetableDao
     abstract val sessionDao: SessionDao
     abstract val subjectDao: SubjectDao
     abstract val instructorDao: InstructorDao
@@ -72,3 +78,12 @@ abstract class AppDatabase : RoomDatabase() {
         }
     }
 }
+
+@RenameColumn.Entries(
+    RenameColumn(
+        tableName = "Session",
+        fromColumnName = "timeTableId",
+        toColumnName = "timetableId"
+    )
+)
+class AutoMigrationSpec1To2 : AutoMigrationSpec

@@ -6,7 +6,7 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.lifecycle.SavedStateHandle
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
-import com.leeweeder.unitimetable.domain.repository.TimeTableRepository
+import com.leeweeder.unitimetable.domain.repository.TimetableRepository
 import com.leeweeder.unitimetable.util.Destination
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -16,15 +16,15 @@ import kotlinx.coroutines.launch
 private const val TAG = "GetTimeTableNameViewModel"
 
 class TimeTableNameViewModel(
-    private val timeTableRepository: TimeTableRepository,
+    private val timeTableRepository: TimetableRepository,
     savedStateHandle: SavedStateHandle
 ) : ViewModel() {
     private val _timeTableNames = mutableStateOf(emptyList<String>())
     private val timeTableNames: State<List<String>> = _timeTableNames
 
-    private val defaultTimeTableName = DefaultTimeTable.name
+    private val defaultTimeTableName = DefaultTimetable.name
 
-    private val _timeTableName = mutableStateOf(DefaultTimeTable.name)
+    private val _timeTableName = mutableStateOf(DefaultTimetable.name)
     val timeTableName: State<String> = _timeTableName
 
     private val route = Destination.Dialog.TimetableNameDialog.from(savedStateHandle)
@@ -77,7 +77,7 @@ class TimeTableNameViewModel(
         route.timetable?.let {
             viewModelScope.launch {
                 try {
-                    timeTableRepository.updateTimeTableName(
+                    timeTableRepository.updateTimetableName(
                         route.timetable.id,
                         newName
                     )
@@ -92,14 +92,14 @@ class TimeTableNameViewModel(
 }
 
 /**
- * Count how many timetable has the name of [DefaultTimeTable].
+ * Count how many timetable has the name of [DefaultTimetable].
  *
  * @param timeTableNames The names to be checked.
  *
- * @return The number of timetables that have the [DefaultTimeTable] name.
+ * @return The number of timetables that have the [DefaultTimetable] name.
  * */
 fun countTimeTableWithDefaultNames(timeTableNames: List<String>): Int {
-    val defaultTimeTableName = DefaultTimeTable.name
+    val defaultTimeTableName = DefaultTimetable.name
     return timeTableNames.count { name ->
         name.startsWith(defaultTimeTableName) || name.matches(Regex("^$defaultTimeTableName\\(\\d+\\)$"))
     }

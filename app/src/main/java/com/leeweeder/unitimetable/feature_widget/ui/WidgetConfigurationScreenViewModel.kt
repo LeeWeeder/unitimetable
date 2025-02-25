@@ -4,10 +4,9 @@ import androidx.compose.runtime.State
 import androidx.compose.runtime.mutableStateOf
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
-import com.leeweeder.unitimetable.domain.model.TimeTable
-import com.leeweeder.unitimetable.domain.relation.TimeTableWithSession
+import com.leeweeder.unitimetable.domain.model.Timetable
 import com.leeweeder.unitimetable.domain.repository.DataStoreRepository
-import com.leeweeder.unitimetable.domain.repository.TimeTableRepository
+import com.leeweeder.unitimetable.domain.repository.TimetableRepository
 import com.leeweeder.unitimetable.ui.components.searchable_bottom_sheet.SearchableBottomSheetStateFactory
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -17,45 +16,35 @@ import kotlinx.coroutines.launch
 
 class WidgetConfigurationScreenViewModel(
     private val dataStoreRepository: DataStoreRepository,
-    private val timeTableRepository: TimeTableRepository
+    private val timeTableRepository: TimetableRepository
 ) : ViewModel() {
-    private val _selectedTimeTable = mutableStateOf<TimeTable?>(null)
-    val selectedTimeTable: State<TimeTable?> = _selectedTimeTable
+    private val _selectedTimetable = mutableStateOf<Timetable?>(null)
+    val selectedTimetable: State<Timetable?> = _selectedTimetable
 
-    private val _success = MutableStateFlow<TimeTableWithSession?>(null)
-    val success: StateFlow<TimeTableWithSession?> = _success.asStateFlow()
+    private val _timetableId = MutableStateFlow<Int?>(null)
+    val timetableId: StateFlow<Int?> = _timetableId.asStateFlow()
 
     init {
         viewModelScope.launch {
             // TODO: Fetch the current selected timetable id, default to mainTimeTable if first time
             val mainTimetableId = dataStoreRepository.timeTablePrefFlow.first().mainTimeTableId
 
-            _selectedTimeTable.value = timeTableRepository.getTimetableById(mainTimetableId)
+            _selectedTimetable.value = timeTableRepository.getTimetableById(mainTimetableId)
         }
     }
 
     fun onEvent(event: WidgetConfigurationScreenEvent) {
         when (event) {
             is WidgetConfigurationScreenEvent.Save -> {
-                selectedTimeTable.value?.id?.let {
+                selectedTimetable.value?.id?.let {
                     viewModelScope.launch {
-                        val timeTableWithSession = timeTableRepository.getTimeTableWithDetails(
-                            selectedTimeTable.value?.id ?: 0
-                        )
-
-                        if (timeTableWithSession == null) {
-                            return@launch
-                        }
-
-                        timeTableWithSession.let {
-                            _success.emit(it)
-                        }
+                        _timetableId.emit(it)
                     }
                 }
             }
 
             is WidgetConfigurationScreenEvent.SelectTimeTable -> {
-                _selectedTimeTable.value = event.value
+                _selectedTimetable.value = event.value
             }
         }
     }
@@ -68,6 +57,6 @@ class WidgetConfigurationScreenViewModel(
 }
 
 sealed interface WidgetConfigurationScreenEvent {
-    data class SelectTimeTable(val value: TimeTable) : WidgetConfigurationScreenEvent
+    data class SelectTimeTable(val value: Timetable) : WidgetConfigurationScreenEvent
     data object Save : WidgetConfigurationScreenEvent
 }

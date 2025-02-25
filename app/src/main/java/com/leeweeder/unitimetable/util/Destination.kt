@@ -2,8 +2,8 @@ package com.leeweeder.unitimetable.util
 
 import androidx.lifecycle.SavedStateHandle
 import androidx.navigation.toRoute
+import com.leeweeder.unitimetable.domain.model.SerializableTimetable
 import kotlinx.serialization.Serializable
-import kotlin.reflect.typeOf
 
 sealed interface Destination {
 
@@ -11,19 +11,27 @@ sealed interface Destination {
 
         @Serializable
         data class TimeTableSetupDialog(
-            val timeTableName: String,
-            val isInitialization: Boolean,
+            val timetable: SerializableTimetable,
             val selectedTimeTableId: Int
-        ) : Dialog
+        ) : Dialog {
+
+            companion object {
+                val typeMap = typeMapBuilder<SerializableTimetable>()
+
+                fun from(savedStateHandle: SavedStateHandle): TimeTableSetupDialog {
+                    return savedStateHandle.toRoute<TimeTableSetupDialog>(typeMap)
+                }
+            }
+        }
 
         @Serializable
         data class TimetableNameDialog(
             val isInitialization: Boolean = false,
             val selectedTimeTableId: Int,
-            val timetable: Timetable? = null
+            val timetable: TimetableIdAndName? = null
         ) : Dialog {
             companion object {
-                val typeMap = mapOf(typeOf<Timetable?>() to serializableType<Timetable?>(true))
+                val typeMap = typeMapBuilder<TimetableIdAndName?>()
 
                 fun from(savedStateHandle: SavedStateHandle): TimetableNameDialog {
                     return savedStateHandle.toRoute<TimetableNameDialog>(typeMap)
@@ -54,13 +62,16 @@ sealed interface Destination {
     sealed interface Screen : Destination {
 
         @Serializable
-        data class HomeScreen(val subjectInstructorIdToBeScheduled: Int? = null, val selectedTimeTableId: Int) :
+        data class HomeScreen(
+            val subjectInstructorIdToBeScheduled: Int? = null,
+            val selectedTimeTableId: Int
+        ) :
             Screen
     }
 }
 
 @Serializable
-data class Timetable(
+data class TimetableIdAndName(
     val id: Int,
     val name: String
 )

@@ -20,8 +20,7 @@ import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.leeweeder.unitimetable.R
-import com.leeweeder.unitimetable.domain.model.TimeTable
-import com.leeweeder.unitimetable.domain.relation.TimeTableWithSession
+import com.leeweeder.unitimetable.domain.model.Timetable
 import com.leeweeder.unitimetable.ui.components.SelectionField
 import com.leeweeder.unitimetable.ui.components.searchable_bottom_sheet.ItemTransform
 import com.leeweeder.unitimetable.ui.components.searchable_bottom_sheet.SearchableBottomSheet
@@ -33,13 +32,13 @@ import org.koin.androidx.compose.koinViewModel
 @Composable
 fun WidgetConfigurationScreen(
     onCancelClick: () -> Unit,
-    onDone: (String) -> Unit,
+    onDone: (Int) -> Unit,
     viewModel: WidgetConfigurationScreenViewModel = koinViewModel()
 ) {
     WidgetConfigurationScreen(
         bottomSheetState = viewModel.bottomSheetState,
-        selectedTimeTable = viewModel.selectedTimeTable.value,
-        success = viewModel.success.collectAsStateWithLifecycle().value,
+        selectedTimetable = viewModel.selectedTimetable.value,
+        id = viewModel.timetableId.collectAsStateWithLifecycle().value,
         onEvent = viewModel::onEvent,
         onCancelClick = onCancelClick,
         onDone = onDone
@@ -49,21 +48,17 @@ fun WidgetConfigurationScreen(
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 private fun WidgetConfigurationScreen(
-    bottomSheetState: SearchableBottomSheetStateHolder<TimeTable>,
-    selectedTimeTable: TimeTable?,
+    bottomSheetState: SearchableBottomSheetStateHolder<Timetable>,
+    selectedTimetable: Timetable?,
     onEvent: (WidgetConfigurationScreenEvent) -> Unit,
-    success: TimeTableWithSession?,
-    onDone: (String) -> Unit,
+    id: Int?,
+    onDone: (Int) -> Unit,
     onCancelClick: () -> Unit
 ) {
-    LaunchedEffect(success) {
-        when (success) {
-            is TimeTableWithSession -> {
-                onDone(success.toString())
-            }
-
-            null -> Unit
-        }
+    LaunchedEffect(id) {
+        if (id != null) {
+            onDone(id)
+        } else Unit
     }
 
     val bottomSheetController = rememberSearchableBottomSheetController()
@@ -126,7 +121,7 @@ private fun WidgetConfigurationScreen(
             SelectionField(
                 R.drawable.table_24px_outlined,
                 label = "Timetable",
-                value = selectedTimeTable?.name,
+                value = selectedTimetable?.name,
                 modifier = Modifier.padding(horizontal = 16.dp)
             ) {
                 bottomSheetController.show()
@@ -140,7 +135,7 @@ private fun WidgetConfigurationScreen(
 private fun UnitimetableWidgetPreview() {
     WidgetConfigurationScreen(
         bottomSheetState = SearchableBottomSheetStateHolder(),
-        selectedTimeTable = null,
-        onEvent = {}, onDone = {}, onCancelClick = {}, success = null
+        selectedTimetable = null,
+        onEvent = {}, onDone = {}, onCancelClick = {}, id = null
     )
 }

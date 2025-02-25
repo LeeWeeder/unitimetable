@@ -12,6 +12,7 @@ import androidx.compose.material3.ExperimentalMaterial3ExpressiveApi
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.SegmentedButtonDefaults.BorderWidth
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.collectAsState
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.toArgb
 import androidx.compose.ui.text.font.FontFamily
@@ -36,6 +37,7 @@ import androidx.glance.appwidget.GlanceAppWidget
 import androidx.glance.appwidget.GlanceAppWidgetReceiver
 import androidx.glance.appwidget.SizeMode
 import androidx.glance.appwidget.provideContent
+import androidx.glance.appwidget.state.updateAppWidgetState
 import androidx.glance.background
 import androidx.glance.currentState
 import androidx.glance.layout.Alignment
@@ -50,9 +52,10 @@ import androidx.glance.layout.padding
 import androidx.glance.layout.width
 import androidx.glance.text.Text
 import androidx.glance.unit.ColorProvider
-import com.leeweeder.unitimetable.domain.relation.TimeTableWithSession
+import com.leeweeder.unitimetable.domain.repository.TimetableRepository
 import com.leeweeder.unitimetable.feature_widget.ui.theme.WidgetTheme
-import com.leeweeder.unitimetable.feature_widget.util.createPreferencesKey
+import com.leeweeder.unitimetable.feature_widget.util.createIntPreferencesKey
+import com.leeweeder.unitimetable.feature_widget.util.createStringPreferencesKey
 import com.leeweeder.unitimetable.ui.CellBorderDirection
 import com.leeweeder.unitimetable.ui.Schedule
 import com.leeweeder.unitimetable.ui.toGroupedSchedules
@@ -62,12 +65,19 @@ import com.leeweeder.unitimetable.ui.util.getTimes
 import com.leeweeder.unitimetable.ui.util.plusOneHour
 import com.leeweeder.unitimetable.util.isSystemInDarkTheme
 import com.leeweeder.unitimetable.util.toColor
+import kotlinx.serialization.SerializationException
+import kotlinx.serialization.json.Json
+import kotlinx.serialization.json.int
+import kotlinx.serialization.json.jsonObject
+import kotlinx.serialization.json.jsonPrimitive
+import org.koin.java.KoinJavaComponent.inject
 import java.time.DayOfWeek
 import java.time.LocalDate
 import java.time.LocalTime
 import java.time.format.TextStyle
 import java.util.Locale
 import kotlin.collections.forEach
+import kotlin.text.lowercase
 
 class UnitimetableWidgetReceiver : GlanceAppWidgetReceiver() {
     override val glanceAppWidget = UnitimetableWidget()
@@ -76,25 +86,83 @@ class UnitimetableWidgetReceiver : GlanceAppWidgetReceiver() {
 class UnitimetableWidget() : GlanceAppWidget() {
     override val sizeMode = SizeMode.Exact
 
+    private suspend fun migrateTimetablePreferences(id: GlanceId, context: Context) {
+        val stringKey = createStringPreferencesKey(id, context)
+        val intKey = createIntPreferencesKey(id, context)
+
+        updateAppWidgetState(context, id) { pref ->
+            if (pref[intKey] == null) {
+                pref[stringKey]?.let {
+                    try {
+                        // Lowercase the string so that it won't have issues in case sensitivity
+                        val jsonObject = Json.parseToJsonElement(it.lowercase()).jsonObject
+
+                        Log.d(
+                            "UnitimetableWidgetReceiver",
+                            "Migrating widget preferences for id $it"
+                        )
+                        Log.d("UnitimetableWidgetReceiver", "Json string: $jsonObject")
+
+                        val timetableObject = jsonObject["timetable"]?.jsonObject
+
+                        Log.d(
+                            "UnitimetableWidgetReceiver",
+                            "Timetable object: $timetableObject"
+                        )
+                        Log.d(
+                            "UnitimetableWidgetReceiver",
+                            "Timetable id: ${timetableObject?.get("id")}"
+                        )
+
+                        val timetableId =
+                            timetableObject?.get("id")?.jsonPrimitive?.int
+
+
+                        // Save the timetable id from JSON if not null
+                        timetableId?.let {
+                            pref[intKey] = it
+
+                            // delete the string preferences key
+                            pref.remove(stringKey)
+                        }
+
+                        update(context, id)
+                    } catch (e: SerializationException) {
+                        e.printStackTrace()
+                    }
+                }
+            }
+        }
+    }
+
     override suspend fun provideGlance(
         context: Context,
         id: GlanceId
     ) {
+        // Migrate the widget preferences
+        // The migration is necessary from version 0.0.1alpha01 and 0.0.1alpha02 to future releases
+        // Because of renaming of parameters in the serialization
+        migrateTimetablePreferences(id, context)
+
+        val timetableRepository by inject<TimetableRepository>(TimetableRepository::class.java)
 
         provideContent {
             val prefs = currentState<Preferences>()
-            val timeTableData = prefs[createPreferencesKey(id, context)]?.let {
-                TimeTableWithSession.fromJson(it)
+            val widgetKey = createIntPreferencesKey(id, context)
+
+            val timetableData = prefs[widgetKey]?.let { id ->
+                timetableRepository.observeTimetableWithDetails(id)
+                    .collectAsState(initial = null).value
             }
 
             WidgetTheme {
-                timeTableData?.let { data ->
+                timetableData?.let { data ->
                     // Your existing widget composition
-                    val days = getDays(data.timeTable.startingDay, data.timeTable.numberOfDays)
+                    val days = getDays(data.timetable.startingDay, data.timetable.numberOfDays)
                     Widget(
                         days = days,
                         dayOfWeekNow = LocalDate.now().dayOfWeek,
-                        startTimes = getTimes(data.timeTable.startTime, data.timeTable.endTime),
+                        startTimes = getTimes(data.timetable.startTime, data.timetable.endTime),
                         groupedSchedules = data.sessions.toGroupedSchedules(days = days)
                     )
                 } ?: Box(

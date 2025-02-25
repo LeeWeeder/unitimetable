@@ -3,9 +3,10 @@ package com.leeweeder.unitimetable.domain.relation
 import androidx.room.Embedded
 import androidx.room.Relation
 import com.leeweeder.unitimetable.domain.model.Instructor
+import com.leeweeder.unitimetable.domain.model.SerializableTimetable
 import com.leeweeder.unitimetable.domain.model.Session
 import com.leeweeder.unitimetable.domain.model.Subject
-import com.leeweeder.unitimetable.domain.model.TimeTable
+import com.leeweeder.unitimetable.domain.model.Timetable
 import com.leeweeder.unitimetable.util.Hue
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.encodeToString
@@ -13,30 +14,23 @@ import kotlinx.serialization.json.Json
 import java.time.DayOfWeek
 import java.time.LocalTime
 
-data class TimeTableWithSession(
-    @Embedded val timeTable: TimeTable,
+data class TimetableWithSession(
+    @Embedded val timetable: Timetable,
     @Relation(
         entity = Session::class,
         parentColumn = "id",
-        entityColumn = "timeTableId"
+        entityColumn = "timetableId"
     )
     val sessions: List<SessionWithDetails>
 ) {
-    private fun toSerializable(): SerializableTimeTableWithSession {
+    fun serialize(): SerializableTimeTableWithSession {
         return SerializableTimeTableWithSession(
-            timeTable = SerializableTimeTable(
-                id = timeTable.id,
-                name = timeTable.name,
-                numberOfDays = timeTable.numberOfDays,
-                startingDay = timeTable.startingDay,
-                startTimeHour = timeTable.startTime.hour,
-                endTimeHour = timeTable.endTime.hour
-            ),
+            timetable = timetable.serialize(),
             sessions = sessions.map {
                 SerializableSessionWithDetails(
                     session = SerializableSession(
                         id = it.session.id,
-                        timeTableId = it.session.timeTableId,
+                        timetableId = it.session.timetableId,
                         subjectInstructorCrossRefId = it.session.subjectInstructorCrossRefId,
                         dayOfWeek = it.session.dayOfWeek,
                         startTimeHour = it.session.startTime.hour,
@@ -66,11 +60,11 @@ data class TimeTableWithSession(
     }
 
     override fun toString(): String {
-        return this.toSerializable().toString()
+        return this.serialize().toString()
     }
 
     companion object {
-        fun fromJson(value: String): TimeTableWithSession {
+        fun fromJson(value: String): TimetableWithSession {
             return Json.decodeFromString<SerializableTimeTableWithSession>(value).normalize()
         }
     }
@@ -87,23 +81,17 @@ data class SessionWithDetails(
 
 @Serializable
 data class SerializableTimeTableWithSession(
-    val timeTable: SerializableTimeTable,
+    val timetable: SerializableTimetable,
     val sessions: List<SerializableSessionWithDetails>
 ) {
-    fun normalize(): TimeTableWithSession {
-        return TimeTableWithSession(
-            timeTable = TimeTable(
-                id = timeTable.id,
-                numberOfDays = timeTable.numberOfDays,
-                startingDay = timeTable.startingDay,
-                startTime = LocalTime.of(timeTable.startTimeHour, 0),
-                endTime = LocalTime.of(timeTable.endTimeHour, 0)
-            ),
+    fun normalize(): TimetableWithSession {
+        return TimetableWithSession(
+            timetable = timetable.normalize(),
             sessions = sessions.map {
                 SessionWithDetails(
                     session = Session(
                         id = it.session.id,
-                        timeTableId = it.session.timeTableId,
+                        timetableId = it.session.timetableId,
                         subjectInstructorCrossRefId = it.session.subjectInstructorCrossRefId,
                         dayOfWeek = it.session.dayOfWeek,
                         startTime = LocalTime.of(it.session.startTimeHour, 0),
@@ -138,17 +126,6 @@ data class SerializableTimeTableWithSession(
 }
 
 @Serializable
-data class SerializableTimeTable(
-    val id: Int,
-    val name: String,
-    val numberOfDays: Int,
-    val startingDay: DayOfWeek,
-    val startTimeHour: Int,
-    /** End time is exclusive. Meaning, end time of 5:00 PM, means the last period is 4:00-5:00 PM */
-    val endTimeHour: Int
-)
-
-@Serializable
 data class SerializableSessionWithDetails(
     val session: SerializableSession,
     val subjectWithInstructor: SerializableSubjectInstructorCrossRefWithDetails?
@@ -157,7 +134,7 @@ data class SerializableSessionWithDetails(
 @Serializable
 data class SerializableSession(
     val id: Int = 0,
-    val timeTableId: Int,
+    val timetableId: Int,
     val subjectInstructorCrossRefId: Int?,
     val dayOfWeek: DayOfWeek,
     val startTimeHour: Int,
