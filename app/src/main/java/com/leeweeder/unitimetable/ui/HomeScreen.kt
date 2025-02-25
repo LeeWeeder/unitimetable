@@ -557,6 +557,7 @@ private fun TimeTableNavigationDrawer(
                                             DropdownMenuItem(text = {
                                                 Text("Edit layout")
                                             }, onClick = {
+                                                expanded = false
                                                 onEditLayoutClick(timetable)
                                             }, leadingIcon = {
                                                 Icon(
