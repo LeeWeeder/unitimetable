@@ -10,9 +10,9 @@ import java.time.LocalTime
 @Entity(
     foreignKeys = [
         ForeignKey(
-            entity = TimeTable::class,
+            entity = Timetable::class,
             parentColumns = ["id"],
-            childColumns = ["timeTableId"],
+            childColumns = ["timetableId"],
             onDelete = ForeignKey.CASCADE
         ),
         ForeignKey(
@@ -23,17 +23,17 @@ import java.time.LocalTime
         )
     ],
     indices = [
-        Index("timeTableId"),
+        Index("timetableId"),
         Index("subjectInstructorCrossRefId"),
-        Index("timeTableId", "dayOfWeek", "startTime", unique = true),
-        Index("timeTableId", "subjectInstructorCrossRefId")
+        Index("timetableId", "dayOfWeek", "startTime", unique = true),
+        Index("timetableId", "subjectInstructorCrossRefId")
     ]
 )
 
 data class Session(
     @PrimaryKey(autoGenerate = true)
     val id: Int = 0,
-    val timeTableId: Int,
+    val timetableId: Int,
     val subjectInstructorCrossRefId: Int?,
     val dayOfWeek: DayOfWeek,
     val startTime: LocalTime,
@@ -58,7 +58,7 @@ data class Session(
             dayOfWeek: DayOfWeek,
             startTime: LocalTime
         ) = Session(
-            timeTableId = timeTableId,
+            timetableId = timeTableId,
             subjectInstructorCrossRefId = crossRefId,
             dayOfWeek = dayOfWeek,
             startTime = startTime,
@@ -74,7 +74,7 @@ data class Session(
             startTime: LocalTime,
             label: String? = null
         ) = Session(
-            timeTableId = timeTableId,
+            timetableId = timeTableId,
             dayOfWeek = dayOfWeek,
             startTime = startTime,
             subjectInstructorCrossRefId = null,
@@ -85,7 +85,7 @@ data class Session(
 
 fun Session.toScheduledSession(subjectInstructorCrossRefId: Int): Session {
     return Session(
-        timeTableId = timeTableId,
+        timetableId = timetableId,
         subjectInstructorCrossRefId = subjectInstructorCrossRefId,
         dayOfWeek = dayOfWeek,
         startTime = startTime,
@@ -96,7 +96,7 @@ fun Session.toScheduledSession(subjectInstructorCrossRefId: Int): Session {
 
 fun Session.toEmptySession(label: String? = null): Session {
     return Session(
-        timeTableId = timeTableId,
+        timetableId = timetableId,
         dayOfWeek = dayOfWeek,
         startTime = startTime,
         id = id,

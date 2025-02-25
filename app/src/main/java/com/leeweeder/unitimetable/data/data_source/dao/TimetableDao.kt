@@ -4,24 +4,24 @@ import androidx.room.Dao
 import androidx.room.Insert
 import androidx.room.Query
 import androidx.room.Transaction
-import com.leeweeder.unitimetable.domain.model.TimeTable
-import com.leeweeder.unitimetable.domain.relation.TimeTableWithSession
+import com.leeweeder.unitimetable.domain.model.Timetable
+import com.leeweeder.unitimetable.domain.relation.TimetableWithSession
 import kotlinx.coroutines.flow.Flow
 import java.time.DayOfWeek
 import java.time.LocalTime
 
 @Dao
-interface TimeTableDao {
+interface TimetableDao {
     @Transaction
     @Query("SELECT * FROM timetable")
-    fun observeTimeTablesWithDetails(): Flow<List<TimeTableWithSession>>
+    fun observeTimeTablesWithDetails(): Flow<List<TimetableWithSession>>
 
     @Query("SELECT * FROM timetable")
-    fun observeTimeTables(): Flow<List<TimeTable>>
+    fun observeTimeTables(): Flow<List<Timetable>>
 
     @Transaction
     @Query("SELECT * FROM timetable WHERE id = :id")
-    suspend fun getTimeTableWithDetailsById(id: Int): TimeTableWithSession
+    suspend fun getTimeTableWithDetailsById(id: Int): TimetableWithSession
 
     @Query("UPDATE timetable SET name = :newName WHERE id = :id")
     suspend fun updateTimeTableName(id: Int, newName: String)
@@ -30,7 +30,7 @@ interface TimeTableDao {
     suspend fun deleteTimeTableById(id: Int)
 
     @Insert
-    suspend fun insertTimeTable(timeTable: TimeTable): Long
+    suspend fun insertTimeTable(timeTable: Timetable): Long
 
     @Query(
         """
@@ -54,5 +54,8 @@ interface TimeTableDao {
     suspend fun getTimeTableNames(): List<String>
 
     @Query("SELECT * FROM timetable WHERE id = :id")
-    suspend fun getTimetableById(id: Int): TimeTable?
+    suspend fun getTimetableById(id: Int): Timetable?
+
+    @Query("SELECT * FROM timetable WHERE id = :id")
+    fun observeTimetableWithDetails(id: Int): Flow<TimetableWithSession?>
 }

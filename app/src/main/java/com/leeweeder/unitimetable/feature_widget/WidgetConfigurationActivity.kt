@@ -1,19 +1,24 @@
 package com.leeweeder.unitimetable.feature_widget
 
 import android.appwidget.AppWidgetManager
+import android.content.Context
 import android.content.Intent
 import android.graphics.Color
 import android.os.Bundle
+import android.util.Log
 import androidx.activity.ComponentActivity
 import androidx.activity.SystemBarStyle
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
+import androidx.glance.GlanceId
 import androidx.glance.appwidget.GlanceAppWidgetManager
 import androidx.glance.appwidget.state.updateAppWidgetState
 import androidx.lifecycle.lifecycleScope
 import com.leeweeder.unitimetable.feature_widget.ui.WidgetConfigurationScreen
-import com.leeweeder.unitimetable.feature_widget.util.createPreferencesKey
+import com.leeweeder.unitimetable.feature_widget.util.createIntPreferencesKey
 import com.leeweeder.unitimetable.ui.theme.AppTheme
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 
 class WidgetConfigurationActivity : ComponentActivity() {
@@ -64,19 +69,29 @@ class WidgetConfigurationActivity : ComponentActivity() {
         }
     }
 
-    private fun saveWidgetConfiguration(value: String) {
-        lifecycleScope.launch {
-            val context = this@WidgetConfigurationActivity
+    private fun saveWidgetConfiguration(value: Int) {
+        saveWidgetConfiguration(
+            value = value,
+            scope = lifecycleScope,
+            context = this,
+            glanceId = GlanceAppWidgetManager(this).getGlanceIdBy(appWidgetId)
+        )
+    }
+}
 
-            val glanceId = GlanceAppWidgetManager(context)
-                .getGlanceIdBy(appWidgetId)
-
-            updateAppWidgetState(context, glanceId) { prefs ->
-                prefs[createPreferencesKey(glanceId, context)] = value
-            }
-
-            // Update the widget
-            UnitimetableWidget().update(context, glanceId)
+fun saveWidgetConfiguration(
+    value: Int,
+    scope: CoroutineScope,
+    context: Context,
+    glanceId: GlanceId
+) {
+    scope.launch(Dispatchers.IO) {
+        updateAppWidgetState(context, glanceId) { prefs ->
+            prefs[createIntPreferencesKey(glanceId, context)] = value
         }
+
+        // Update the widget
+        UnitimetableWidget().update(context, glanceId)
+        Log.d("WidgetConfiguration", "Updated widget for glanceId: $glanceId")
     }
 }

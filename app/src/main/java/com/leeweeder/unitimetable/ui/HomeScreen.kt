@@ -89,10 +89,10 @@ import com.leeweeder.unitimetable.R
 import com.leeweeder.unitimetable.domain.model.Instructor
 import com.leeweeder.unitimetable.domain.model.Session
 import com.leeweeder.unitimetable.domain.model.Subject
-import com.leeweeder.unitimetable.domain.model.TimeTable
+import com.leeweeder.unitimetable.domain.model.Timetable
 import com.leeweeder.unitimetable.domain.relation.SessionWithDetails
 import com.leeweeder.unitimetable.domain.relation.SubjectInstructorCrossRefWithDetails
-import com.leeweeder.unitimetable.domain.relation.TimeTableWithSession
+import com.leeweeder.unitimetable.domain.relation.TimetableWithSession
 import com.leeweeder.unitimetable.ui.components.DeleteConfirmationDialog
 import com.leeweeder.unitimetable.ui.components.IconButton
 import com.leeweeder.unitimetable.ui.components.searchable_bottom_sheet.CreateButtonConfig
@@ -106,7 +106,7 @@ import com.leeweeder.unitimetable.ui.timetable_setup.LabelText
 import com.leeweeder.unitimetable.ui.timetable_setup.components.TextButton
 import com.leeweeder.unitimetable.ui.util.Constants
 import com.leeweeder.unitimetable.ui.util.plusOneHour
-import com.leeweeder.unitimetable.util.Timetable
+import com.leeweeder.unitimetable.util.TimetableIdAndName
 import com.leeweeder.unitimetable.util.randomHue
 import com.leeweeder.unitimetable.util.toColor
 import kotlinx.coroutines.launch
@@ -122,9 +122,10 @@ import kotlin.collections.component2
 @Composable
 fun HomeScreen(
     selectedTimeTableId: Int,
-    onNavigateToTimeTableNameDialog: (isInitialization: Boolean, selectedTimeTableId: Int, timetable: Timetable?) -> Unit,
+    onNavigateToTimeTableNameDialog: (isInitialization: Boolean, selectedTimeTableId: Int, timetable: TimetableIdAndName?) -> Unit,
     onNavigateToScheduleEntryDialog: (Int?, Int) -> Unit,
-    onDeleteTimetableSuccessful: (TimeTableWithSession) -> Unit,
+    onNavigateToEditTimetableLayoutScreen: (Timetable) -> Unit,
+    onDeleteTimetableSuccessful: (TimetableWithSession) -> Unit,
     viewModel: HomeViewModel = koinViewModel()
 ) {
     val dataState by viewModel.homeDataState.collectAsStateWithLifecycle()
@@ -163,18 +164,19 @@ fun HomeScreen(
         uiState = uiState,
         onEvent = viewModel::onEvent,
         onNavigateToNewTimeTableNameDialog = {
-            onNavigateToTimeTableNameDialog(false, uiState.selectedTimeTable.id, null)
+            onNavigateToTimeTableNameDialog(false, uiState.selectedTimetable.id, null)
         },
         onNavigateToTimetableNameDialog = {
             onNavigateToTimeTableNameDialog(
-                false, uiState.selectedTimeTable.id, Timetable(
+                false, uiState.selectedTimetable.id, TimetableIdAndName(
                     id = it.id,
                     name = it.name
                 )
             )
         },
         onNavigateToScheduleEntryDialog = onNavigateToScheduleEntryDialog,
-        scheduleEntryBottomSheetState = viewModel.scheduleEntryBottomSheetState
+        scheduleEntryBottomSheetState = viewModel.scheduleEntryBottomSheetState,
+        onNavigateToEditTimetableLayoutScreen = onNavigateToEditTimetableLayoutScreen
     )
 }
 
@@ -185,8 +187,9 @@ private fun HomeScreen(
     dataState: HomeDataState,
     uiState: HomeUiState,
     onNavigateToNewTimeTableNameDialog: () -> Unit,
-    onNavigateToTimetableNameDialog: (TimeTable) -> Unit,
+    onNavigateToTimetableNameDialog: (Timetable) -> Unit,
     onNavigateToScheduleEntryDialog: (subjectInstructorId: Int?, selectedTimeTableId: Int) -> Unit,
+    onNavigateToEditTimetableLayoutScreen: (Timetable) -> Unit,
     onEvent: (HomeEvent) -> Unit,
     scheduleEntryBottomSheetState: SearchableBottomSheetStateHolder<SubjectInstructorCrossRefWithDetails>
 ) {
@@ -217,10 +220,10 @@ private fun HomeScreen(
             searchPlaceholderTitle = "schedule entry",
             itemLabel = "Schedule entries",
             onItemClick = { onEvent(HomeEvent.SetToEditMode(it.id)) },
-            onItemEdit = { onNavigateToScheduleEntryDialog(it.id, uiState.selectedTimeTable.id) },
+            onItemEdit = { onNavigateToScheduleEntryDialog(it.id, uiState.selectedTimetable.id) },
             actionButtonConfig = CreateButtonConfig(
                 fromScratch = CreateButtonProperties.FromScratch(label = "schedule") {
-                    onNavigateToScheduleEntryDialog(null, uiState.selectedTimeTable.id)
+                    onNavigateToScheduleEntryDialog(null, uiState.selectedTimetable.id)
                 }
             ),
             itemTransform = ItemTransform(
@@ -257,7 +260,7 @@ private fun HomeScreen(
         drawerContent = {
             TimeTableNavigationDrawer(
                 drawerState = drawerState,
-                selectedTimeTable = uiState.selectedTimeTable,
+                selectedTimetable = uiState.selectedTimetable,
                 onTimeTableClick = { timeTableId ->
                     onEvent(HomeEvent.SelectTimeTable(timeTableId))
                     closeDrawer()
@@ -267,14 +270,15 @@ private fun HomeScreen(
                 onDeleteMenuClick = {
                     isTimetableDeleteConfirmationDialogVisible = true
                     toBeDeletedTimetableId = it
-                }
+                },
+                onEditLayoutClick = onNavigateToEditTimetableLayoutScreen
             )
         }, drawerState = drawerState
     ) {
         Scaffold(snackbarHost = {
             SnackbarHost(hostState = snackBarHostState)
         }, topBar = {
-            TopAppBar(title = uiState.selectedTimeTable.name,
+            TopAppBar(title = uiState.selectedTimetable.name,
                 topAppBarMode = if (uiState.isOnEditMode) {
                     TopAppBarMode.EditMode(onDoneClick = {
                         onEvent(HomeEvent.SetToDefaultMode)
@@ -386,7 +390,7 @@ private fun HomeScreen(
                     }
 
                     if (dataState is HomeDataState.Success) {
-                        val selectedTimeTableId = uiState.selectedTimeTable.id
+                        val selectedTimeTableId = uiState.selectedTimetable.id
 
                         if (uiState.isOnEditMode) {
                             EditModeGrid(dataState.getSessionsWithSubjectInstructor(
@@ -402,7 +406,7 @@ private fun HomeScreen(
                                 onChangeToEditMode = {
                                     onNavigateToScheduleEntryDialog(
                                         it,
-                                        uiState.selectedTimeTable.id
+                                        uiState.selectedTimetable.id
                                     )
                                 }
                             )
@@ -417,11 +421,12 @@ private fun HomeScreen(
 @Composable
 private fun TimeTableNavigationDrawer(
     drawerState: DrawerState,
-    selectedTimeTable: TimeTable,
+    selectedTimetable: Timetable,
     onTimeTableClick: (Int) -> Unit,
     dataState: HomeDataState,
-    onRenameTimeTable: (TimeTable) -> Unit,
-    onDeleteMenuClick: (Int) -> Unit
+    onRenameTimeTable: (Timetable) -> Unit,
+    onDeleteMenuClick: (Int) -> Unit,
+    onEditLayoutClick: (Timetable) -> Unit
 ) {
 
     @Composable
@@ -477,24 +482,24 @@ private fun TimeTableNavigationDrawer(
                             LabelText("Time tables")
                         }
                     }
-                    items(dataState.timeTables) { timeTable ->
-                        val selected = timeTable == selectedTimeTable
+                    items(dataState.timetables) { timetable ->
+                        val selected = timetable == selectedTimetable
 
                         Log.d(
                             "TimeTableNavigationDrawer",
-                            "selected time table id: ${selectedTimeTable.id}"
+                            "selected time table id: ${selectedTimetable.id}"
                         )
 
                         Box(modifier = Modifier.padding(horizontal = 8.dp)) {
                             NavigationDrawerItem(label = {
-                                Text(timeTable.name)
+                                Text(timetable.name)
                             }, selected = selected, icon = {
                                 Icon(
                                     painter = painterResource(if (selected) R.drawable.table_24px else R.drawable.table_24px_outlined),
                                     contentDescription = null
                                 )
                             }, onClick = {
-                                onTimeTableClick(timeTable.id)
+                                onTimeTableClick(timetable.id)
                             }, badge = {
                                 Row(
                                     verticalAlignment = Alignment.CenterVertically,
@@ -503,7 +508,7 @@ private fun TimeTableNavigationDrawer(
                                 ) {
                                     var isMainTable by remember { mutableStateOf(false) }
 
-                                    isMainTable = dataState.mainTimeTable == timeTable
+                                    isMainTable = dataState.mainTimetable == timetable
                                     if (isMainTable) {
                                         Badge(containerColor = MaterialTheme.colorScheme.primary) {
                                             Text("Main")
@@ -541,7 +546,7 @@ private fun TimeTableNavigationDrawer(
                                             DropdownMenuItem(text = {
                                                 Text("Rename")
                                             }, onClick = {
-                                                onRenameTimeTable(timeTable)
+                                                onRenameTimeTable(timetable)
                                             }, leadingIcon = {
                                                 Icon(
                                                     painter = painterResource(R.drawable.text_format_24px),
@@ -551,7 +556,7 @@ private fun TimeTableNavigationDrawer(
                                             DropdownMenuItem(text = {
                                                 Text("Edit layout")
                                             }, onClick = {
-                                                // TODO: Implement onEvent in editing the layout of current timetable
+                                                onEditLayoutClick(timetable)
                                             }, leadingIcon = {
                                                 Icon(
                                                     painter = painterResource(R.drawable.table_edit_24px),
@@ -559,13 +564,13 @@ private fun TimeTableNavigationDrawer(
                                                 )
                                             })
                                             // Hide delete option if there is only one timetable
-                                            if (dataState.timeTables.size > 1) {
+                                            if (dataState.timetables.size > 1) {
                                                 DropdownMenuItem(
                                                     text = {
                                                         Text("Delete")
                                                     },
                                                     onClick = {
-                                                        onDeleteMenuClick(timeTable.id)
+                                                        onDeleteMenuClick(timetable.id)
                                                     },
                                                     leadingIcon = {
                                                         Icon(

@@ -6,7 +6,7 @@ import com.leeweeder.unitimetable.ui.instructor.InstructorDialogViewModel
 import com.leeweeder.unitimetable.ui.schedule.ScheduleEntryDialogViewModel
 import com.leeweeder.unitimetable.ui.subject.SubjectDialogViewModel
 import com.leeweeder.unitimetable.ui.timetable_setup.TimeTableNameViewModel
-import com.leeweeder.unitimetable.ui.timetable_setup.TimeTableSetupViewModel
+import com.leeweeder.unitimetable.ui.timetable_setup.TimetableSetupViewModel
 import org.koin.core.module.dsl.viewModel
 import org.koin.dsl.module
 
@@ -20,7 +20,7 @@ val viewModelModule = module {
     }
 
     viewModel {
-        TimeTableSetupViewModel(get(), get(), get())
+        TimetableSetupViewModel(get(), get(), get())
     }
 
     viewModel {

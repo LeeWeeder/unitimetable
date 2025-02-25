@@ -13,10 +13,11 @@ import com.leeweeder.unitimetable.domain.model.Instructor
 import com.leeweeder.unitimetable.domain.model.Session
 import com.leeweeder.unitimetable.domain.model.Subject
 import com.leeweeder.unitimetable.domain.model.SubjectInstructorCrossRef
-import com.leeweeder.unitimetable.domain.relation.TimeTableWithSession
+import com.leeweeder.unitimetable.domain.relation.TimetableWithSession
 import com.leeweeder.unitimetable.ui.instructor.InstructorDialog
 import com.leeweeder.unitimetable.ui.schedule.ScheduleEntryDialog
 import com.leeweeder.unitimetable.ui.subject.SubjectDialog
+import com.leeweeder.unitimetable.ui.timetable_setup.DefaultTimetable
 import com.leeweeder.unitimetable.ui.timetable_setup.TimeTableNameDialog
 import com.leeweeder.unitimetable.ui.timetable_setup.TimeTableSetupDialog
 import com.leeweeder.unitimetable.util.Destination
@@ -32,7 +33,7 @@ fun NavGraph(
     onSuccessfulScheduleEntryDeletion: (subjectInstructorCrossRef: SubjectInstructorCrossRef, affectedSessions: List<Session>) -> Unit,
     onSuccessfulSubjectDeletion: (Subject, List<Session>, List<SubjectInstructorCrossRef>) -> Unit,
     onSuccessfulInstructorDeletion: (Instructor, List<Int>) -> Unit,
-    onSuccessfulTimeTableDeletion: (TimeTableWithSession) -> Unit
+    onSuccessfulTimeTableDeletion: (TimetableWithSession) -> Unit
 ) {
 
     fun navigateUp() {
@@ -52,7 +53,8 @@ fun NavGraph(
     ) {
 
         composable<Destination.Screen.HomeScreen> {
-            HomeScreen(selectedTimeTableId = it.toRoute<Destination.Screen.HomeScreen>().selectedTimeTableId,
+            HomeScreen(
+                selectedTimeTableId = it.toRoute<Destination.Screen.HomeScreen>().selectedTimeTableId,
                 onNavigateToTimeTableNameDialog = { isInitialization, selectedTimeTableId, timetable ->
                     navController.navigate(
                         Destination.Dialog.TimetableNameDialog(
@@ -68,12 +70,20 @@ fun NavGraph(
                         )
                     )
                 },
+                onNavigateToEditTimetableLayoutScreen = {
+                    navController.navigate(
+                        Destination.Dialog.TimeTableSetupDialog(
+                            it.serialize(),
+                            it.id
+                        )
+                    )
+                },
                 onDeleteTimetableSuccessful = onSuccessfulTimeTableDeletion
             )
         }
 
 
-        composable<Destination.Dialog.TimeTableSetupDialog> {
+        composable<Destination.Dialog.TimeTableSetupDialog>(typeMap = Destination.Dialog.TimeTableSetupDialog.typeMap) {
             TimeTableSetupDialog(onDismissRequest = {
                 navigateUp()
             }, onNavigateToHomeScreen = {
@@ -86,11 +96,10 @@ fun NavGraph(
         ) {
             TimeTableNameDialog(onDismissRequest = {
                 navigateUp()
-            }, onNavigateToTimeTableSetupDialog = { timeTableName, isInitialization ->
+            }, onNavigateToTimeTableSetupDialog = { timetableName, isInitialization ->
                 navController.navigate(
                     Destination.Dialog.TimeTableSetupDialog(
-                        timeTableName = timeTableName,
-                        isInitialization = isInitialization,
+                        timetable = DefaultTimetable.copy(name = timetableName).serialize(),
                         selectedTimeTableId = it.toRoute<Destination.Dialog.TimetableNameDialog>().selectedTimeTableId
                     )
                 )

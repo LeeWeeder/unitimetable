@@ -31,7 +31,7 @@ interface SessionDao {
     @Delete
     suspend fun deleteSessions(sessions: List<Session>)
 
-    @Query("SELECT * FROM session WHERE timeTableId = :timeTableId")
+    @Query("SELECT * FROM session WHERE timetableId = :timeTableId")
     suspend fun getSessionsByTimeTableId(timeTableId: Int): List<Session>
 
     @Query("SELECT * FROM session WHERE subjectInstructorCrossRefId = :crossRefId")

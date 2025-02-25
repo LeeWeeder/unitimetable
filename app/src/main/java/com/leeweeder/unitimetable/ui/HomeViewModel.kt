@@ -9,17 +9,17 @@ import androidx.navigation.toRoute
 import com.leeweeder.unitimetable.domain.model.Instructor
 import com.leeweeder.unitimetable.domain.model.Session
 import com.leeweeder.unitimetable.domain.model.Subject
-import com.leeweeder.unitimetable.domain.model.TimeTable
+import com.leeweeder.unitimetable.domain.model.Timetable
 import com.leeweeder.unitimetable.domain.relation.SessionWithDetails
-import com.leeweeder.unitimetable.domain.relation.TimeTableWithSession
+import com.leeweeder.unitimetable.domain.relation.TimetableWithSession
 import com.leeweeder.unitimetable.domain.repository.DataStoreRepository
 import com.leeweeder.unitimetable.domain.repository.SessionRepository
 import com.leeweeder.unitimetable.domain.repository.SubjectInstructorRepository
-import com.leeweeder.unitimetable.domain.repository.TimeTableRepository
+import com.leeweeder.unitimetable.domain.repository.TimetableRepository
 import com.leeweeder.unitimetable.ui.HomeEvent.*
 import com.leeweeder.unitimetable.ui.HomeUiEvent.*
 import com.leeweeder.unitimetable.ui.components.searchable_bottom_sheet.SearchableBottomSheetStateFactory
-import com.leeweeder.unitimetable.ui.timetable_setup.DefaultTimeTable
+import com.leeweeder.unitimetable.ui.timetable_setup.DefaultTimetable
 import com.leeweeder.unitimetable.ui.util.getDays
 import com.leeweeder.unitimetable.ui.util.getTimes
 import com.leeweeder.unitimetable.util.Destination
@@ -40,7 +40,7 @@ import java.time.LocalTime
 private const val TAG = "HomeViewModel"
 
 class HomeViewModel(
-    private val timeTableRepository: TimeTableRepository,
+    private val timeTableRepository: TimetableRepository,
     private val sessionRepository: SessionRepository,
     subjectInstructorRepository: SubjectInstructorRepository,
     dataStoreRepository: DataStoreRepository,
@@ -62,18 +62,18 @@ class HomeViewModel(
                     return@map HomeDataState.Loading
                 }
 
-                fun findTimeTableWithDetailsById(id: Int): TimeTableWithSession? {
+                fun findTimeTableWithDetailsById(id: Int): TimetableWithSession? {
                     return timeTableWithDetails
-                        .find { it.timeTable.id == id }
+                        .find { it.timetable.id == id }
                 }
 
                 val mainTimeTableWithDetails = findTimeTableWithDetailsById(mainTableId)
                     ?: return@map HomeDataState.Error(IllegalStateException("Main timetable not found"))
 
-                val mainTimeTable = mainTimeTableWithDetails.timeTable
+                val mainTimeTable = mainTimeTableWithDetails.timetable
 
                 // Only update the selectedTimeTable if it hasn't been set yet
-                if (_uiState.value.selectedTimeTable == DefaultTimeTable) {
+                if (_uiState.value.selectedTimetable == DefaultTimetable) {
                     _uiState.update { state ->
                         val passedSelectedTimeTableId =
                             savedStateHandle.toRoute<Destination.Screen.HomeScreen>().selectedTimeTableId
@@ -81,13 +81,13 @@ class HomeViewModel(
                         Log.d(TAG, "Passed selected time table id: $passedSelectedTimeTableId")
 
                         state.copy(
-                            selectedTimeTable = findTimeTableWithDetailsById(passedSelectedTimeTableId)?.timeTable
+                            selectedTimetable = findTimeTableWithDetailsById(passedSelectedTimeTableId)?.timetable
                                 ?: mainTimeTable
                         )
                     }
                 }
 
-                Log.d(TAG, "Selected time table id: ${uiState.value.selectedTimeTable.id}")
+                Log.d(TAG, "Selected time table id: ${uiState.value.selectedTimetable.id}")
 
                 HomeDataState.Success(
                     mainTimeTableId = mainTimeTable.id,
@@ -129,9 +129,9 @@ class HomeViewModel(
                 if (homeDataState.value is HomeDataState.Success) {
                     _uiState.update { state ->
                         state.copy(
-                            selectedTimeTable = (homeDataState.value as HomeDataState.Success)
+                            selectedTimetable = (homeDataState.value as HomeDataState.Success)
                                 .timeTableWithDetails
-                                .map { it.timeTable }
+                                .map { it.timetable }
                                 .find { it.id == event.newTimeTableId }!!
                         )
                     }
@@ -183,7 +183,7 @@ class HomeViewModel(
             is DeleteTimeTable -> {
                 if (homeDataState.value is HomeDataState.Success) {
                     val timeTableWithDetails =
-                        (homeDataState.value as HomeDataState.Success).timeTableWithDetails.find { it.timeTable.id == event.timeTableId }!!
+                        (homeDataState.value as HomeDataState.Success).timeTableWithDetails.find { it.timetable.id == event.timeTableId }!!
                     viewModelScope.launch {
                         timeTableRepository.deleteTimeTableById(event.timeTableId)
                         _eventFlow.emit(SuccessTimetableDeletion(timeTableWithDetails))
@@ -213,14 +213,14 @@ sealed interface HomeEvent {
 }
 
 sealed interface HomeUiEvent {
-    data class SuccessTimetableDeletion(val deletedTimetableWithDetails: TimeTableWithSession) :
+    data class SuccessTimetableDeletion(val deletedTimetableWithDetails: TimetableWithSession) :
         HomeUiEvent
 }
 
 sealed interface HomeDataState {
     data class Success(
         val mainTimeTableId: Int,
-        val timeTableWithDetails: List<TimeTableWithSession> = emptyList()
+        val timeTableWithDetails: List<TimetableWithSession> = emptyList()
     ) : HomeDataState {
 
         fun getGroupedSchedules(timeTableId: Int, days: List<DayOfWeek>): List<List<Schedule>> {
@@ -229,16 +229,16 @@ sealed interface HomeDataState {
 
         fun getSessionsWithSubjectInstructor(timeTableId: Int): List<SessionWithDetails> {
             return timeTableWithDetails
-                .find { it.timeTable.id == timeTableId }
+                .find { it.timetable.id == timeTableId }
                 ?.sessions
                 ?: emptyList()
         }
 
-        val mainTimeTable: TimeTable
-            get() = timeTables.find { it.id == mainTimeTableId }!!
+        val mainTimetable: Timetable
+            get() = timetables.find { it.id == mainTimeTableId }!!
 
-        val timeTables: List<TimeTable>
-            get() = timeTableWithDetails.map { it.timeTable }
+        val timetables: List<Timetable>
+            get() = timeTableWithDetails.map { it.timetable }
     }
 
     data class Error(val throwable: Throwable) : HomeDataState
@@ -246,15 +246,15 @@ sealed interface HomeDataState {
 }
 
 data class HomeUiState(
-    val selectedTimeTable: TimeTable = DefaultTimeTable,
+    val selectedTimetable: Timetable = DefaultTimetable,
     val isOnEditMode: Boolean = false,
     val activeSubjectInstructorIdForScheduling: Int? = null
 ) {
     val startTimes: List<LocalTime>
-        get() = getTimes(selectedTimeTable.startTime, selectedTimeTable.endTime)
+        get() = getTimes(selectedTimetable.startTime, selectedTimetable.endTime)
 
     val days: List<DayOfWeek>
-        get() = getDays(selectedTimeTable.startingDay, selectedTimeTable.numberOfDays)
+        get() = getDays(selectedTimetable.startingDay, selectedTimetable.numberOfDays)
 }
 
 @VisibleForTesting

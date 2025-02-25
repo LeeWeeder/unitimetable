@@ -1,25 +1,26 @@
 package com.leeweeder.unitimetable.data.repository
 
+import android.util.Log
 import com.leeweeder.unitimetable.data.data_source.dao.SessionDao
-import com.leeweeder.unitimetable.data.data_source.dao.TimeTableDao
+import com.leeweeder.unitimetable.data.data_source.dao.TimetableDao
 import com.leeweeder.unitimetable.domain.model.Session
-import com.leeweeder.unitimetable.domain.model.TimeTable
-import com.leeweeder.unitimetable.domain.relation.TimeTableWithSession
-import com.leeweeder.unitimetable.domain.repository.TimeTableRepository
+import com.leeweeder.unitimetable.domain.model.Timetable
+import com.leeweeder.unitimetable.domain.relation.TimetableWithSession
+import com.leeweeder.unitimetable.domain.repository.TimetableRepository
 import com.leeweeder.unitimetable.ui.util.getDays
 import com.leeweeder.unitimetable.ui.util.getTimes
 import kotlinx.coroutines.flow.Flow
 
-class TimeTableRepositoryImpl(
-    private val timeTableDao: TimeTableDao,
+class TimetableRepositoryImpl(
+    private val timetableDao: TimetableDao,
     private val sessionDao: SessionDao
-) : TimeTableRepository {
-    override fun observeTimeTableWithDetails(): Flow<List<TimeTableWithSession>> {
-        return timeTableDao.observeTimeTablesWithDetails()
+) : TimetableRepository {
+    override fun observeTimeTableWithDetails(): Flow<List<TimetableWithSession>> {
+        return timetableDao.observeTimeTablesWithDetails()
     }
 
-    override fun observeTimeTables(): Flow<List<TimeTable>> {
-        return timeTableDao.observeTimeTables()
+    override fun observeTimeTables(): Flow<List<Timetable>> {
+        return timetableDao.observeTimeTables()
     }
 
     /**
@@ -27,11 +28,11 @@ class TimeTableRepositoryImpl(
      *
      * @return The id of the newly inserted timetable
      * */
-    override suspend fun insertTimeTable(
-        timeTable: TimeTable,
+    override suspend fun insertTimetable(
+        timeTable: Timetable,
         sessions: List<Session>?
     ): Int {
-        val newTimeTableId = timeTableDao.insertTimeTable(timeTable).toInt()
+        val newTimeTableId = timetableDao.insertTimeTable(timeTable).toInt()
 
         if (sessions == null) {
             sessionDao.insertSessions(
@@ -49,17 +50,18 @@ class TimeTableRepositoryImpl(
     }
 
     override suspend fun deleteTimeTableById(id: Int) {
-        timeTableDao.deleteTimeTableById(id)
+        timetableDao.deleteTimeTableById(id)
     }
 
-    override suspend fun updateTimeTableName(id: Int, newName: String) {
-        timeTableDao.updateTimeTableName(id, newName)
+    override suspend fun updateTimetableName(id: Int, newName: String) {
+        timetableDao.updateTimeTableName(id, newName)
     }
 
-    override suspend fun editTimeTableLayout(timeTable: TimeTable) {
+    override suspend fun editTimetableLayout(timeTable: Timetable) {
         val timeTableId = timeTable.id
         val numberOfDays = timeTable.numberOfDays
         val startingDay = timeTable.startingDay
+
         val startTime = timeTable.startTime
         val endTime = timeTable.endTime
 
@@ -67,7 +69,12 @@ class TimeTableRepositoryImpl(
         val times = getTimes(startTime, endTime)
 
         sessionDao.deleteSessions(sessionDao.getSessionsByTimeTableId(timeTableId)
-            .filterNot { it.dayOfWeek in days || it.startTime in times }
+            .filterNot {
+                Log.d("TimetableRepositoryImpl", "Current session: $it")
+                Log.d("TimetableRepositoryImpl", "Days of week: $days, day of week: ${it.dayOfWeek}")
+                Log.d("TimetableRepositoryImpl", "Times: $times, day of week: ${it.startTime}")
+                it.dayOfWeek in days && it.startTime in times
+            }.also { Log.d("TimetableRepositoryImpl", it.toString()) }
         )
 
         sessionDao.insertSessions(
@@ -88,7 +95,7 @@ class TimeTableRepositoryImpl(
             }
         )
 
-        timeTableDao.updateTimeTableLayout(
+        timetableDao.updateTimeTableLayout(
             newNumberOfDays = numberOfDays,
             newStartingDay = startingDay,
             newStartTime = startTime,
@@ -97,15 +104,19 @@ class TimeTableRepositoryImpl(
         )
     }
 
-    override suspend fun getTimeTableWithDetails(id: Int): TimeTableWithSession? {
-        return timeTableDao.getTimeTableWithDetailsById(id)
+    override suspend fun getTimeTableWithDetails(id: Int): TimetableWithSession? {
+        return timetableDao.getTimeTableWithDetailsById(id)
+    }
+
+    override fun observeTimetableWithDetails(id: Int): Flow<TimetableWithSession?> {
+        return timetableDao.observeTimetableWithDetails(id)
     }
 
     override suspend fun getTimeTableNames(): List<String> {
-        return timeTableDao.getTimeTableNames()
+        return timetableDao.getTimeTableNames()
     }
 
-    override suspend fun getTimetableById(id: Int): TimeTable? {
-        return timeTableDao.getTimetableById(id)
+    override suspend fun getTimetableById(id: Int): Timetable? {
+        return timetableDao.getTimetableById(id)
     }
 }

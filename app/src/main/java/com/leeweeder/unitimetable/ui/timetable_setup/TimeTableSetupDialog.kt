@@ -76,7 +76,7 @@ import java.util.Locale
 fun TimeTableSetupDialog(
     onDismissRequest: () -> Unit,
     onNavigateToHomeScreen: (selectedTimeTableId: Int) -> Unit,
-    viewModel: TimeTableSetupViewModel = koinViewModel()
+    viewModel: TimetableSetupViewModel = koinViewModel()
 ) {
     val uiState by viewModel.uiState
     val eventFlow by viewModel.eventFlow.collectAsStateWithLifecycle(null)
@@ -103,7 +103,7 @@ private fun TimeTableSetupDialog(
     LaunchedEffect(uiEvent) {
         when (uiEvent) {
             is TimeTableSetUpUiEvent.FinishedSaving -> {
-                onNavigateToHomeScreen(uiEvent.timeTableId)
+                onNavigateToHomeScreen(uiEvent.timetableId)
             }
 
             null -> {
@@ -122,7 +122,7 @@ private fun TimeTableSetupDialog(
 
     AnimatedVisibility(isDaySelectionDialogVisible) {
         var selectedDayOfWeek by remember {
-            mutableStateOf(uiState.timeTable.startingDay)
+            mutableStateOf(uiState.timetable.startingDay)
         }
 
         com.leeweeder.unitimetable.ui.components.AlertDialog(
@@ -173,7 +173,7 @@ private fun TimeTableSetupDialog(
     }
 
     AnimatedVisibility(isNumberOfDaysSelectionDialogVisible) {
-        var sliderValue by remember { mutableIntStateOf(uiState.timeTable.numberOfDays) }
+        var sliderValue by remember { mutableIntStateOf(uiState.timetable.numberOfDays) }
 
         AlertDialog(onDismissRequest = dismissNumberOfDaySelectionDialog, confirmButton = {
             OkayTextButton(onClick = {
@@ -198,7 +198,7 @@ private fun TimeTableSetupDialog(
         })
     }
 
-    val timeTable = uiState.timeTable
+    val timeTable = uiState.timetable
 
     var isStartTimeSelectionDialogVisible by remember { mutableStateOf(false) }
 
@@ -244,7 +244,7 @@ private fun TimeTableSetupDialog(
                     onClick = onDismissRequest
                 )
             }, title = {
-                Text(uiState.timeTable.name)
+                Text(uiState.timetable.name)
             }, actions = {
                 TextButton("Save", onClick = {
                     onEvent(TimeTableSetupEvent.Save)
@@ -279,7 +279,7 @@ private fun TimeTableSetupDialog(
                             isNumberOfDaysSelectionDialogVisible = true
                         }
                     ) {
-                        TrailingContent(uiState.timeTable.numberOfDays.toString())
+                        TrailingContent(uiState.timetable.numberOfDays.toString())
                     }
                     ListItemCard(
                         label = "Start of day",
@@ -289,7 +289,7 @@ private fun TimeTableSetupDialog(
                         }
                     ) {
                         TrailingContent(
-                            uiState.timeTable.startingDay.getDisplayName(
+                            uiState.timetable.startingDay.getDisplayName(
                                 TextStyle.FULL_STANDALONE,
                                 Locale.getDefault()
                             )
@@ -305,7 +305,7 @@ private fun TimeTableSetupDialog(
                                     dayOfWeek.getDisplayName(
                                         TextStyle.SHORT_STANDALONE,
                                         Locale.getDefault()
-                                    ) + if (index != uiState.timeTable.numberOfDays - 1) ", " else "",
+                                    ) + if (index != uiState.timetable.numberOfDays - 1) ", " else "",
                                     style = MaterialTheme.typography.bodyLarge,
                                     color = MaterialTheme.colorScheme.onSurfaceVariant
                                 )
