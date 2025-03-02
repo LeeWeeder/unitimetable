@@ -56,6 +56,7 @@ interface TimetableDao {
     @Query("SELECT * FROM timetable WHERE id = :id")
     suspend fun getTimetableById(id: Int): Timetable?
 
+    @Transaction
     @Query("SELECT * FROM timetable WHERE id = :id")
     fun observeTimetableWithDetails(id: Int): Flow<TimetableWithSession?>
 }
