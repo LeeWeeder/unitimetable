@@ -12,3 +12,7 @@ Take a glance at your schedule on your homescreen!
 
 ### Download
 Latest version: 1.0.0. Download [here](https://github.com/LeeWeeder/unitimetable/releases/download/v1.0.0/unitimetable-1.0.0.apk)
+
+## License
+
+[GNU-GPL v3.0](https://github.com/LeeWeeder/unitimetable/blob/62c9c9b8430664eb9eba9fb72cff20c38868d658/LICENSE)
