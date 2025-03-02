@@ -27,19 +27,21 @@ class TimeTableNameViewModel(
     private val _timeTableName = mutableStateOf(DefaultTimetable.name)
     val timeTableName: State<String> = _timeTableName
 
-    private val route = Destination.Dialog.TimetableNameDialog.from(savedStateHandle)
-
-    // Expose this property to conditionally update name or navigate to setup dialog
-    private val timetable = route.timetable
-    val isRename = timetable != null
-
     private val _isSuccess = MutableStateFlow(false)
     val isSuccess: StateFlow<Boolean> = _isSuccess.asStateFlow()
 
-    val isInitialization = route.isInitialization
+    private val route = Destination.Dialog.TimetableNameDialog.from(savedStateHandle)
+    private val timetable = route.timetable
+
+    val isRename: Boolean
+        get() = timetable != null
+
+    val isInitialization: Boolean
+        get() = route.isInitialization.also {
+            Log.d(TAG, "Initialization: $it")
+        }
 
     init {
-
         // If the timetable is not null, this means the purpose of opening this dialog is to rename a timetable with given id and initial name
         if (isRename) {
             // The timetable should not be null since it's checked in isRename (I could be wrong)

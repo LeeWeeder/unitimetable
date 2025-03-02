@@ -4,8 +4,13 @@ import android.content.Context
 import androidx.datastore.preferences.core.Preferences
 import androidx.datastore.preferences.core.intPreferencesKey
 import androidx.datastore.preferences.core.stringPreferencesKey
+import androidx.datastore.preferences.core.stringSetPreferencesKey
 import androidx.glance.GlanceId
 import androidx.glance.appwidget.GlanceAppWidgetManager
+
+private const val PREF_TIMETABLE_ID = "unitimetable_widget_timetable_id="
+private const val PREF_DISPLAY_OPTIONS = "display_options"
+private const val PREF_LEGACY = "unitimetable_widget_"
 
 /**
  * Create a preferences key for a given widget ID.
@@ -27,7 +32,7 @@ internal fun createStringPreferencesKey(
     context: Context
 ): Preferences.Key<String> {
     return stringPreferencesKey(
-        "unitimetable_widget_${
+        "$PREF_LEGACY${
             GlanceAppWidgetManager(context).getAppWidgetId(
                 glanceId
             )
@@ -43,12 +48,27 @@ internal fun createStringPreferencesKey(
  *
  * @return the preferences key for the given widget ID
  * */
-internal fun createIntPreferencesKey(glanceId: GlanceId, context: Context): Preferences.Key<Int> {
+internal fun createWidgetTimetableIdKey(
+    glanceId: GlanceId,
+    context: Context
+): Preferences.Key<Int> {
     return intPreferencesKey(
-        "unitimetable_widget_timetable_id=${
+        "$PREF_TIMETABLE_ID${
             GlanceAppWidgetManager(context).getAppWidgetId(
                 glanceId
             )
         }"
     )
 }
+
+internal fun createDisplayOptionsKey(
+    glanceId: GlanceId,
+    context: Context
+): Preferences.Key<Set<String>> =
+    stringSetPreferencesKey(
+        "${PREF_DISPLAY_OPTIONS}_${
+            GlanceAppWidgetManager(context).getAppWidgetId(
+                glanceId
+            )
+        }"
+    )

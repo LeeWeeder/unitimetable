@@ -218,57 +218,71 @@ private fun <T> SearchableBottomSheetContent(
             HorizontalDivider(thickness = Dp.Hairline)
         }
 
-        AnimatedVisibility(
-            state.searchResults.isNotEmpty(), modifier = Modifier
-                .padding(horizontal = 16.dp)
-                .padding(top = 24.dp, bottom = 4.dp)
-        ) {
-            Text(
-                config.itemLabel,
-                style = MaterialTheme.typography.bodyMediumEmphasized,
-                color = MaterialTheme.colorScheme.outline
-            )
-        }
-
-        LazyColumn {
-            items(state.searchResults, key = { it.hashCode() }) { item ->
-                ListItem(
-                    overlineContent = {
-                        config.itemTransform.overlineText?.let {
-                            Text(it(item))
-                        }
-                    },
-                    headlineContent = {
-                        Text(config.itemTransform.headlineText(item))
-                    },
-                    supportingContent = {
-                        config.itemTransform.supportingText?.let {
-                            Text(it(item))
-                        }
-                    },
-                    colors = ListItemDefaults.colors(containerColor = Color.Transparent),
-                    modifier = Modifier
-                        .animateItem()
-                        .clickable {
-                            config.onItemClick(item)
-                            controller.hide()
-                        },
-                    trailingContent = {
-                        Row(
-                            verticalAlignment = Alignment.CenterVertically,
-                            horizontalArrangement = Arrangement.spacedBy(4.dp)
-                        ) {
-                            config.itemTransform.trailingContent?.let {
-                                it(item)
-                            }
-                            config.onItemEdit?.let {
-                                TextButton("Edit", onClick = {
-                                    it(item)
-                                })
-                            }
+        AnimatedContent(state.searchResults.isEmpty()) { listIsEmpty ->
+            if (!listIsEmpty) {
+                Column {
+                    AnimatedVisibility(
+                        state.searchResults.isNotEmpty(), modifier = Modifier
+                            .padding(horizontal = 16.dp)
+                            .padding(top = 24.dp, bottom = 4.dp)
+                    ) {
+                        Text(
+                            config.itemLabel,
+                            style = MaterialTheme.typography.bodyMediumEmphasized,
+                            color = MaterialTheme.colorScheme.outline
+                        )
+                    }
+                    LazyColumn {
+                        items(state.searchResults, key = { it.hashCode() }) { item ->
+                            ListItem(
+                                overlineContent = {
+                                    config.itemTransform.overlineText?.let {
+                                        Text(it(item))
+                                    }
+                                },
+                                headlineContent = {
+                                    Text(config.itemTransform.headlineText(item))
+                                },
+                                supportingContent = {
+                                    config.itemTransform.supportingText?.let {
+                                        Text(it(item))
+                                    }
+                                },
+                                colors = ListItemDefaults.colors(containerColor = Color.Transparent),
+                                modifier = Modifier
+                                    .animateItem()
+                                    .clickable {
+                                        config.onItemClick(item)
+                                        controller.hide()
+                                    },
+                                trailingContent = {
+                                    Row(
+                                        verticalAlignment = Alignment.CenterVertically,
+                                        horizontalArrangement = Arrangement.spacedBy(4.dp)
+                                    ) {
+                                        config.itemTransform.trailingContent?.let {
+                                            it(item)
+                                        }
+                                        config.onItemEdit?.let {
+                                            TextButton("Edit", onClick = {
+                                                it(item)
+                                            })
+                                        }
+                                    }
+                                }
+                            )
                         }
                     }
-                )
+                }
+            } else {
+                Box(modifier = Modifier.fillMaxWidth(), contentAlignment = Alignment.TopCenter) {
+                    Text(
+                        "No data available :)",
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = MaterialTheme.colorScheme.outline,
+                        modifier = Modifier.padding(top = 16.dp)
+                    )
+                }
             }
         }
     }

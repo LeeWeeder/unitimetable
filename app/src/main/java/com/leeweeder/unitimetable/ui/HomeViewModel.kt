@@ -19,23 +19,23 @@ import com.leeweeder.unitimetable.domain.repository.TimetableRepository
 import com.leeweeder.unitimetable.ui.HomeEvent.*
 import com.leeweeder.unitimetable.ui.HomeUiEvent.*
 import com.leeweeder.unitimetable.ui.components.searchable_bottom_sheet.SearchableBottomSheetStateFactory
-import com.leeweeder.unitimetable.ui.timetable_setup.DefaultTimetable
-import com.leeweeder.unitimetable.ui.util.getDays
-import com.leeweeder.unitimetable.ui.util.getTimes
 import com.leeweeder.unitimetable.util.Destination
 import com.leeweeder.unitimetable.util.Hue
 import kotlinx.coroutines.ExperimentalCoroutinesApi
+import kotlinx.coroutines.Job
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
+import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.catch
-import kotlinx.coroutines.flow.flatMapLatest
+import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.flow.launchIn
 import kotlinx.coroutines.flow.map
+import kotlinx.coroutines.flow.onEach
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import java.time.DayOfWeek
-import java.time.LocalTime
 
 private const val TAG = "HomeViewModel"
 
@@ -43,7 +43,7 @@ class HomeViewModel(
     private val timeTableRepository: TimetableRepository,
     private val sessionRepository: SessionRepository,
     subjectInstructorRepository: SubjectInstructorRepository,
-    dataStoreRepository: DataStoreRepository,
+    private val dataStoreRepository: DataStoreRepository,
     savedStateHandle: SavedStateHandle
 ) : ViewModel() {
     private val _uiState = MutableStateFlow(HomeUiState())
@@ -52,49 +52,16 @@ class HomeViewModel(
     private val _eventFlow = MutableStateFlow<HomeUiEvent?>(null)
     val eventFlow = _eventFlow.asStateFlow()
 
+    private var getSelectedTimetableIdJob: Job? = null
+
     @OptIn(ExperimentalCoroutinesApi::class)
-    val homeDataState = dataStoreRepository.timeTablePrefFlow
-        .flatMapLatest { timeTablePref ->
-            timeTableRepository.observeTimeTableWithDetails().map { timeTableWithDetails ->
-                val mainTableId = timeTablePref.mainTimeTableId
-
-                if (mainTableId == -1) {
-                    return@map HomeDataState.Loading
-                }
-
-                fun findTimeTableWithDetailsById(id: Int): TimetableWithSession? {
-                    return timeTableWithDetails
-                        .find { it.timetable.id == id }
-                }
-
-                val mainTimeTableWithDetails = findTimeTableWithDetailsById(mainTableId)
-                    ?: return@map HomeDataState.Error(IllegalStateException("Main timetable not found"))
-
-                val mainTimeTable = mainTimeTableWithDetails.timetable
-
-                // Only update the selectedTimeTable if it hasn't been set yet
-                if (_uiState.value.selectedTimetable == DefaultTimetable) {
-                    _uiState.update { state ->
-                        val passedSelectedTimeTableId =
-                            savedStateHandle.toRoute<Destination.Screen.HomeScreen>().selectedTimeTableId
-
-                        Log.d(TAG, "Passed selected time table id: $passedSelectedTimeTableId")
-
-                        state.copy(
-                            selectedTimetable = findTimeTableWithDetailsById(passedSelectedTimeTableId)?.timetable
-                                ?: mainTimeTable
-                        )
-                    }
-                }
-
-                Log.d(TAG, "Selected time table id: ${uiState.value.selectedTimetable.id}")
-
-                HomeDataState.Success(
-                    mainTimeTableId = mainTimeTable.id,
-                    timeTableWithDetails = timeTableWithDetails
-                )
+    val homeDataState: StateFlow<HomeDataState> = timeTableRepository.observeTimetablesWithDetails()
+        .map { timetablesWithDetails ->
+            HomeDataState.Success(timetablesWithDetails).also {
+                _eventFlow.emit(DoneLoading(shouldInitialize = timetablesWithDetails.isEmpty()))
             }
-        }.catch {
+        }
+        .catch {
             Log.e(TAG, "Error loading data", it)
             HomeDataState.Error(it)
         }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000L), HomeDataState.Loading)
@@ -111,13 +78,16 @@ class HomeViewModel(
                 (subjectInstructor.instructor != null && subjectInstructor.instructor.name.lowercase()
                     .contains(searchQuery)) ||
                         subjectInstructor.subject.code.lowercase().contains(searchQuery) ||
-                        subjectInstructor.subject.description.lowercase().contains(searchQuery)
+                        subjectInstructor.subject.description.lowercase()
+                            .contains(searchQuery)
             }
 
     init {
+        // Identify what is the selectedTimetableId
+        getSelectedTimetableId()
+
         // Check if there is a subjectInstructorId passed on navigation to this screen (not null)
         // If so, set the mode to edit with the passed id
-
         savedStateHandle.toRoute<Destination.Screen.HomeScreen>().subjectInstructorIdToBeScheduled?.let {
             onEvent(SetToEditMode(it))
         }
@@ -126,15 +96,8 @@ class HomeViewModel(
     fun onEvent(event: HomeEvent) {
         when (event) {
             is SelectTimeTable -> {
-                if (homeDataState.value is HomeDataState.Success) {
-                    _uiState.update { state ->
-                        state.copy(
-                            selectedTimetable = (homeDataState.value as HomeDataState.Success)
-                                .timeTableWithDetails
-                                .map { it.timetable }
-                                .find { it.id == event.newTimeTableId }!!
-                        )
-                    }
+                viewModelScope.launch {
+                    dataStoreRepository.setSelectedTimetable(event.newSelectedTimetableId)
                 }
             }
 
@@ -198,10 +161,30 @@ class HomeViewModel(
             }
         }
     }
+
+    private fun getSelectedTimetableId() {
+        getSelectedTimetableIdJob?.cancel()
+        getSelectedTimetableIdJob = dataStoreRepository.selectedTimetableIdFlow
+            .onEach { selectedTimetableId ->
+                val timetables = timeTableRepository.observeTimetables().first()
+                if (timetables.find { it.id == selectedTimetableId } != null) {
+                    _uiState.update { state ->
+                        state.copy(selectedTimetableId = selectedTimetableId)
+                    }
+                } else {
+                    if (timetables.isNotEmpty()) {
+                        _uiState.update { state ->
+                            state.copy(selectedTimetableId = timetables.first().id)
+                        }
+                    }
+                }
+            }
+            .launchIn(viewModelScope)
+    }
 }
 
 sealed interface HomeEvent {
-    data class SelectTimeTable(val newTimeTableId: Int) : HomeEvent
+    data class SelectTimeTable(val newSelectedTimetableId: Int) : HomeEvent
 
     data class SetSessionWithActiveSubjectInstructor(val sessionId: Session) :
         HomeEvent
@@ -215,30 +198,34 @@ sealed interface HomeEvent {
 sealed interface HomeUiEvent {
     data class SuccessTimetableDeletion(val deletedTimetableWithDetails: TimetableWithSession) :
         HomeUiEvent
+
+    data class DoneLoading(val shouldInitialize: Boolean = false /* The selected timetable is the default value */) :
+        HomeUiEvent
 }
 
 sealed interface HomeDataState {
     data class Success(
-        val mainTimeTableId: Int,
         val timeTableWithDetails: List<TimetableWithSession> = emptyList()
     ) : HomeDataState {
 
-        fun getGroupedSchedules(timeTableId: Int, days: List<DayOfWeek>): List<List<Schedule>> {
-            return getSessionsWithSubjectInstructor(timeTableId).toGroupedSchedules(days)
+        fun getSelectedTimetableSessionWithDetails(id: Int): List<SessionWithDetails> {
+            return timeTableWithDetails.find { it.timetable.id == id }?.sessions
+                ?: timeTableWithDetails.firstOrNull()?.sessions ?: emptyList()
         }
 
-        fun getSessionsWithSubjectInstructor(timeTableId: Int): List<SessionWithDetails> {
-            return timeTableWithDetails
-                .find { it.timetable.id == timeTableId }
-                ?.sessions
-                ?: emptyList()
+        fun getSelectedTimetableGroupedSchedules(id: Int): List<List<Schedule>> {
+            return getSelectedTimetable(id)?.let {
+                getSelectedTimetableSessionWithDetails(id).toGroupedSchedules(it.days)
+            } ?: emptyList()
         }
-
-        val mainTimetable: Timetable
-            get() = timetables.find { it.id == mainTimeTableId }!!
 
         val timetables: List<Timetable>
             get() = timeTableWithDetails.map { it.timetable }
+
+        /** Returns the timetable of the given the id, the first item if none match  and null if empty */
+        fun getSelectedTimetable(id: Int): Timetable? {
+            return timetables.find { it.id == id } ?: timetables.firstOrNull()
+        }
     }
 
     data class Error(val throwable: Throwable) : HomeDataState
@@ -246,16 +233,10 @@ sealed interface HomeDataState {
 }
 
 data class HomeUiState(
-    val selectedTimetable: Timetable = DefaultTimetable,
     val isOnEditMode: Boolean = false,
+    val selectedTimetableId: Int = -1,
     val activeSubjectInstructorIdForScheduling: Int? = null
-) {
-    val startTimes: List<LocalTime>
-        get() = getTimes(selectedTimetable.startTime, selectedTimetable.endTime)
-
-    val days: List<DayOfWeek>
-        get() = getDays(selectedTimetable.startingDay, selectedTimetable.numberOfDays)
-}
+)
 
 @VisibleForTesting
 fun isSameSchedule(pair: Pair<Schedule, Schedule>): Boolean {

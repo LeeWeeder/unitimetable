@@ -15,6 +15,7 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.res.painterResource
+import androidx.compose.ui.window.DialogProperties
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.leeweeder.unitimetable.R
 import com.leeweeder.unitimetable.ui.timetable_setup.components.CancelTextButton
@@ -23,8 +24,7 @@ import org.koin.androidx.compose.koinViewModel
 @Composable
 fun TimeTableNameDialog(
     onDismissRequest: () -> Unit,
-    onNavigateToTimeTableSetupDialog: (timeTableName: String, isInitialization: Boolean) -> Unit,
-    isCancelButtonEnabled: Boolean,
+    onNavigateToTimeTableSetupDialog: (timeTableName: String) -> Unit,
     viewModel: TimeTableNameViewModel = koinViewModel()
 ) {
     val defaultTimeTableName by viewModel.timeTableName
@@ -32,9 +32,9 @@ fun TimeTableNameDialog(
     TimeTableNameDialog(
         defaultTimeTableName = defaultTimeTableName,
         onDismissRequest = onDismissRequest,
-        isCancelButtonEnabled = isCancelButtonEnabled,
+        isCancelButtonEnabled = !viewModel.isInitialization,
         onNavigateToTimeTableSetupDialog = {
-            onNavigateToTimeTableSetupDialog(it, viewModel.isInitialization)
+            onNavigateToTimeTableSetupDialog(it)
         },
         isRename = viewModel.isRename,
         onSaveNewName = viewModel::saveTimeTableName,
@@ -68,7 +68,8 @@ fun TimeTableNameDialog(
     }
 
     AlertDialog(
-        onDismissRequest = onDismissRequest, confirmButton = {
+        onDismissRequest = onDismissRequest,
+        confirmButton = {
             Button(
                 onClick = {
                     if (isRename) {
@@ -81,11 +82,14 @@ fun TimeTableNameDialog(
             ) {
                 Text(if (isRename) "Save" else "Next")
             }
-        }, dismissButton = {
+        },
+        dismissButton = {
             CancelTextButton(onClick = onDismissRequest, enabled = isCancelButtonEnabled)
-        }, title = {
+        },
+        title = {
             Text("Enter time table name")
-        }, text = {
+        },
+        text = {
             OutlinedTextField(
                 value = timeTableName,
                 onValueChange = { timeTableName = it },
@@ -105,6 +109,6 @@ fun TimeTableNameDialog(
                     }
                 }
             )
-        }
+        }, properties = DialogProperties(dismissOnBackPress = isCancelButtonEnabled, dismissOnClickOutside = isCancelButtonEnabled)
     )
 }

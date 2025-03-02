@@ -5,58 +5,60 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.leeweeder.unitimetable.domain.model.Timetable
-import com.leeweeder.unitimetable.domain.repository.DataStoreRepository
 import com.leeweeder.unitimetable.domain.repository.TimetableRepository
+import com.leeweeder.unitimetable.feature_widget.model.DisplayOption
 import com.leeweeder.unitimetable.ui.components.searchable_bottom_sheet.SearchableBottomSheetStateFactory
-import kotlinx.coroutines.flow.MutableStateFlow
-import kotlinx.coroutines.flow.StateFlow
-import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
 
 class WidgetConfigurationScreenViewModel(
-    private val dataStoreRepository: DataStoreRepository,
-    private val timeTableRepository: TimetableRepository
+    timetableRepository: TimetableRepository
 ) : ViewModel() {
     private val _selectedTimetable = mutableStateOf<Timetable?>(null)
     val selectedTimetable: State<Timetable?> = _selectedTimetable
 
-    private val _timetableId = MutableStateFlow<Int?>(null)
-    val timetableId: StateFlow<Int?> = _timetableId.asStateFlow()
+    private val _displayOptions = mutableStateOf(DisplayOption.DEFAULT)
+    val displayOptions: State<Set<DisplayOption>> = _displayOptions
 
-    init {
-        viewModelScope.launch {
-            // TODO: Fetch the current selected timetable id, default to mainTimeTable if first time
-            val mainTimetableId = dataStoreRepository.timeTablePrefFlow.first().mainTimeTableId
-
-            _selectedTimetable.value = timeTableRepository.getTimetableById(mainTimetableId)
-        }
-    }
-
-    fun onEvent(event: WidgetConfigurationScreenEvent) {
-        when (event) {
-            is WidgetConfigurationScreenEvent.Save -> {
-                selectedTimetable.value?.id?.let {
-                    viewModelScope.launch {
-                        _timetableId.emit(it)
-                    }
-                }
-            }
-
-            is WidgetConfigurationScreenEvent.SelectTimeTable -> {
-                _selectedTimetable.value = event.value
-            }
-        }
-    }
+    private val timetablesFlow: Flow<List<Timetable>> = timetableRepository.observeTimetables()
 
     val bottomSheetState = SearchableBottomSheetStateFactory(viewModelScope).create(
-        timeTableRepository.observeTimeTables()
-    ) { timeTable, searchQuery ->
-        timeTable.name.lowercase().contains(searchQuery.lowercase())
+        timetablesFlow
+    ) { timetable, searchQuery ->
+        timetable.name.lowercase().contains(searchQuery.lowercase())
     }
-}
 
-sealed interface WidgetConfigurationScreenEvent {
-    data class SelectTimeTable(val value: Timetable) : WidgetConfigurationScreenEvent
-    data object Save : WidgetConfigurationScreenEvent
+    fun selectTimetable(id: Int?) {
+        viewModelScope.launch {
+            // Wait for first emission of timetables
+            val timetables: List<Timetable> = timetablesFlow.first()
+            if (timetables.isEmpty()) return@launch
+
+            _selectedTimetable.value = when (id) {
+                null -> timetables.first()
+                else -> timetables.find { it.id == id } ?: timetables.first()
+            }
+        }
+    }
+
+    fun toggleDisplayOption(option: DisplayOption) {
+        if (_displayOptions.value.contains(option)) {
+            // Only remove if it's not the last selected option
+            if (_displayOptions.value.size > 1) {
+                _displayOptions.value = _displayOptions.value - option
+            }
+        } else {
+            _displayOptions.value = _displayOptions.value + option
+        }
+    }
+
+    fun setDisplayOptions(options: Set<DisplayOption>) {
+        // Ensure we always have at least one option
+        _displayOptions.value = if (options.isEmpty()) {
+            DisplayOption.DEFAULT
+        } else {
+            options
+        }
+    }
 }
