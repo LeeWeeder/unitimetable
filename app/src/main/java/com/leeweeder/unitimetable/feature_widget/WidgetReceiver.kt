@@ -55,11 +55,14 @@ import androidx.glance.unit.ColorProvider
 import com.leeweeder.unitimetable.domain.repository.TimetableRepository
 import com.leeweeder.unitimetable.feature_widget.model.DisplayOption
 import com.leeweeder.unitimetable.feature_widget.model.toStringSet
+import com.leeweeder.unitimetable.feature_widget.ui.components.BorderContainer
+import com.leeweeder.unitimetable.feature_widget.ui.components.BorderContainerDefaults
+import com.leeweeder.unitimetable.feature_widget.ui.components.BorderProperties
+import com.leeweeder.unitimetable.feature_widget.ui.components.BorderProperty
 import com.leeweeder.unitimetable.feature_widget.ui.theme.WidgetTheme
 import com.leeweeder.unitimetable.feature_widget.util.createDisplayOptionsKey
 import com.leeweeder.unitimetable.feature_widget.util.createStringPreferencesKey
 import com.leeweeder.unitimetable.feature_widget.util.createWidgetTimetableIdKey
-import com.leeweeder.unitimetable.ui.CellBorderDirection
 import com.leeweeder.unitimetable.ui.Schedule
 import com.leeweeder.unitimetable.ui.toGroupedSchedules
 import com.leeweeder.unitimetable.ui.util.Constants
@@ -286,7 +289,12 @@ fun Widget(
         ) {
             // Header
             BorderContainer(
-                width = BorderSize.of(bottom = BorderWidth),
+                width = BorderProperties.of(
+                    bottom = BorderProperty(
+                        1.dp,
+                        BorderContainerDefaults.color
+                    )
+                ),
                 modifier = GlanceModifier.height(headerRowHeight).fillMaxWidth().labelBackground()
             ) {
                 Row(modifier = GlanceModifier.fillMaxWidth()) {
@@ -355,9 +363,11 @@ private fun Grid(
                     BorderContainer(
                         modifier = GlanceModifier.height(rowHeight * periodSpan)
                             .fillMaxWidth(),
-                        width = BorderSize.of(
-                            bottom = BorderWidth,
-                            start = if (index == 0) BorderWidth else 0.dp
+                        width = BorderProperties.of(
+                            bottom = BorderProperty(1.dp, BorderContainerDefaults.color),
+                            start = if (index == 0 || schedule.subjectInstructor == null) BorderProperty() else BorderProperty(
+                                1.dp
+                            )
                         ),
                         contentAlignment = Alignment.Center
                     ) {
@@ -460,43 +470,6 @@ private fun Grid(
     }
 }
 
-@ConsistentCopyVisibility
-data class BorderSize private constructor(
-    val top: Dp,
-    val bottom: Dp,
-    val start: Dp,
-    val end: Dp
-) {
-    companion object {
-        fun of(all: Dp): BorderSize {
-            return BorderSize(all, all, all, all)
-        }
-
-        fun of(horizontal: Dp, vertical: Dp = 0.dp): BorderSize {
-            return BorderSize(
-                start = horizontal,
-                end = horizontal,
-                top = vertical,
-                bottom = vertical
-            )
-        }
-
-        fun of(
-            top: Dp = 0.dp,
-            bottom: Dp = 0.dp,
-            start: Dp = 0.dp,
-            end: Dp = 0.dp
-        ): BorderSize {
-            return BorderSize(
-                start = start,
-                end = end,
-                top = top,
-                bottom = bottom
-            )
-        }
-    }
-}
-
 fun Context.textAsBitmap(
     text: String,
     style: androidx.compose.ui.text.TextStyle,
@@ -538,75 +511,10 @@ fun GlanceText(
 }
 
 @Composable
-private fun BorderContainer(
-    width: BorderSize = BorderSize.of(BorderWidth),
-    contentAlignment: Alignment = Alignment.TopStart,
-    modifier: GlanceModifier = GlanceModifier,
-    content: (@Composable () -> Unit)? = null
-) {
-    Row(modifier) {
-        if (width.start.value != 0f) CellBorder(
-            CellBorderDirection.Vertical,
-            thickness = width.start
-        )
-
-        Column(modifier = GlanceModifier.defaultWeight().fillMaxHeight()) {
-            if (width.top.value != 0f) {
-                CellBorder(CellBorderDirection.Horizontal, thickness = width.top)
-            }
-
-            content?.let {
-                Box(
-                    modifier = GlanceModifier.defaultWeight(),
-                    contentAlignment = contentAlignment
-                ) {
-                    it()
-                }
-            }
-
-            if (width.bottom.value != 0f) {
-                CellBorder(CellBorderDirection.Horizontal, thickness = width.bottom)
-            }
-        }
-
-        if (width.end.value != 0f) {
-            CellBorder(CellBorderDirection.Vertical, thickness = width.end)
-        }
-    }
-}
-
-private val BorderWidth = 1.dp
-
-@Composable
 private fun GlanceModifier.labelBackground() =
     this.background(
         GlanceTheme.colors.surface.getColor(LocalContext.current).copy(alpha = 0.5f)
     )
-
-@Composable
-private fun CellBorder(
-    borderDirection: CellBorderDirection,
-    thickness: Dp,
-    color: Color = DefaultBorderColor
-) {
-    when (borderDirection) {
-        CellBorderDirection.Horizontal -> {
-            Box(
-                modifier = GlanceModifier.fillMaxWidth().height(thickness).background(color)
-            ) { }
-        }
-
-        CellBorderDirection.Vertical -> {
-            Box(
-                modifier = GlanceModifier.fillMaxHeight().width(thickness).background(color)
-            ) { }
-        }
-    }
-}
-
-private val DefaultBorderColor: Color
-    @Composable
-    get() = GlanceTheme.colors.outline.getColor(LocalContext.current)
 
 @SuppressLint("RestrictedApi")
 @Composable
