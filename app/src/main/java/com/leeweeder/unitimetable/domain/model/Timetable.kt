@@ -3,6 +3,8 @@ package com.leeweeder.unitimetable.domain.model
 import androidx.room.Entity
 import androidx.room.Index
 import androidx.room.PrimaryKey
+import com.leeweeder.unitimetable.ui.util.getDays
+import com.leeweeder.unitimetable.ui.util.getTimes
 import kotlinx.serialization.Serializable
 import java.time.DayOfWeek
 import java.time.LocalTime
@@ -33,6 +35,12 @@ data class Timetable(
             endTimeHour = endTime.hour
         )
     }
+
+    val startTimes: List<LocalTime>
+        get() = getTimes(startTime, endTime)
+
+    val days: List<DayOfWeek>
+        get() = getDays(startingDay, numberOfDays)
 }
 
 @Serializable
