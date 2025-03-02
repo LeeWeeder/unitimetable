@@ -11,8 +11,7 @@ sealed interface Destination {
 
         @Serializable
         data class TimeTableSetupDialog(
-            val timetable: SerializableTimetable,
-            val selectedTimeTableId: Int
+            val timetable: SerializableTimetable
         ) : Dialog {
 
             companion object {
@@ -27,7 +26,6 @@ sealed interface Destination {
         @Serializable
         data class TimetableNameDialog(
             val isInitialization: Boolean = false,
-            val selectedTimeTableId: Int,
             val timetable: TimetableIdAndName? = null
         ) : Dialog {
             companion object {
@@ -41,8 +39,7 @@ sealed interface Destination {
 
         @Serializable
         data class ScheduleEntryDialog(
-            val subjectInstructorId: Int?,
-            val timeTableId: Int
+            val subjectInstructorId: Int?
         ) : Dialog
 
         @Serializable
@@ -63,8 +60,7 @@ sealed interface Destination {
 
         @Serializable
         data class HomeScreen(
-            val subjectInstructorIdToBeScheduled: Int? = null,
-            val selectedTimeTableId: Int
+            val subjectInstructorIdToBeScheduled: Int? = null
         ) :
             Screen
     }

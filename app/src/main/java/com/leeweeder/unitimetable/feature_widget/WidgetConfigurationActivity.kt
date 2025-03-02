@@ -10,16 +10,23 @@ import androidx.activity.ComponentActivity
 import androidx.activity.SystemBarStyle
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
+import androidx.datastore.preferences.core.Preferences
 import androidx.glance.GlanceId
 import androidx.glance.appwidget.GlanceAppWidgetManager
+import androidx.glance.appwidget.state.getAppWidgetState
 import androidx.glance.appwidget.state.updateAppWidgetState
+import androidx.glance.state.PreferencesGlanceStateDefinition
 import androidx.lifecycle.lifecycleScope
+import com.leeweeder.unitimetable.feature_widget.model.DisplayOption
+import com.leeweeder.unitimetable.feature_widget.model.toStringSet
 import com.leeweeder.unitimetable.feature_widget.ui.WidgetConfigurationScreen
-import com.leeweeder.unitimetable.feature_widget.util.createIntPreferencesKey
+import com.leeweeder.unitimetable.feature_widget.util.createDisplayOptionsKey
+import com.leeweeder.unitimetable.feature_widget.util.createWidgetTimetableIdKey
 import com.leeweeder.unitimetable.ui.theme.AppTheme
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.runBlocking
 
 class WidgetConfigurationActivity : ComponentActivity() {
     private var appWidgetId = AppWidgetManager.INVALID_APPWIDGET_ID
@@ -43,6 +50,29 @@ class WidgetConfigurationActivity : ComponentActivity() {
         val resultValue = Intent().putExtra(AppWidgetManager.EXTRA_APPWIDGET_ID, appWidgetId)
         setResult(RESULT_CANCELED, resultValue)
 
+        val glanceId = getGlanceId()
+        val (initialTimetableId: Int?, initialDisplayOptions: Set<DisplayOption>) = runBlocking {
+            try {
+                val prefs: Preferences = getAppWidgetState(
+                    context = this@WidgetConfigurationActivity,
+                    glanceId = glanceId,
+                    definition = PreferencesGlanceStateDefinition
+                )
+                prefs[createWidgetTimetableIdKey(
+                    glanceId,
+                    this@WidgetConfigurationActivity
+                )] to DisplayOption.fromString(
+                    prefs[createDisplayOptionsKey(
+                        glanceId,
+                        this@WidgetConfigurationActivity
+                    )] ?: DisplayOption.DEFAULT.toStringSet()
+                )
+            } catch (e: Exception) {
+                Log.e("WidgetConfiguration", "Error getting initial state", e)
+                null to DisplayOption.DEFAULT
+            }
+        }
+
         setContent {
             enableEdgeToEdge(
                 navigationBarStyle = SystemBarStyle.auto(
@@ -50,44 +80,55 @@ class WidgetConfigurationActivity : ComponentActivity() {
                     darkScrim = Color.TRANSPARENT
                 )
             )
-            // Your configuration UI here
             AppTheme {
                 WidgetConfigurationScreen(
                     onCancelClick = {
                         finish()
                     },
-                    onDone = {
-                        saveWidgetConfiguration(it)
+                    onDone = { timetableId: Int, displayOptions: Set<DisplayOption> ->
+                        saveWidgetConfiguration(
+                            timetableId = timetableId,
+                            displayOptions = displayOptions
+                        )
                         val resultValue = Intent().apply {
                             putExtra(AppWidgetManager.EXTRA_APPWIDGET_ID, appWidgetId)
                         }
                         setResult(RESULT_OK, resultValue)
                         finish()
-                    }
+                    },
+                    initialTimetableId = initialTimetableId.also {
+                        Log.d("WidgetConfiguration", "Initial timetable ID: $it")
+                    },
+                    initialDisplayOptions = initialDisplayOptions
                 )
             }
         }
     }
 
-    private fun saveWidgetConfiguration(value: Int) {
+    private fun getGlanceId() = GlanceAppWidgetManager(this).getGlanceIdBy(appWidgetId)
+
+    private fun saveWidgetConfiguration(timetableId: Int, displayOptions: Set<DisplayOption>) {
         saveWidgetConfiguration(
-            value = value,
+            timetableId = timetableId,
+            displayOptions = displayOptions,
             scope = lifecycleScope,
             context = this,
-            glanceId = GlanceAppWidgetManager(this).getGlanceIdBy(appWidgetId)
+            glanceId = getGlanceId()
         )
     }
 }
 
 fun saveWidgetConfiguration(
-    value: Int,
+    timetableId: Int,
+    displayOptions: Set<DisplayOption>,
     scope: CoroutineScope,
     context: Context,
     glanceId: GlanceId
 ) {
     scope.launch(Dispatchers.IO) {
         updateAppWidgetState(context, glanceId) { prefs ->
-            prefs[createIntPreferencesKey(glanceId, context)] = value
+            prefs[createWidgetTimetableIdKey(glanceId, context)] = timetableId
+            prefs[createDisplayOptionsKey(glanceId, context)] = displayOptions.toStringSet()
         }
 
         // Update the widget

@@ -75,7 +75,7 @@ import java.util.Locale
 @Composable
 fun TimeTableSetupDialog(
     onDismissRequest: () -> Unit,
-    onNavigateToHomeScreen: (selectedTimeTableId: Int) -> Unit,
+    onNavigateToHomeScreen: () -> Unit,
     viewModel: TimetableSetupViewModel = koinViewModel()
 ) {
     val uiState by viewModel.uiState
@@ -95,7 +95,7 @@ fun TimeTableSetupDialog(
 @Composable
 private fun TimeTableSetupDialog(
     onDismissRequest: () -> Unit,
-    onNavigateToHomeScreen: (selectedTimeTableId: Int) -> Unit,
+    onNavigateToHomeScreen: () -> Unit,
     uiEvent: TimeTableSetUpUiEvent?,
     uiState: TimeTableSetupUiState,
     onEvent: (TimeTableSetupEvent) -> Unit
@@ -103,7 +103,7 @@ private fun TimeTableSetupDialog(
     LaunchedEffect(uiEvent) {
         when (uiEvent) {
             is TimeTableSetUpUiEvent.FinishedSaving -> {
-                onNavigateToHomeScreen(uiEvent.timetableId)
+                onNavigateToHomeScreen()
             }
 
             null -> {

@@ -28,7 +28,6 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.AssistChip
 import androidx.compose.material3.AssistChipDefaults
-import androidx.compose.material3.Badge
 import androidx.compose.material3.DrawerState
 import androidx.compose.material3.DrawerValue
 import androidx.compose.material3.DropdownMenu
@@ -60,6 +59,7 @@ import androidx.compose.material3.rememberTooltipState
 import androidx.compose.material3.surfaceColorAtElevation
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
@@ -84,7 +84,6 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.unit.toSize
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
-import com.leeweeder.unitimetable.NonExistingMainTimeTableId
 import com.leeweeder.unitimetable.R
 import com.leeweeder.unitimetable.domain.model.Instructor
 import com.leeweeder.unitimetable.domain.model.Session
@@ -121,12 +120,12 @@ import kotlin.collections.component2
 
 @Composable
 fun HomeScreen(
-    selectedTimeTableId: Int,
-    onNavigateToTimeTableNameDialog: (isInitialization: Boolean, selectedTimeTableId: Int, timetable: TimetableIdAndName?) -> Unit,
-    onNavigateToScheduleEntryDialog: (Int?, Int) -> Unit,
+    onNavigateToTimeTableNameDialog: (isInitialization: Boolean, timetable: TimetableIdAndName?) -> Unit,
+    onNavigateToScheduleEntryDialog: (Int?) -> Unit,
     onNavigateToEditTimetableLayoutScreen: (Timetable) -> Unit,
     onDeleteTimetableSuccessful: (TimetableWithSession) -> Unit,
-    viewModel: HomeViewModel = koinViewModel()
+    viewModel: HomeViewModel = koinViewModel(),
+    onDoneLoading: () -> Unit
 ) {
     val dataState by viewModel.homeDataState.collectAsStateWithLifecycle()
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
@@ -137,22 +136,16 @@ fun HomeScreen(
         Log.d("HomeScreen", "Loading...")
     }
 
-    LaunchedEffect(Unit) {
-        if (selectedTimeTableId == NonExistingMainTimeTableId) {
-            // TODO: Implement navigating away to initialize main time table id
-        }
-    }
-
     HomeScreen(
         dataState = dataState,
         uiState = uiState,
         onEvent = viewModel::onEvent,
         onNavigateToNewTimeTableNameDialog = {
-            onNavigateToTimeTableNameDialog(false, uiState.selectedTimetable.id, null)
+            onNavigateToTimeTableNameDialog(false, null)
         },
         onNavigateToTimetableNameDialog = {
             onNavigateToTimeTableNameDialog(
-                false, uiState.selectedTimetable.id, TimetableIdAndName(
+                false, TimetableIdAndName(
                     id = it.id,
                     name = it.name
                 )
@@ -162,7 +155,8 @@ fun HomeScreen(
         scheduleEntryBottomSheetState = viewModel.scheduleEntryBottomSheetState,
         onNavigateToEditTimetableLayoutScreen = onNavigateToEditTimetableLayoutScreen,
         eventFlow = viewModel.eventFlow.collectAsStateWithLifecycle().value,
-        onDeleteTimetableSuccessful = onDeleteTimetableSuccessful
+        onDeleteTimetableSuccessful = onDeleteTimetableSuccessful,
+        onDoneLoading = onDoneLoading
     )
 }
 
@@ -174,11 +168,12 @@ private fun HomeScreen(
     uiState: HomeUiState,
     onNavigateToNewTimeTableNameDialog: () -> Unit,
     onNavigateToTimetableNameDialog: (Timetable) -> Unit,
-    onNavigateToScheduleEntryDialog: (subjectInstructorId: Int?, selectedTimeTableId: Int) -> Unit,
+    onNavigateToScheduleEntryDialog: (subjectInstructorId: Int?) -> Unit,
     onNavigateToEditTimetableLayoutScreen: (Timetable) -> Unit,
     onEvent: (HomeEvent) -> Unit,
     eventFlow: HomeUiEvent?,
     scheduleEntryBottomSheetState: SearchableBottomSheetStateHolder<SubjectInstructorCrossRefWithDetails>,
+    onDoneLoading: () -> Unit,
     onDeleteTimetableSuccessful: (TimetableWithSession) -> Unit
 ) {
     val drawerState = rememberDrawerState(initialValue = DrawerValue.Closed)
@@ -199,6 +194,15 @@ private fun HomeScreen(
             }
 
             null -> Unit
+
+            is HomeUiEvent.DoneLoading -> {
+                if (eventFlow.shouldInitialize) {
+                    onDoneLoading()
+                    onNavigateToNewTimeTableNameDialog()
+                } else {
+                    onDoneLoading()
+                }
+            }
         }
 
         onEvent(HomeEvent.ClearUiEvent)
@@ -221,10 +225,10 @@ private fun HomeScreen(
             searchPlaceholderTitle = "schedule entry",
             itemLabel = "Schedule entries",
             onItemClick = { onEvent(HomeEvent.SetToEditMode(it.id)) },
-            onItemEdit = { onNavigateToScheduleEntryDialog(it.id, uiState.selectedTimetable.id) },
+            onItemEdit = { onNavigateToScheduleEntryDialog(it.id) },
             actionButtonConfig = CreateButtonConfig(
                 fromScratch = CreateButtonProperties.FromScratch(label = "schedule") {
-                    onNavigateToScheduleEntryDialog(null, uiState.selectedTimetable.id)
+                    onNavigateToScheduleEntryDialog(null)
                 }
             ),
             itemTransform = ItemTransform(
@@ -261,7 +265,6 @@ private fun HomeScreen(
         drawerContent = {
             TimeTableNavigationDrawer(
                 drawerState = drawerState,
-                selectedTimetable = uiState.selectedTimetable,
                 onTimeTableClick = { timeTableId ->
                     onEvent(HomeEvent.SelectTimeTable(timeTableId))
                     closeDrawer()
@@ -272,14 +275,26 @@ private fun HomeScreen(
                     isTimetableDeleteConfirmationDialogVisible = true
                     toBeDeletedTimetableId = it
                 },
-                onEditLayoutClick = onNavigateToEditTimetableLayoutScreen
+                onEditLayoutClick = onNavigateToEditTimetableLayoutScreen,
+                selectedTimetableId = uiState.selectedTimetableId
             )
         }, drawerState = drawerState
     ) {
         Scaffold(snackbarHost = {
             SnackbarHost(hostState = snackBarHostState)
         }, topBar = {
-            TopAppBar(title = uiState.selectedTimetable.name,
+            val title by remember(dataState, uiState.selectedTimetableId) {
+                derivedStateOf {
+                    if (dataState is HomeDataState.Success && dataState.getSelectedTimetable(uiState.selectedTimetableId) != null) {
+                        dataState.getSelectedTimetable(uiState.selectedTimetableId)!!.name
+                    } else {
+                        "Timetable"
+                    }
+                }
+            }
+
+            TopAppBar(
+                title = title,
                 topAppBarMode = if (uiState.isOnEditMode) {
                     TopAppBarMode.EditMode(onDoneClick = {
                         onEvent(HomeEvent.SetToDefaultMode)
@@ -313,27 +328,35 @@ private fun HomeScreen(
                             CellBorder(CellBorderDirection.Vertical)
                         }
 
-                        uiState.days.forEach { dayOfWeek ->
-                            val backgroundColor = if (dayOfWeek == LocalDate.now().dayOfWeek) {
-                                MaterialTheme.colorScheme.primary.copy(alpha = 0.1f)
-                            } else {
-                                Color.Transparent
-                            }
+                        if (dataState is HomeDataState.Success) {
+                            dataState.getSelectedTimetable(uiState.selectedTimetableId)
+                                ?.let { selectedTimetable ->
+                                    selectedTimetable.days.forEach { dayOfWeek ->
+                                        val backgroundColor =
+                                            if (dayOfWeek == LocalDate.now().dayOfWeek) {
+                                                MaterialTheme.colorScheme.primary.copy(alpha = 0.1f)
+                                            } else {
+                                                Color.Transparent
+                                            }
 
-                            Box(
-                                modifier = Modifier
-                                    .weight(1f)
-                                    .fillMaxHeight()
-                                    .background(color = backgroundColor),
-                                contentAlignment = Alignment.Center
-                            ) {
-                                Text(
-                                    dayOfWeek.getDisplayName(
-                                        TextStyle.SHORT_STANDALONE, Locale.getDefault()
-                                    ),
-                                    style = MaterialTheme.typography.labelMedium.copy(fontWeight = FontWeight.Normal)
-                                )
-                            }
+                                        Box(
+                                            modifier = Modifier
+                                                .weight(1f)
+                                                .fillMaxHeight()
+                                                .background(color = backgroundColor),
+                                            contentAlignment = Alignment.Center
+                                        ) {
+                                            Text(
+                                                dayOfWeek.getDisplayName(
+                                                    TextStyle.SHORT_STANDALONE, Locale.getDefault()
+                                                ),
+                                                style = MaterialTheme.typography.labelMedium.copy(
+                                                    fontWeight = FontWeight.Normal
+                                                )
+                                            )
+                                        }
+                                    }
+                                }
                         }
                     }
                 }
@@ -349,65 +372,70 @@ private fun HomeScreen(
                     // Leader
                     LabelContainer(modifier = Modifier.width(leaderColumnWidth)) {
                         Column(modifier = Modifier.weight(1f)) {
-                            val startTimes = uiState.startTimes
                             CellBorder(borderDirection = CellBorderDirection.Horizontal)
-                            startTimes.forEachIndexed { index, period ->
-                                Row(
-                                    modifier = Modifier.height(RowHeight),
-                                    verticalAlignment = Alignment.CenterVertically
-                                ) {
-                                    val style = MaterialTheme.typography.bodySmallEmphasized
+                            if (dataState is HomeDataState.Success) {
+                                dataState.getSelectedTimetable(uiState.selectedTimetableId)
+                                    ?.let { selectedTimetable ->
+                                        selectedTimetable.startTimes.forEachIndexed { index, period ->
+                                            Row(
+                                                modifier = Modifier.height(RowHeight),
+                                                verticalAlignment = Alignment.CenterVertically
+                                            ) {
+                                                val style =
+                                                    MaterialTheme.typography.bodySmallEmphasized
 
-                                    @Composable
-                                    fun TimeText(time: LocalTime) {
-                                        Text(
-                                            time.format(Constants.TimeFormatter), style = style
-                                        )
-                                    }
+                                                @Composable
+                                                fun TimeText(time: LocalTime) {
+                                                    Text(
+                                                        time.format(Constants.TimeFormatter),
+                                                        style = style
+                                                    )
+                                                }
 
-                                    Column(
-                                        modifier = Modifier.weight(1f),
-                                        horizontalAlignment = Alignment.CenterHorizontally
-                                    ) {
-                                        TimeText(period)
-                                        Box(
-                                            modifier = Modifier.size(width = 4.dp, height = 3.dp),
-                                            contentAlignment = Alignment.Center
-                                        ) {
-                                            Box(
-                                                modifier = Modifier
-                                                    .fillMaxWidth()
-                                                    .height(1.dp)
-                                                    .background(color = MaterialTheme.colorScheme.onSurface)
-                                            )
+                                                Column(
+                                                    modifier = Modifier.weight(1f),
+                                                    horizontalAlignment = Alignment.CenterHorizontally
+                                                ) {
+                                                    TimeText(period)
+                                                    Box(
+                                                        modifier = Modifier.size(
+                                                            width = 4.dp,
+                                                            height = 3.dp
+                                                        ),
+                                                        contentAlignment = Alignment.Center
+                                                    ) {
+                                                        Box(
+                                                            modifier = Modifier
+                                                                .fillMaxWidth()
+                                                                .height(1.dp)
+                                                                .background(color = MaterialTheme.colorScheme.onSurface)
+                                                        )
+                                                    }
+                                                    TimeText(period.plusOneHour())
+                                                }
+                                                CellBorder(borderDirection = CellBorderDirection.Vertical)
+                                            }
+                                            CellBorder(borderDirection = CellBorderDirection.Horizontal)
                                         }
-                                        TimeText(period.plusOneHour())
                                     }
-                                    CellBorder(borderDirection = CellBorderDirection.Vertical)
-                                }
-                                CellBorder(borderDirection = CellBorderDirection.Horizontal)
                             }
                         }
                     }
 
                     if (dataState is HomeDataState.Success) {
-                        val selectedTimeTableId = uiState.selectedTimetable.id
-
                         if (uiState.isOnEditMode) {
-                            EditModeGrid(dataState.getSessionsWithSubjectInstructor(
-                                selectedTimeTableId
-                            ), onGridClick = {
-                                onEvent(HomeEvent.SetSessionWithActiveSubjectInstructor(it))
-                            })
+                            EditModeGrid(
+                                dataState.getSelectedTimetableSessionWithDetails(uiState.selectedTimetableId),
+                                onGridClick = {
+                                    onEvent(HomeEvent.SetSessionWithActiveSubjectInstructor(it))
+                                }
+                            )
                         } else {
-                            DefaultModeGrid(dataState.getGroupedSchedules(
-                                selectedTimeTableId,
-                                uiState.days
-                            ),
+                            DefaultModeGrid(
+                                dataState.getSelectedTimetableGroupedSchedules(uiState.selectedTimetableId),
                                 onChangeToEditMode = {
                                     onNavigateToScheduleEntryDialog(
-                                        it,
-                                        uiState.selectedTimetable.id
+                                        it
                                     )
                                 }
                             )
@@ -422,9 +450,9 @@ private fun HomeScreen(
 @Composable
 private fun TimeTableNavigationDrawer(
     drawerState: DrawerState,
-    selectedTimetable: Timetable,
     onTimeTableClick: (Int) -> Unit,
     dataState: HomeDataState,
+    selectedTimetableId: Int,
     onRenameTimeTable: (Timetable) -> Unit,
     onDeleteMenuClick: (Int) -> Unit,
     onEditLayoutClick: (Timetable) -> Unit
@@ -484,12 +512,7 @@ private fun TimeTableNavigationDrawer(
                         }
                     }
                     items(dataState.timetables) { timetable ->
-                        val selected = timetable == selectedTimetable
-
-                        Log.d(
-                            "TimeTableNavigationDrawer",
-                            "selected time table id: ${selectedTimetable.id}"
-                        )
+                        val selected = timetable.id == selectedTimetableId
 
                         Box(modifier = Modifier.padding(horizontal = 8.dp)) {
                             NavigationDrawerItem(label = {
@@ -507,15 +530,6 @@ private fun TimeTableNavigationDrawer(
                                     modifier = Modifier.offset(x = 12.dp),
                                     horizontalArrangement = Arrangement.spacedBy(4.dp)
                                 ) {
-                                    var isMainTable by remember { mutableStateOf(false) }
-
-                                    isMainTable = dataState.mainTimetable == timetable
-                                    if (isMainTable) {
-                                        Badge(containerColor = MaterialTheme.colorScheme.primary) {
-                                            Text("Main")
-                                        }
-                                    }
-
                                     Box {
                                         var expanded by remember { mutableStateOf(false) }
 
@@ -525,21 +539,12 @@ private fun TimeTableNavigationDrawer(
                                             }, modifier = Modifier.size(36.dp)
                                         )
 
-                                        DropdownMenu(expanded = expanded, onDismissRequest = {
-                                            expanded = false
-                                        }) {
-                                            DropdownMenuItem(text = {
-                                                Text("Set as main timetable")
-                                            }, enabled = !isMainTable, onClick = {
-                                                // TODO: Implement onEvent for setting mainTableId data store
-                                            }, trailingIcon = {
-                                                if (isMainTable) {
-                                                    Icon(
-                                                        painter = painterResource(R.drawable.done_24px),
-                                                        contentDescription = null
-                                                    )
-                                                }
-                                            })
+                                        DropdownMenu(
+                                            expanded = expanded,
+                                            onDismissRequest = {
+                                                expanded = false
+                                            }
+                                        ) {
                                             HorizontalDivider(
                                                 thickness = Dp.Hairline,
                                                 color = MaterialTheme.colorScheme.outlineVariant

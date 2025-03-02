@@ -10,7 +10,6 @@ import android.util.Log
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.ExperimentalMaterial3ExpressiveApi
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.SegmentedButtonDefaults.BorderWidth
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.ui.graphics.Color
@@ -34,6 +33,7 @@ import androidx.glance.LocalContext
 import androidx.glance.LocalSize
 import androidx.glance.appwidget.CircularProgressIndicator
 import androidx.glance.appwidget.GlanceAppWidget
+import androidx.glance.appwidget.GlanceAppWidgetManager
 import androidx.glance.appwidget.GlanceAppWidgetReceiver
 import androidx.glance.appwidget.SizeMode
 import androidx.glance.appwidget.provideContent
@@ -53,9 +53,12 @@ import androidx.glance.layout.width
 import androidx.glance.text.Text
 import androidx.glance.unit.ColorProvider
 import com.leeweeder.unitimetable.domain.repository.TimetableRepository
+import com.leeweeder.unitimetable.feature_widget.model.DisplayOption
+import com.leeweeder.unitimetable.feature_widget.model.toStringSet
 import com.leeweeder.unitimetable.feature_widget.ui.theme.WidgetTheme
-import com.leeweeder.unitimetable.feature_widget.util.createIntPreferencesKey
+import com.leeweeder.unitimetable.feature_widget.util.createDisplayOptionsKey
 import com.leeweeder.unitimetable.feature_widget.util.createStringPreferencesKey
+import com.leeweeder.unitimetable.feature_widget.util.createWidgetTimetableIdKey
 import com.leeweeder.unitimetable.ui.CellBorderDirection
 import com.leeweeder.unitimetable.ui.Schedule
 import com.leeweeder.unitimetable.ui.toGroupedSchedules
@@ -65,6 +68,9 @@ import com.leeweeder.unitimetable.ui.util.getTimes
 import com.leeweeder.unitimetable.ui.util.plusOneHour
 import com.leeweeder.unitimetable.util.isSystemInDarkTheme
 import com.leeweeder.unitimetable.util.toColor
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.launch
 import kotlinx.serialization.SerializationException
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.int
@@ -81,6 +87,26 @@ import kotlin.text.lowercase
 
 class UnitimetableWidgetReceiver : GlanceAppWidgetReceiver() {
     override val glanceAppWidget = UnitimetableWidget()
+
+    override fun onDeleted(context: Context, appWidgetIds: IntArray) {
+        super.onDeleted(context, appWidgetIds)
+
+        // Clean up preferences for each deleted widget
+        appWidgetIds.forEach { widgetId ->
+            val glanceId = GlanceAppWidgetManager(context).getGlanceIdBy(widgetId)
+            // Delete the preferences in a coroutine scope
+            CoroutineScope(Dispatchers.IO).launch {
+                try {
+                    updateAppWidgetState(context, glanceId) { preferences ->
+                        // Remove our custom preference keys
+                        preferences.remove(createWidgetTimetableIdKey(glanceId, context))
+                    }
+                } catch (e: Exception) {
+                    Log.e("UnitimetableWidgetReceiver", "Error cleaning up widget preferences", e)
+                }
+            }
+        }
+    }
 }
 
 class UnitimetableWidget() : GlanceAppWidget() {
@@ -88,7 +114,7 @@ class UnitimetableWidget() : GlanceAppWidget() {
 
     private suspend fun migrateTimetablePreferences(id: GlanceId, context: Context) {
         val stringKey = createStringPreferencesKey(id, context)
-        val intKey = createIntPreferencesKey(id, context)
+        val intKey = createWidgetTimetableIdKey(id, context)
 
         updateAppWidgetState(context, id) { pref ->
             if (pref[intKey] == null) {
@@ -148,7 +174,8 @@ class UnitimetableWidget() : GlanceAppWidget() {
 
         provideContent {
             val prefs = currentState<Preferences>()
-            val widgetKey = createIntPreferencesKey(id, context)
+            val widgetKey = createWidgetTimetableIdKey(id, context)
+            val displayOptionsKey = createDisplayOptionsKey(id, context)
 
             val timetableData = prefs[widgetKey]?.let { id ->
                 timetableRepository.observeTimetableWithDetails(id)
@@ -163,7 +190,10 @@ class UnitimetableWidget() : GlanceAppWidget() {
                         days = days,
                         dayOfWeekNow = LocalDate.now().dayOfWeek,
                         startTimes = getTimes(data.timetable.startTime, data.timetable.endTime),
-                        groupedSchedules = data.sessions.toGroupedSchedules(days = days)
+                        groupedSchedules = data.sessions.toGroupedSchedules(days = days),
+                        displayOptions = DisplayOption.fromString(
+                            prefs[displayOptionsKey] ?: DisplayOption.DEFAULT.toStringSet()
+                        )
                     )
                 } ?: Box(
                     modifier = GlanceModifier.fillMaxSize(),
@@ -181,7 +211,8 @@ fun Widget(
     days: List<DayOfWeek>,
     dayOfWeekNow: DayOfWeek,
     startTimes: List<LocalTime>,
-    groupedSchedules: List<List<Schedule>>
+    groupedSchedules: List<List<Schedule>>,
+    displayOptions: Set<DisplayOption>
 ) {
     val context = LocalContext.current
     val size = LocalSize.current
@@ -255,7 +286,7 @@ fun Widget(
         ) {
             // Header
             BorderContainer(
-                width = BorderSize.of(bottom = 1.dp),
+                width = BorderSize.of(bottom = BorderWidth),
                 modifier = GlanceModifier.height(headerRowHeight).fillMaxWidth().labelBackground()
             ) {
                 Row(modifier = GlanceModifier.fillMaxWidth()) {
@@ -292,7 +323,8 @@ fun Widget(
                 groupedSchedules,
                 rowHeight = rowHeight,
                 context = context,
-                modifier = GlanceModifier.height(availableHeight).fillMaxWidth()
+                modifier = GlanceModifier.height(availableHeight).fillMaxWidth(),
+                displayOptions = displayOptions
             )
         }
     }
@@ -307,7 +339,8 @@ private fun Grid(
     groupedSchedules: List<List<Schedule>>,
     context: Context,
     rowHeight: Dp,
-    modifier: GlanceModifier
+    modifier: GlanceModifier,
+    displayOptions: Set<DisplayOption>
 ) {
     Row(modifier = modifier) {
         groupedSchedules.forEachIndexed { index, schedules ->
@@ -318,9 +351,6 @@ private fun Grid(
                 schedules.forEach { schedule ->
 
                     val periodSpan = schedule.periodSpan
-
-                    val instructorNameMaxLine =
-                        if (periodSpan == 1) 1 else Int.MAX_VALUE
 
                     BorderContainer(
                         modifier = GlanceModifier.height(rowHeight * periodSpan)
@@ -352,32 +382,62 @@ private fun Grid(
                                     "Subject Code: ${schedule.subjectInstructor.subject.code}, Description: ${schedule.subjectInstructor.subject.description}, Instructor: ${schedule.subjectInstructor.instructor?.name}"
                                 )
 
-                                // TODO: Utilize parent size to distribute position and sizing of the texts
-                                Text(
-                                    schedule.subjectInstructor.subject.code.uppercase(),
-                                    style = MaterialTheme.typography.labelMedium.let {
-                                        it.copy(
-                                            fontSize = it.fontSize * SCALE
-                                        )
-                                    }.toGlanceTextStyle(
-                                        color = scheme.onPrimary.toColor(),
-                                        textAlign = TextAlign.Center
-                                    ),
-                                    // TODO: Implement auto-size for subject code
+                                val showBoth = displayOptions.containsAll(
+                                    setOf(DisplayOption.SUBJECT_CODE, DisplayOption.INSTRUCTOR)
                                 )
+                                val maxLinesSubjectCode = when {
+                                    // Both shown and period span is 1
+                                    showBoth && periodSpan == 1 -> 1
+                                    // Both shown and period span is 2
+                                    showBoth && periodSpan == 2 -> Int.MAX_VALUE
+                                    // Only one option shown (exclusive)
+                                    !showBoth -> Int.MAX_VALUE
+                                    // All other cases
+                                    else -> Int.MAX_VALUE
+                                }
+
+                                val maxLinesInstructor = when {
+                                    // Both shown and period span is 1
+                                    showBoth && periodSpan == 1 -> 1
+                                    // Both shown and period span is 2
+                                    showBoth && periodSpan == 2 -> 1
+                                    // Only one option shown (exclusive)
+                                    !showBoth -> Int.MAX_VALUE
+                                    // All other cases
+                                    else -> Int.MAX_VALUE
+                                }
+
+                                // TODO: Utilize parent size to distribute position and sizing of the texts
+                                if (displayOptions.contains(DisplayOption.SUBJECT_CODE)) {
+                                    Text(
+                                        schedule.subjectInstructor.subject.code.uppercase(),
+                                        style = MaterialTheme.typography.labelMedium.let {
+                                            it.copy(
+                                                fontSize = it.fontSize * SCALE
+                                            )
+                                        }.toGlanceTextStyle(
+                                            color = scheme.onPrimary.toColor(),
+                                            textAlign = TextAlign.Center
+                                        ),
+                                        maxLines = maxLinesSubjectCode
+                                        // TODO: Implement auto-size for subject code
+                                    )
+                                }
 
                                 val textColor = scheme.onPrimary.toColor()
 
-                                Text(
-                                    schedule.subjectInstructor.instructor?.name ?: "",
-                                    style = MaterialTheme.typography.bodySmall.let {
-                                        it.copy(fontSize = it.fontSize * SCALE)
-                                    }.toGlanceTextStyle(
-                                        color = textColor,
-                                        textAlign = TextAlign.Center
-                                    ),
-                                    maxLines = instructorNameMaxLine
-                                )
+                                if (displayOptions.contains(DisplayOption.INSTRUCTOR)) {
+                                    Text(
+                                        schedule.subjectInstructor.instructor?.name ?: "",
+                                        style = MaterialTheme.typography.bodySmall.let {
+                                            it.copy(fontSize = it.fontSize * SCALE)
+                                        }.toGlanceTextStyle(
+                                            color = textColor,
+                                            textAlign = TextAlign.Center
+                                        ),
+                                        maxLines = maxLinesInstructor
+                                    )
+                                }
                             }
                         } else {
                             Box(

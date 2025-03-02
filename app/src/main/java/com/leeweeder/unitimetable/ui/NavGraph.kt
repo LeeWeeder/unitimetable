@@ -8,7 +8,8 @@ import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.dialog
 import androidx.navigation.toRoute
-import com.leeweeder.unitimetable.NonExistingMainTimeTableId
+import com.leeweeder.unitimetable.MainActivityEvent
+import com.leeweeder.unitimetable.MainActivityViewModel
 import com.leeweeder.unitimetable.domain.model.Instructor
 import com.leeweeder.unitimetable.domain.model.Session
 import com.leeweeder.unitimetable.domain.model.Subject
@@ -26,14 +27,13 @@ import kotlinx.coroutines.launch
 @Composable
 fun NavGraph(
     navController: NavHostController,
-    startDestination: Destination,
-    mainTimeTableId: Int,
     snackbarHostState: SnackbarHostState,
     // This is for showing a snackbar and enabling undo operation
     onSuccessfulScheduleEntryDeletion: (subjectInstructorCrossRef: SubjectInstructorCrossRef, affectedSessions: List<Session>) -> Unit,
     onSuccessfulSubjectDeletion: (Subject, List<Session>, List<SubjectInstructorCrossRef>) -> Unit,
     onSuccessfulInstructorDeletion: (Instructor, List<Int>) -> Unit,
-    onSuccessfulTimeTableDeletion: (TimetableWithSession) -> Unit
+    onSuccessfulTimeTableDeletion: (TimetableWithSession) -> Unit,
+    mainViewModel: MainActivityViewModel
 ) {
 
     fun navigateUp() {
@@ -49,36 +49,35 @@ fun NavGraph(
     }
 
     NavHost(
-        navController = navController, startDestination = startDestination
+        navController = navController, startDestination = Destination.Screen.HomeScreen()
     ) {
-
         composable<Destination.Screen.HomeScreen> {
             HomeScreen(
-                selectedTimeTableId = it.toRoute<Destination.Screen.HomeScreen>().selectedTimeTableId,
-                onNavigateToTimeTableNameDialog = { isInitialization, selectedTimeTableId, timetable ->
+                onNavigateToTimeTableNameDialog = { isInitialization, timetable ->
                     navController.navigate(
                         Destination.Dialog.TimetableNameDialog(
-                            isInitialization, selectedTimeTableId, timetable
+                            isInitialization, timetable
                         )
                     )
                 },
-                onNavigateToScheduleEntryDialog = { subjectInstructorIdToBeScheduled, selectedTimeTableId ->
+                onNavigateToScheduleEntryDialog = { subjectInstructorIdToBeScheduled ->
                     navController.navigate(
                         Destination.Dialog.ScheduleEntryDialog(
-                            subjectInstructorIdToBeScheduled,
-                            selectedTimeTableId
+                            subjectInstructorIdToBeScheduled
                         )
                     )
                 },
                 onNavigateToEditTimetableLayoutScreen = {
                     navController.navigate(
                         Destination.Dialog.TimeTableSetupDialog(
-                            it.serialize(),
-                            it.id
+                            it.serialize()
                         )
                     )
                 },
-                onDeleteTimetableSuccessful = onSuccessfulTimeTableDeletion
+                onDeleteTimetableSuccessful = onSuccessfulTimeTableDeletion,
+                onDoneLoading = {
+                    mainViewModel.onEvent(MainActivityEvent.DoneLoading)
+                }
             )
         }
 
@@ -87,7 +86,7 @@ fun NavGraph(
             TimeTableSetupDialog(onDismissRequest = {
                 navigateUp()
             }, onNavigateToHomeScreen = {
-                navigateAndPreventGoingBack(Destination.Screen.HomeScreen(selectedTimeTableId = it))
+                navigateAndPreventGoingBack(Destination.Screen.HomeScreen())
             })
         }
 
@@ -96,14 +95,15 @@ fun NavGraph(
         ) {
             TimeTableNameDialog(onDismissRequest = {
                 navigateUp()
-            }, onNavigateToTimeTableSetupDialog = { timetableName, isInitialization ->
-                navController.navigate(
-                    Destination.Dialog.TimeTableSetupDialog(
-                        timetable = DefaultTimetable.copy(name = timetableName).serialize(),
-                        selectedTimeTableId = it.toRoute<Destination.Dialog.TimetableNameDialog>().selectedTimeTableId
+            },
+                onNavigateToTimeTableSetupDialog = { timetableName, isInitialization ->
+                    navController.navigate(
+                        Destination.Dialog.TimeTableSetupDialog(
+                            timetable = DefaultTimetable.copy(name = timetableName).serialize(),
+                        )
                     )
-                )
-            }, isCancelButtonEnabled = mainTimeTableId != NonExistingMainTimeTableId
+                },
+                isCancelButtonEnabled = !it.toRoute<Destination.Dialog.TimetableNameDialog>().isInitialization
             )
         }
 
@@ -131,8 +131,7 @@ fun NavGraph(
                 onNavigateToHomeScreen = {
                     navigateAndPreventGoingBack(
                         Destination.Screen.HomeScreen(
-                            subjectInstructorIdToBeScheduled = it,
-                            selectedTimeTableId = backStackEntry.toRoute<Destination.Dialog.ScheduleEntryDialog>().timeTableId
+                            subjectInstructorIdToBeScheduled = it
                         )
                     )
                 },

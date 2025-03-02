@@ -40,7 +40,7 @@ class MainActivity : ComponentActivity() {
         val viewModel by viewModel<MainActivityViewModel>()
 
         installSplashScreen().setKeepOnScreenCondition {
-            viewModel.uiState.value.isLoading
+            viewModel.isLoading.value
         }
 
         enableEdgeToEdge(
@@ -52,142 +52,138 @@ class MainActivity : ComponentActivity() {
 
         setContent {
             AppTheme {
-                val uiState by viewModel.uiState.collectAsStateWithLifecycle()
-                if (!uiState.isLoading) {
-                    val navController = rememberNavController()
+                val navController = rememberNavController()
 
-                    val snackbarHostState = remember { SnackbarHostState() }
+                val snackbarHostState = remember { SnackbarHostState() }
 
-                    val scope = rememberCoroutineScope()
+                val scope = rememberCoroutineScope()
 
-                    var undoWarningDialog by remember { mutableStateOf<UndoEvent?>(null) }
+                var undoWarningDialog by remember { mutableStateOf<UndoEvent?>(null) }
 
-                    val eventFlow by viewModel.eventFlow.collectAsStateWithLifecycle()
+                val eventFlow by viewModel.eventFlow.collectAsStateWithLifecycle()
 
-                    LaunchedEffect(eventFlow) {
-                        when (eventFlow) {
-                            is MainActivityUiEvent.ShowSnackbar -> {
-                                snackbarHostState.showSnackbar(message = (viewModel.eventFlow.value as MainActivityUiEvent.ShowSnackbar).message)
-                            }
-
-                            null -> Unit
+                LaunchedEffect(eventFlow) {
+                    when (eventFlow) {
+                        is MainActivityUiEvent.ShowSnackbar -> {
+                            snackbarHostState.showSnackbar(message = (viewModel.eventFlow.value as MainActivityUiEvent.ShowSnackbar).message)
                         }
-                        viewModel.onEvent(MainActivityEvent.ClearEventFlow)
-                    }
 
-                    if (undoWarningDialog != null) {
-                        AlertDialog(
-                            onDismissRequest = {
-                                undoWarningDialog = null
-                            }, confirmButton = {
-                                Button(onClick = {
-                                    if (undoWarningDialog != null) {
-                                        viewModel.onEvent(MainActivityEvent.Undo(undoWarningDialog!!))
-                                        undoWarningDialog = null
-                                    }
-                                }) {
-                                    Text("Undo")
-                                }
-                            }, dismissButton = {
-                                CancelTextButton {
+                        null -> Unit
+                    }
+                    viewModel.onEvent(MainActivityEvent.ClearEventFlow)
+                }
+
+                if (undoWarningDialog != null) {
+                    AlertDialog(
+                        onDismissRequest = {
+                            undoWarningDialog = null
+                        }, confirmButton = {
+                            Button(onClick = {
+                                if (undoWarningDialog != null) {
+                                    viewModel.onEvent(MainActivityEvent.Undo(undoWarningDialog!!))
                                     undoWarningDialog = null
                                 }
-                            }, title = {
-                                Text("Undo deletion?")
-                            }, text = {
-                                val text =
-                                    if (undoWarningDialog is UndoEvent.UndoInstructorDeletion) {
-                                        "Only schedule entries (with this instructor originally) with no instructor will be affected. Continue?"
-                                    } else {
-                                        // TODO: Implement option to override new schedule and to maintain the new schedules
-                                        "New schedules will be overridden. Continue?"
-                                    }
-                                Text(text)
+                            }) {
+                                Text("Undo")
                             }
-                        )
-                    }
-
-                    Scaffold(snackbarHost = {
-                        SnackbarHost(snackbarHostState)
-                    }) {
-                        NavGraph(
-                            navController = navController,
-                            startDestination = uiState.startDestination,
-                            mainTimeTableId = uiState.mainTimeTableId,
-                            onSuccessfulScheduleEntryDeletion = { subjectInstructorCrossRef, affectedSessions ->
-                                scope.launch {
-                                    val result = snackbarHostState.showSnackbar(
-                                        message = "Schedule entry deleted successfully. Affected sessions: ${affectedSessions.size}",
-                                        actionLabel = "Undo",
-                                        duration = SnackbarDuration.Long
-                                    )
-
-                                    if (result == SnackbarResult.ActionPerformed) {
-                                        undoWarningDialog =
-                                            UndoEvent.UndoScheduleEntryDeletion(
-                                                subjectInstructorCrossRef,
-                                                affectedSessions
-                                            )
-                                    }
+                        }, dismissButton = {
+                            CancelTextButton {
+                                undoWarningDialog = null
+                            }
+                        }, title = {
+                            Text("Undo deletion?")
+                        }, text = {
+                            val text =
+                                if (undoWarningDialog is UndoEvent.UndoInstructorDeletion) {
+                                    "Only schedule entries (with this instructor originally) with no instructor will be affected. Continue?"
+                                } else {
+                                    // TODO: Implement option to override new schedule and to maintain the new schedules
+                                    "New schedules will be overridden. Continue?"
                                 }
-                            },
-                            onSuccessfulSubjectDeletion = { subject, affectedSessions, affectSubjectInstructorCrossRefs ->
-                                scope.launch {
-                                    val result = snackbarHostState.showSnackbar(
-                                        message = "Subject deleted successfully. Affected sessions: ${affectedSessions.size}",
-                                        actionLabel = "Undo",
-                                        duration = SnackbarDuration.Long
-                                    )
+                            Text(text)
+                        }
+                    )
+                }
 
-                                    if (result == SnackbarResult.ActionPerformed) {
-                                        undoWarningDialog =
-                                            UndoEvent.UndoSubjectDeletion(
-                                                subject,
-                                                affectedSessions,
-                                                affectSubjectInstructorCrossRefs
-                                            )
-                                    }
+                Scaffold(snackbarHost = {
+                    SnackbarHost(snackbarHostState)
+                }) {
+                    NavGraph(
+                        navController = navController,
+                        onSuccessfulScheduleEntryDeletion = { subjectInstructorCrossRef, affectedSessions ->
+                            scope.launch {
+                                val result = snackbarHostState.showSnackbar(
+                                    message = "Schedule entry deleted successfully. Affected sessions: ${affectedSessions.size}",
+                                    actionLabel = "Undo",
+                                    duration = SnackbarDuration.Long
+                                )
+
+                                if (result == SnackbarResult.ActionPerformed) {
+                                    undoWarningDialog =
+                                        UndoEvent.UndoScheduleEntryDeletion(
+                                            subjectInstructorCrossRef,
+                                            affectedSessions
+                                        )
                                 }
-                            },
-                            snackbarHostState = snackbarHostState,
-                            onSuccessfulInstructorDeletion = { instructor, affectedCrossRefIds ->
-                                scope.launch {
-                                    val result = snackbarHostState.showSnackbar(
-                                        message = "Instructor deleted successfully",
-                                        actionLabel = "Undo",
-                                        duration = SnackbarDuration.Long
-                                    )
+                            }
+                        },
+                        onSuccessfulSubjectDeletion = { subject, affectedSessions, affectSubjectInstructorCrossRefs ->
+                            scope.launch {
+                                val result = snackbarHostState.showSnackbar(
+                                    message = "Subject deleted successfully. Affected sessions: ${affectedSessions.size}",
+                                    actionLabel = "Undo",
+                                    duration = SnackbarDuration.Long
+                                )
 
-                                    if (result == SnackbarResult.ActionPerformed) {
-                                        undoWarningDialog =
-                                            UndoEvent.UndoInstructorDeletion(
-                                                instructor,
-                                                affectedCrossRefIds
-                                            )
-                                    }
+                                if (result == SnackbarResult.ActionPerformed) {
+                                    undoWarningDialog =
+                                        UndoEvent.UndoSubjectDeletion(
+                                            subject,
+                                            affectedSessions,
+                                            affectSubjectInstructorCrossRefs
+                                        )
                                 }
-                            },
-                            onSuccessfulTimeTableDeletion = {
-                                scope.launch {
-                                    val result = snackbarHostState.showSnackbar(
-                                        message = "Timetable deleted successfully",
-                                        actionLabel = "Undo",
-                                        duration = SnackbarDuration.Long
-                                    )
+                            }
+                        },
+                        snackbarHostState = snackbarHostState,
+                        onSuccessfulInstructorDeletion = { instructor, affectedCrossRefIds ->
+                            scope.launch {
+                                val result = snackbarHostState.showSnackbar(
+                                    message = "Instructor deleted successfully",
+                                    actionLabel = "Undo",
+                                    duration = SnackbarDuration.Long
+                                )
 
-                                    if (result == SnackbarResult.ActionPerformed) {
-                                        viewModel.onEvent(
-                                            MainActivityEvent.Undo(
-                                                UndoEvent.UndoTimeTableDeletion(
-                                                    it
-                                                )
+                                if (result == SnackbarResult.ActionPerformed) {
+                                    undoWarningDialog =
+                                        UndoEvent.UndoInstructorDeletion(
+                                            instructor,
+                                            affectedCrossRefIds
+                                        )
+                                }
+                            }
+                        },
+                        onSuccessfulTimeTableDeletion = {
+                            scope.launch {
+                                val result = snackbarHostState.showSnackbar(
+                                    message = "Timetable deleted successfully",
+                                    actionLabel = "Undo",
+                                    duration = SnackbarDuration.Long
+                                )
+
+                                if (result == SnackbarResult.ActionPerformed) {
+                                    viewModel.onEvent(
+                                        MainActivityEvent.Undo(
+                                            UndoEvent.UndoTimeTableDeletion(
+                                                it
                                             )
                                         )
-                                    }
+                                    )
                                 }
                             }
-                        )
-                    }
+                        },
+                        mainViewModel = viewModel
+                    )
                 }
             }
         }

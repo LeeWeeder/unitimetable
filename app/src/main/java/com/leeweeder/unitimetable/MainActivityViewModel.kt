@@ -1,6 +1,8 @@
 package com.leeweeder.unitimetable
 
 import android.util.Log
+import androidx.compose.runtime.State
+import androidx.compose.runtime.mutableStateOf
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.leeweeder.unitimetable.MainActivityUiEvent.*
@@ -9,25 +11,17 @@ import com.leeweeder.unitimetable.domain.model.Session
 import com.leeweeder.unitimetable.domain.model.Subject
 import com.leeweeder.unitimetable.domain.model.SubjectInstructorCrossRef
 import com.leeweeder.unitimetable.domain.relation.TimetableWithSession
-import com.leeweeder.unitimetable.domain.repository.DataStoreRepository
 import com.leeweeder.unitimetable.domain.repository.InstructorRepository
 import com.leeweeder.unitimetable.domain.repository.SessionRepository
 import com.leeweeder.unitimetable.domain.repository.SubjectInstructorRepository
 import com.leeweeder.unitimetable.domain.repository.SubjectRepository
 import com.leeweeder.unitimetable.domain.repository.TimetableRepository
-import com.leeweeder.unitimetable.util.Destination
 import kotlinx.coroutines.flow.MutableStateFlow
-import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
-import kotlinx.coroutines.flow.map
-import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 
-const val NonExistingMainTimeTableId = -1
-
 class MainActivityViewModel(
-    dataStoreRepository: DataStoreRepository,
     private val subjectInstructorRepository: SubjectInstructorRepository,
     private val sessionRepository: SessionRepository,
     private val subjectRepository: SubjectRepository,
@@ -35,26 +29,11 @@ class MainActivityViewModel(
     private val timetableRepository: TimetableRepository
 ) : ViewModel() {
 
-    val uiState = dataStoreRepository.timeTablePrefFlow.map {
-        if (it.mainTimeTableId == NonExistingMainTimeTableId) {
-            MainActivityUiState(
-                isLoading = false,
-                startDestination = Destination.Dialog.TimetableNameDialog(
-                    isInitialization = true,
-                    selectedTimeTableId = -1
-                )
-            )
-        } else {
-            MainActivityUiState(isLoading = false, mainTimeTableId = it.mainTimeTableId)
-        }
-    }.stateIn(
-        viewModelScope,
-        SharingStarted.WhileSubscribed(5_000L),
-        MainActivityUiState(isLoading = true)
-    )
-
     private val _eventFlow = MutableStateFlow<MainActivityUiEvent?>(null)
     val eventFlow: StateFlow<MainActivityUiEvent?> = _eventFlow.asStateFlow()
+
+    private val _isLoading = mutableStateOf(true)
+    val isLoading: State<Boolean> = _isLoading
 
     fun onEvent(event: MainActivityEvent) {
         when (event) {
@@ -128,18 +107,17 @@ class MainActivityViewModel(
                     _eventFlow.emit(null)
                 }
             }
+
+            MainActivityEvent.DoneLoading -> {
+                _isLoading.value = false
+            }
         }
     }
 }
 
-data class MainActivityUiState(
-    val isLoading: Boolean,
-    val mainTimeTableId: Int = NonExistingMainTimeTableId,
-    val startDestination: Destination = Destination.Screen.HomeScreen(selectedTimeTableId = mainTimeTableId)
-)
-
 sealed interface MainActivityEvent {
     data class Undo(val event: UndoEvent) : MainActivityEvent
+    data object DoneLoading : MainActivityEvent
     data object ClearEventFlow : MainActivityEvent
 }
 

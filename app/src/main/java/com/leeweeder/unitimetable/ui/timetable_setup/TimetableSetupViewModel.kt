@@ -107,7 +107,7 @@ class TimetableSetupViewModel(
                         } else {
                             // Insert timetable
                             timetableId = timetableRepository.insertTimetable(timetable)
-                            dataStoreRepository.setMainTimeTableId(timetableId)
+                            dataStoreRepository.setSelectedTimetable(timetableId)
                         }
 
                         _eventFlow.emit(TimeTableSetUpUiEvent.FinishedSaving(timetableId))
