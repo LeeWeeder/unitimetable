@@ -7,9 +7,9 @@ import kotlinx.coroutines.flow.Flow
 
 interface TimetableRepository {
 
-    fun observeTimeTableWithDetails(): Flow<List<TimetableWithSession>>
+    fun observeTimetablesWithDetails(): Flow<List<TimetableWithSession>>
 
-    fun observeTimeTables(): Flow<List<Timetable>>
+    fun observeTimetables(): Flow<List<Timetable>>
 
     suspend fun insertTimetable(timeTable: Timetable, sessions: List<Session>? = null): Int
 

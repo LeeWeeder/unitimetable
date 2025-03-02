@@ -15,11 +15,11 @@ class TimetableRepositoryImpl(
     private val timetableDao: TimetableDao,
     private val sessionDao: SessionDao
 ) : TimetableRepository {
-    override fun observeTimeTableWithDetails(): Flow<List<TimetableWithSession>> {
+    override fun observeTimetablesWithDetails(): Flow<List<TimetableWithSession>> {
         return timetableDao.observeTimeTablesWithDetails()
     }
 
-    override fun observeTimeTables(): Flow<List<Timetable>> {
+    override fun observeTimetables(): Flow<List<Timetable>> {
         return timetableDao.observeTimeTables()
     }
 
