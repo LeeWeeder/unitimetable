@@ -28,6 +28,7 @@ import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.catch
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.launchIn
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.onEach
@@ -95,10 +96,8 @@ class HomeViewModel(
     fun onEvent(event: HomeEvent) {
         when (event) {
             is SelectTimeTable -> {
-                if (homeDataState.value is HomeDataState.Success) {
-                    viewModelScope.launch {
-                        dataStoreRepository.setSelectedTimetable(event.newSelectedTimetableId)
-                    }
+                viewModelScope.launch {
+                    dataStoreRepository.setSelectedTimetable(event.newSelectedTimetableId)
                 }
             }
 
@@ -167,8 +166,17 @@ class HomeViewModel(
         getSelectedTimetableIdJob?.cancel()
         getSelectedTimetableIdJob = dataStoreRepository.selectedTimetableIdFlow
             .onEach { selectedTimetableId ->
-                _uiState.update { state ->
-                    state.copy(selectedTimetableId = selectedTimetableId)
+                val timetables = timeTableRepository.observeTimetables().first()
+                if (timetables.find { it.id == selectedTimetableId } != null) {
+                    _uiState.update { state ->
+                        state.copy(selectedTimetableId = selectedTimetableId)
+                    }
+                } else {
+                    if (timetables.isNotEmpty()) {
+                        _uiState.update { state ->
+                            state.copy(selectedTimetableId = timetables.first().id)
+                        }
+                    }
                 }
             }
             .launchIn(viewModelScope)
@@ -201,7 +209,8 @@ sealed interface HomeDataState {
     ) : HomeDataState {
 
         fun getSelectedTimetableSessionWithDetails(id: Int): List<SessionWithDetails> {
-            return timeTableWithDetails.find { it.timetable.id == id }?.sessions ?: emptyList()
+            return timeTableWithDetails.find { it.timetable.id == id }?.sessions
+                ?: timeTableWithDetails.firstOrNull()?.sessions ?: emptyList()
         }
 
         fun getSelectedTimetableGroupedSchedules(id: Int): List<List<Schedule>> {
@@ -213,8 +222,9 @@ sealed interface HomeDataState {
         val timetables: List<Timetable>
             get() = timeTableWithDetails.map { it.timetable }
 
+        /** Returns the timetable of the given the id, the first item if none match  and null if empty */
         fun getSelectedTimetable(id: Int): Timetable? {
-            return timetables.find { it.id == id }
+            return timetables.find { it.id == id } ?: timetables.firstOrNull()
         }
     }
 
