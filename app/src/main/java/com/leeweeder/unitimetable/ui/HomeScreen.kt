@@ -141,7 +141,7 @@ fun HomeScreen(
         uiState = uiState,
         onEvent = viewModel::onEvent,
         onNavigateToNewTimeTableNameDialog = {
-            onNavigateToTimeTableNameDialog(false, null)
+            onNavigateToTimeTableNameDialog(it, null)
         },
         onNavigateToTimetableNameDialog = {
             onNavigateToTimeTableNameDialog(
@@ -166,7 +166,7 @@ fun HomeScreen(
 private fun HomeScreen(
     dataState: HomeDataState,
     uiState: HomeUiState,
-    onNavigateToNewTimeTableNameDialog: () -> Unit,
+    onNavigateToNewTimeTableNameDialog: (shouldInitialize: Boolean) -> Unit,
     onNavigateToTimetableNameDialog: (Timetable) -> Unit,
     onNavigateToScheduleEntryDialog: (subjectInstructorId: Int?) -> Unit,
     onNavigateToEditTimetableLayoutScreen: (Timetable) -> Unit,
@@ -198,7 +198,7 @@ private fun HomeScreen(
             is HomeUiEvent.DoneLoading -> {
                 if (eventFlow.shouldInitialize) {
                     onDoneLoading()
-                    onNavigateToNewTimeTableNameDialog()
+                    onNavigateToNewTimeTableNameDialog(true)
                 } else {
                     onDoneLoading()
                 }
@@ -304,7 +304,9 @@ private fun HomeScreen(
                         onAddNewScheduleClick = {
                             newScheduleEntryController.show()
                         },
-                        onNewTimeTableClick = onNavigateToNewTimeTableNameDialog
+                        onNewTimeTableClick = {
+                            onNavigateToNewTimeTableNameDialog(false)
+                        }
                     )
                 },
                 onNavigationMenuClick = {

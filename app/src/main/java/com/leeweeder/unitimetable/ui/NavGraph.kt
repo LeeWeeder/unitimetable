@@ -7,7 +7,6 @@ import androidx.navigation.NavHostController
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.dialog
-import androidx.navigation.toRoute
 import com.leeweeder.unitimetable.MainActivityEvent
 import com.leeweeder.unitimetable.MainActivityViewModel
 import com.leeweeder.unitimetable.domain.model.Instructor
@@ -93,17 +92,17 @@ fun NavGraph(
         dialog<Destination.Dialog.TimetableNameDialog>(
             typeMap = Destination.Dialog.TimetableNameDialog.typeMap
         ) {
-            TimeTableNameDialog(onDismissRequest = {
-                navigateUp()
-            },
-                onNavigateToTimeTableSetupDialog = { timetableName, isInitialization ->
+            TimeTableNameDialog(
+                onDismissRequest = {
+                    navigateUp()
+                },
+                onNavigateToTimeTableSetupDialog = { timetableName ->
                     navController.navigate(
                         Destination.Dialog.TimeTableSetupDialog(
                             timetable = DefaultTimetable.copy(name = timetableName).serialize(),
                         )
                     )
-                },
-                isCancelButtonEnabled = !it.toRoute<Destination.Dialog.TimetableNameDialog>().isInitialization
+                }
             )
         }
 
