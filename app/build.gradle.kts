@@ -1,4 +1,5 @@
 import com.google.protobuf.gradle.id
+import org.gradle.internal.extensions.core.extra
 
 plugins {
     alias(libs.plugins.android.application)
@@ -10,6 +11,10 @@ plugins {
     alias(libs.plugins.kotlin.serialization)
 }
 
+val major by extra(1)
+val minor by extra(0)
+val patch by extra(0)
+
 android {
     namespace = "com.leeweeder.unitimetable"
     compileSdk = 35
@@ -18,8 +23,8 @@ android {
         applicationId = "com.leeweeder.unitimetable"
         minSdk = 30
         targetSdk = 35
-        versionCode = 2
-        versionName = "0.0.1alpha02"
+        versionCode = major * 100000 + minor * 1000 + patch
+        versionName = "$major.$minor.$patch"
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
         vectorDrawables {
