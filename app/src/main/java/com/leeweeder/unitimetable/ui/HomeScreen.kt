@@ -545,10 +545,6 @@ private fun TimeTableNavigationDrawer(
                                                 expanded = false
                                             }
                                         ) {
-                                            HorizontalDivider(
-                                                thickness = Dp.Hairline,
-                                                color = MaterialTheme.colorScheme.outlineVariant
-                                            )
                                             DropdownMenuItem(text = {
                                                 Text("Rename")
                                             }, onClick = {
