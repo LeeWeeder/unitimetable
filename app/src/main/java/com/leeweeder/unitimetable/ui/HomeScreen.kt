@@ -550,6 +550,7 @@ private fun TimeTableNavigationDrawer(
                                             DropdownMenuItem(text = {
                                                 Text("Rename")
                                             }, onClick = {
+                                                expanded = false
                                                 onRenameTimeTable(timetable)
                                             }, leadingIcon = {
                                                 Icon(
